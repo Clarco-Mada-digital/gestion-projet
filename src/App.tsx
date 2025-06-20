@@ -1,5 +1,6 @@
 import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
+import { ModalProvider } from './context/ModalContext';
 import { Sidebar } from './components/Layout/Sidebar';
 import { TodayView } from './components/Views/TodayView';
 import { ProjectsView } from './components/Views/ProjectsView';
@@ -36,10 +37,21 @@ function AppContent() {
   );
 }
 
-export default function App() {
+// Composant pour regrouper les fournisseurs
+function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <AppProvider>
-      <AppContent />
+      <ModalProvider>
+        {children}
+      </ModalProvider>
     </AppProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <AppProviders>
+      <AppContent />
+    </AppProviders>
   );
 }

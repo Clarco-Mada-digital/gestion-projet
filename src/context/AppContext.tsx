@@ -96,96 +96,116 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
   useEffect(() => {
+    console.log('Chargement des données depuis le localStorage...');
     const savedData = localStorage.getItem('astroProjectManagerData');
+    console.log('Données brutes du localStorage:', savedData);
+    
     if (savedData) {
       try {
         const data = JSON.parse(savedData);
-        dispatch({ type: 'SET_PROJECTS', payload: data.projects || [] });
+        console.log('Données parsées du localStorage:', data);
+        
+        if (data.projects && data.projects.length > 0) {
+          console.log('Chargement des projets depuis le localStorage:', data.projects);
+          dispatch({ type: 'SET_PROJECTS', payload: data.projects });
+        } else {
+          console.log('Aucun projet trouvé dans le localStorage, utilisation des données de démonstration');
+          initializeSampleData();
+        }
+        
         dispatch({ type: 'SET_THEME', payload: data.theme || 'dark' });
       } catch (e) {
-        console.error('Error loading saved data:', e);
+        console.error('Erreur lors du chargement des données:', e);
+        console.log('Initialisation avec les données de démonstration suite à une erreur');
+        initializeSampleData();
       }
     } else {
+      console.log('Aucune donnée sauvegardée trouvée, initialisation avec les données de démonstration');
       // Initialize with sample data
-      const sampleProjects: Project[] = [
-        {
-          id: '1',
-          name: 'Site Web E-commerce',
-          description: 'Développement d\'un site e-commerce moderne avec Astro.js',
-          color: '#0EA5E9',
-          status: 'active',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          tasks: [
-            {
-              id: '1',
-              title: 'Design de l\'interface utilisateur',
-              description: 'Créer les maquettes et prototypes avec Figma',
-              status: 'done',
-              priority: 'high',
-              dueDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-              assignees: ['1', '2'],
-              projectId: '1',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              tags: ['design', 'ui/ux', 'figma']
-            },
-            {
-              id: '2',
-              title: 'Intégration des paiements Stripe',
-              description: 'Configurer Stripe et les méthodes de paiement sécurisées',
-              status: 'in-progress',
-              priority: 'high',
-              dueDate: new Date().toISOString(),
-              assignees: ['1'],
-              projectId: '1',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              tags: ['backend', 'paiement', 'stripe']
-            },
-            {
-              id: '3',
-              title: 'Optimisation SEO avec Astro',
-              description: 'Améliorer le référencement naturel et les performances',
-              status: 'todo',
-              priority: 'medium',
-              dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-              assignees: ['3'],
-              projectId: '1',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              tags: ['seo', 'performance', 'astro']
-            }
-          ]
-        },
-        {
-          id: '2',
-          name: 'Application Mobile React Native',
-          description: 'Application mobile cross-platform avec React Native',
-          color: '#8B5CF6',
-          status: 'active',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          tasks: [
-            {
-              id: '4',
-              title: 'Authentification utilisateur',
-              description: 'Système de connexion et inscription sécurisé',
-              status: 'todo',
-              priority: 'high',
-              dueDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-              assignees: ['2', '4'],
-              projectId: '2',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              tags: ['auth', 'mobile', 'react-native']
-            }
-          ]
-        }
-      ];
-      dispatch({ type: 'SET_PROJECTS', payload: sampleProjects });
+      initializeSampleData();
     }
   }, []);
+  
+  const initializeSampleData = () => {
+    console.log('Initialisation avec des données de démonstration');
+    const sampleProjects: Project[] = [
+      {
+        id: '1',
+        name: 'Site Web E-commerce',
+        description: 'Développement d\'un site e-commerce moderne avec Astro.js',
+        color: '#0EA5E9',
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        tasks: [
+          {
+            id: '1',
+            title: 'Design de l\'interface utilisateur',
+            description: 'Créer les maquettes et prototypes avec Figma',
+            status: 'done',
+            priority: 'high',
+            dueDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+            assignees: ['1', '2'],
+            projectId: '1',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            tags: ['design', 'ui/ux', 'figma']
+          },
+          {
+            id: '2',
+            title: 'Intégration des paiements Stripe',
+            description: 'Configurer Stripe et les méthodes de paiement sécurisées',
+            status: 'in-progress',
+            priority: 'high',
+            dueDate: new Date().toISOString(),
+            assignees: ['1'],
+            projectId: '1',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            tags: ['backend', 'paiement', 'stripe']
+          },
+          {
+            id: '3',
+            title: 'Optimisation SEO avec Astro',
+            description: 'Améliorer le référencement naturel et les performances',
+            status: 'todo',
+            priority: 'medium',
+            dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+            assignees: ['3'],
+            projectId: '1',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            tags: ['seo', 'performance', 'astro']
+          }
+        ]
+      },
+      {
+        id: '2',
+        name: 'Application Mobile React Native',
+        description: 'Application mobile cross-platform avec React Native',
+        color: '#8B5CF6',
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        tasks: [
+          {
+            id: '4',
+            title: 'Authentification utilisateur',
+            description: 'Système de connexion et inscription sécurisé',
+            status: 'todo',
+            priority: 'high',
+            dueDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+            assignees: ['2', '4'],
+            projectId: '2',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            tags: ['auth', 'mobile', 'react-native']
+          }
+        ]
+      }
+    ];
+    dispatch({ type: 'SET_PROJECTS', payload: sampleProjects });
+  };
 
   useEffect(() => {
     localStorage.setItem('astroProjectManagerData', JSON.stringify({

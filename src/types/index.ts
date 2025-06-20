@@ -1,3 +1,11 @@
+export interface SubTask {
+  id: string;
+  title: string;
+  completed: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -10,6 +18,10 @@ export interface Task {
   createdAt: string;
   updatedAt: string;
   tags: string[];
+  subTasks: SubTask[];
+  notes?: string;
+  startDate?: string;
+  estimatedHours?: number;
 }
 
 export interface Project {
