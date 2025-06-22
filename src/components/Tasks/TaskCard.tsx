@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, Clock, Users, Tag, MoreHorizontal, Edit, Trash2, CheckCircle2, X } from 'lucide-react';
+import { Calendar, Clock, Users, Tag, MoreHorizontal, Edit, Trash2, CheckCircle2 } from 'lucide-react';
 import { Task } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { useModal } from '../../context/ModalContext';
@@ -12,24 +12,42 @@ interface TaskCardProps {
   className?: string;
 }
 
-export function TaskCard({ task, showProject = false, className = '' }: TaskCardProps) {
+export function TaskCard({ task, className = '' }: TaskCardProps) {
   const { state, dispatch } = useApp();
   const { openModal, closeModal } = useModal();
   const [showMenu, setShowMenu] = useState(false);
 
-  const project = state.projects.find(p => p.id === task.projectId);
+  // Projet associé à la tâche (pour une utilisation future si nécessaire)
+  // const project = state.projects.find(p => p.id === task.projectId);
   const assignedUsers = state.users.filter(u => task.assignees.includes(u.id));
   
-  const isOverdue = new Date(task.dueDate).toDateString() < new Date().toDateString() && task.status !== 'done';
-  const isToday = new Date(task.dueDate).toDateString() === new Date().toDateString();
-
-
-
-  const priorityColors = {
-    low: 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 dark:from-green-900/30 dark:to-emerald-900/30 dark:text-green-300',
-    medium: 'bg-gradient-to-r from-yellow-100 to-orange-100 text-yellow-800 dark:from-yellow-900/30 dark:to-orange-900/30 dark:text-yellow-300',
-    high: 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 dark:from-red-900/30 dark:to-pink-900/30 dark:text-red-300'
+  // Fonction utilitaire pour vérifier si une date est valide
+  const isValidDate = (date: string | Date) => {
+    const d = new Date(date);
+    return !isNaN(d.getTime());
   };
+
+  // Utiliser dueDate comme fallback pour la rétrocompatibilité
+  const startDate = task.startDate || task.dueDate;
+  const endDate = task.endDate || task.dueDate || startDate;
+  
+  const isOverdue = isValidDate(endDate) && 
+                   new Date(endDate).toDateString() < new Date().toDateString() && 
+                   task.status !== 'done';
+                   
+  const isToday = isValidDate(startDate) && isValidDate(endDate) &&
+                 new Date(startDate).toDateString() <= new Date().toDateString() && 
+                 new Date(endDate).toDateString() >= new Date().toDateString() &&
+                 task.status !== 'done';
+
+
+
+  // Couleurs de priorité (pour une utilisation future si nécessaire)
+  // const priorityColors = {
+  //   low: 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 dark:from-green-900/30 dark:to-emerald-900/30 dark:text-green-300',
+  //   medium: 'bg-gradient-to-r from-yellow-100 to-orange-100 text-yellow-800 dark:from-yellow-900/30 dark:to-orange-900/30 dark:text-yellow-300',
+  //   high: 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 dark:from-red-900/30 dark:to-pink-900/30 dark:text-red-300'
+  // };
 
 
   const toggleStatus = () => {
@@ -60,7 +78,11 @@ export function TaskCard({ task, showProject = false, className = '' }: TaskCard
 
   return (
     <div className="relative">
-      <Card className={`p-6 transition-all duration-200 ${isOverdue ? 'border-l-4 border-red-500' : ''} ${isToday ? 'ring-2 ring-blue-500/20' : ''} ${className}`} hover gradient>
+      <Card 
+        className={`p-6 transition-all duration-200 ${isOverdue ? 'border-l-4 border-red-500' : ''} ${isToday ? 'ring-2 ring-blue-500/20' : ''} ${className}`} 
+        hover 
+        gradient
+      >
         {/* Bouton d'édition rapide */}
         <button
           onClick={handleEditClick}
@@ -162,19 +184,39 @@ export function TaskCard({ task, showProject = false, className = '' }: TaskCard
             )}
 
             <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-              <div className="flex items-center">
-                <Calendar className="w-3.5 h-3.5 mr-1" />
-                {new Date(task.dueDate).toLocaleDateString('fr-FR', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric'
-                })}
+              <div 
+                className="flex items-center" 
+                title={`${startDate ? `Du ${new Date(startDate).toLocaleDateString('fr-FR')} ` : ''}${endDate ? `au ${new Date(endDate).toLocaleDateString('fr-FR')}` : ''}`.trim()}
+              >
+                <Calendar className="w-3.5 h-3.5 mr-1 flex-shrink-0" />
+                <span className="whitespace-nowrap">
+                  {startDate && isValidDate(startDate) ? (
+                    <>
+                      {new Date(startDate).toLocaleDateString('fr-FR', {
+                        day: '2-digit',
+                        month: 'short',
+                      })}
+                      {' - '}
+                      {endDate && isValidDate(endDate) ? (
+                        new Date(endDate).toLocaleDateString('fr-FR', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: new Date(startDate).getFullYear() !== new Date(endDate).getFullYear() ? 'numeric' : undefined
+                        })
+                      ) : (
+                        'Date indéfinie'
+                      )}
+                    </>
+                  ) : (
+                    'Dates non définies'
+                  )}
+                </span>
               </div>
               
               {task.estimatedHours && (
                 <div className="flex items-center">
-                  <Clock className="w-3.5 h-3.5 mr-1" />
-                  {task.estimatedHours}h
+                  <Clock className="w-3.5 h-3.5 mr-1 flex-shrink-0" />
+                  <span className="whitespace-nowrap">{task.estimatedHours}h</span>
                 </div>
               )}
               
@@ -190,7 +232,7 @@ export function TaskCard({ task, showProject = false, className = '' }: TaskCard
                 <div className="flex items-center">
                   <Users className="w-3.5 h-3.5 mr-1" />
                   <div className="flex -space-x-1">
-                    {assignedUsers.slice(0, 3).map((user, idx) => (
+                    {assignedUsers.slice(0, 3).map((user) => (
                       <div 
                         key={user.id} 
                         className="w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-medium text-gray-700 dark:text-gray-200 border-2 border-white dark:border-gray-800"

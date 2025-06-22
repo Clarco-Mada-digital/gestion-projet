@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Card } from '../UI/Card';
 import { Button } from '../UI/Button';
+import { Task } from '../../types';
+import { EditTaskForm } from '../Tasks/EditTaskForm';
 
 export function CalendarView() {
   const { state } = useApp();
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const allTasks = state.projects.flatMap(p => p.tasks);
 
@@ -38,9 +41,20 @@ export function CalendarView() {
   }
 
   const getTasksForDate = (date: Date) => {
-    return allTasks.filter(task => 
-      new Date(task.dueDate).toDateString() === date.toDateString()
-    );
+    return allTasks.filter(task => {
+      const taskStartDate = new Date(task.startDate || task.dueDate);
+      const taskEndDate = new Date(task.endDate || task.dueDate);
+      
+      // Réinitialiser les heures pour la comparaison
+      const currentDate = new Date(date);
+      currentDate.setHours(0, 0, 0, 0);
+      
+      taskStartDate.setHours(0, 0, 0, 0);
+      taskEndDate.setHours(0, 0, 0, 0);
+      
+      // Vérifier si la date est dans la plage de la tâche
+      return currentDate >= taskStartDate && currentDate <= taskEndDate;
+    });
   };
 
   const navigateMonth = (direction: 'prev' | 'next') => {
@@ -95,7 +109,10 @@ export function CalendarView() {
               size="md"
               icon={ChevronLeft}
               onClick={() => navigateMonth('prev')}
-            />
+              iconPosition="left"
+            >
+              Précédent
+            </Button>
             <Button
               variant="gradient"
               size="md"
@@ -108,7 +125,10 @@ export function CalendarView() {
               size="md"
               icon={ChevronRight}
               onClick={() => navigateMonth('next')}
-            />
+              iconPosition="right"
+            >
+              Suivant
+            </Button>
           </div>
         </div>
 
@@ -125,9 +145,10 @@ export function CalendarView() {
         <div className="grid grid-cols-7 gap-2">
           {days.map((day, index) => {
             const tasksForDay = getTasksForDate(day.date);
-            const overdueTasks = tasksForDay.filter(t => 
-              new Date(t.dueDate) < new Date() && t.status !== 'done'
-            );
+            const overdueTasks = tasksForDay.filter(t => {
+              const taskEndDate = new Date(t.endDate || t.dueDate);
+              return taskEndDate < new Date() && t.status !== 'done';
+            });
 
             return (
               <div
@@ -172,14 +193,37 @@ export function CalendarView() {
                     return (
                       <div
                         key={task.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedTask(task);
+                        }}
                         className={`
                           text-xs p-2 rounded-lg truncate cursor-pointer transition-all duration-200 hover:scale-105 shadow-sm
                           ${task.status === 'done' 
                             ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 dark:from-green-900/30 dark:to-emerald-900/30 dark:text-green-300' 
                             : overdueTasks.includes(task)
                             ? 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 dark:from-red-900/30 dark:to-pink-900/30 dark:text-red-300'
-                            : 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 dark:from-blue-900/30 dark:to-cyan-900/30 dark:text-blue-300'
+                            : 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 dark:from-blue-900/30 dark:to-cyan-900/30 dark:text-blue-300 hover:from-blue-200 hover:to-cyan-200 dark:hover:from-blue-800/40 dark:hover:to-cyan-800/40'
                           }
+                          ${(() => {
+                            const taskStartDate = new Date(task.startDate || task.dueDate);
+                            const taskEndDate = new Date(task.endDate || task.dueDate);
+                            const currentDate = new Date(day.date);
+                            
+                            // Vérifier si c'est le premier jour de la tâche
+                            if (currentDate.toDateString() === taskStartDate.toDateString()) {
+                              return 'rounded-l-lg rounded-r-none';
+                            }
+                            // Vérifier si c'est le dernier jour de la tâche
+                            if (currentDate.toDateString() === taskEndDate.toDateString()) {
+                              return 'rounded-r-lg rounded-l-none';
+                            }
+                            // Pour les jours intermédiaires
+                            if (currentDate > taskStartDate && currentDate < taskEndDate) {
+                              return 'rounded-none';
+                            }
+                            return '';
+                          })()}
                         `}
                         title={`${task.title} - ${project?.name}`}
                       >
@@ -222,6 +266,26 @@ export function CalendarView() {
           </div>
         </div>
       </Card>
+
+      {/* Modal d'édition de tâche */}
+      {selectedTask && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+            <button
+              onClick={() => setSelectedTask(null)}
+              className="absolute top-4 right-4 z-10 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="overflow-y-auto max-h-[85vh]">
+              <EditTaskForm 
+                task={selectedTask} 
+                onClose={() => setSelectedTask(null)} 
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { Card } from '../UI/Card';
 import { TeamManagement } from '../Settings/TeamManagement';
 import { TeamModal } from '../Modals/TeamModal';
 import { EmailSettings } from '../Settings/EmailSettings';
+import { AISettings } from '../Settings/AISettings';
 
 export function SettingsView() {
   console.log('Rendering SettingsView component');
@@ -21,6 +22,7 @@ export function SettingsView() {
     { id: 'profile', name: 'Profil' },
     { id: 'team', name: 'Équipe' },
     { id: 'email', name: 'Paramètres Email' },
+    { id: 'ai', name: 'Intelligence Artificielle' },
     { id: 'notifications', name: 'Notifications' },
     { id: 'appearance', name: 'Apparence' },
   ];
@@ -422,65 +424,64 @@ export function SettingsView() {
           </div>
         );
 
+      case 'ai':
+        return <AISettings />;
+
       case 'appearance':
         return (
           <div className="space-y-6">
             <div>
               <h2 className="text-xl font-semibold mb-6">Apparence</h2>
               <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
-                <div className="px-4 py-5 sm:p-6">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Thème</h3>
-                  
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Mode sombre</h4>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Activez le mode sombre pour un confort visuel optimal</p>
-                      </div>
-                      <button
-                        onClick={toggleTheme}
-                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${state.theme === 'dark' ? 'bg-blue-600' : 'bg-gray-200'}`}
-                        role="switch"
-                        aria-checked={state.theme === 'dark'}
-                      >
-                        <span className="sr-only">Mode sombre</span>
-                        <span
-                          aria-hidden="true"
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${state.theme === 'dark' ? 'translate-x-5' : 'translate-x-0'}`}
+                <div className="px-4 py-5 sm:p-6 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Mode sombre</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Activez le mode sombre pour un confort visuel optimal</p>
+                    </div>
+                    <button
+                      onClick={toggleTheme}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${state.theme === 'dark' ? 'bg-blue-600' : 'bg-gray-200'}`}
+                      role="switch"
+                      aria-checked={state.theme === 'dark'}
+                    >
+                      <span className="sr-only">Mode sombre</span>
+                      <span
+                        aria-hidden="true"
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${state.theme === 'dark' ? 'translate-x-5' : 'translate-x-0'}`}
+                      />
+                    </button>
+                  </div>
+
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Couleur d'accent</h4>
+                    <div className="flex space-x-3">
+                      {['blue', 'indigo', 'purple', 'pink', 'red', 'orange', 'yellow', 'green', 'emerald', 'teal', 'cyan'].map((color) => (
+                        <button
+                          key={color}
+                          onClick={() => dispatch({ type: 'SET_ACCENT_COLOR', payload: color })}
+                          className={`w-8 h-8 rounded-full bg-${color}-500`}
+                          title={color.charAt(0).toUpperCase() + color.slice(1)}
                         />
-                      </button>
+                      ))}
                     </div>
+                  </div>
 
-                    <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Couleur d'accent</h4>
-                      <div className="flex space-x-3">
-                        {['blue', 'indigo', 'purple', 'pink', 'red', 'orange', 'yellow', 'green', 'emerald', 'teal', 'cyan'].map((color) => (
-                          <button
-                            key={color}
-                            onClick={() => dispatch({ type: 'SET_ACCENT_COLOR', payload: color })}
-                            className={`w-8 h-8 rounded-full bg-${color}-500 ${state.accentColor === color ? 'ring-2 ring-offset-2 ring-blue-500' : ''}`}
-                            title={color.charAt(0).toUpperCase() + color.slice(1)}
-                          />
-                        ))}
-                      </div>
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Taille de la police</h4>
+                    <div className="flex items-center space-x-4">
+                      <button className="text-xs px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">Petit</button>
+                      <button className="text-sm px-3 py-1 rounded-md bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 font-medium">Moyen</button>
+                      <button className="text-base px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">Grand</button>
                     </div>
+                  </div>
 
-                    <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Taille de la police</h4>
-                      <div className="flex items-center space-x-4">
-                        <button className="text-xs px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">Petit</button>
-                        <button className="text-sm px-3 py-1 rounded-md bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 font-medium">Moyen</button>
-                        <button className="text-base px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">Grand</button>
-                      </div>
-                    </div>
-
-                    <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Densité de l'interface</h4>
-                      <div className="flex items-center space-x-4">
-                        <button className="text-sm px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">Compact</button>
-                        <button className="text-sm px-3 py-1 rounded-md bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 font-medium">Normal</button>
-                        <button className="text-sm px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">Confortable</button>
-                      </div>
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Densité de l'interface</h4>
+                    <div className="flex items-center space-x-4">
+                      <button className="text-sm px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">Compact</button>
+                      <button className="text-sm px-3 py-1 rounded-md bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 font-medium">Normal</button>
+                      <button className="text-sm px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">Confortable</button>
                     </div>
                   </div>
                 </div>

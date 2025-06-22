@@ -25,28 +25,49 @@ export function TodayView() {
     }));
   };
   
+  // Fonction utilitaire pour vérifier si une date est dans la plage de la tâche
+  const isTaskInDateRange = (task: any, targetDate: Date) => {
+    const taskStartDate = new Date(task.startDate || task.dueDate);
+    const taskEndDate = new Date(task.endDate || task.dueDate);
+    
+    // Réinitialiser les heures pour la comparaison
+    const currentDate = new Date(targetDate);
+    currentDate.setHours(0, 0, 0, 0);
+    
+    taskStartDate.setHours(0, 0, 0, 0);
+    taskEndDate.setHours(0, 0, 0, 0);
+    
+    return currentDate >= taskStartDate && currentDate <= taskEndDate;
+  };
+
   // Récupérer toutes les tâches groupées par projet
   const projectsWithTodayTasks = state.projects
     .map(project => ({
       ...project,
       tasks: project.tasks.filter(task => 
-        new Date(task.dueDate).toDateString() === today
+        isTaskInDateRange(task, new Date())
       )
     }))
     .filter(project => project.tasks.length > 0);
 
-  // Tâches en retard (tous projets confondus)
+  // Toutes les tâches pour les calculs
   const allTasks = state.projects.flatMap(p => p.tasks);
-  const overdueTasks = allTasks.filter(task => 
-    new Date(task.dueDate) < new Date() && 
-    task.status !== 'done' &&
-    new Date(task.dueDate).toDateString() !== today
-  );
+  
+  // Tâches en retard (tous projets confondus)
+  const overdueTasks = allTasks.filter(task => {
+    const taskEndDate = new Date(task.endDate || task.dueDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return (
+      taskEndDate < today && 
+      task.status !== 'done' &&
+      !isTaskInDateRange(task, today)
+    );
+  });
 
   // Calcul des statistiques
-  const todayTasks = allTasks.filter(task => 
-    new Date(task.dueDate).toDateString() === today
-  );
+  const todayTasks = allTasks.filter(task => isTaskInDateRange(task, new Date()));
   const completedToday = todayTasks.filter(task => task.status === 'done').length;
   const totalToday = todayTasks.length;
   const progressPercentage = totalToday > 0 ? (completedToday / totalToday) * 100 : 0;

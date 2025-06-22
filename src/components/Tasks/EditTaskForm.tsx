@@ -15,7 +15,10 @@ export function EditTaskForm({ task, onClose }: EditTaskFormProps) {
   const [editedTask, setEditedTask] = useState<Task>({ 
     ...task,
     tags: [...(task.tags || [])],
-    assignees: [...(task.assignees || [])]
+    assignees: [...(task.assignees || [])],
+    // Initialiser les dates si elles n'existent pas
+    startDate: task.startDate || task.dueDate || new Date().toISOString().split('T')[0],
+    endDate: task.endDate || task.dueDate || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   });
   const [newTag, setNewTag] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
@@ -172,10 +175,10 @@ export function EditTaskForm({ task, onClose }: EditTaskFormProps) {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            {/* Date d'échéance */}
+            {/* Date de début */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Date d'échéance
+                Date de début
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -183,8 +186,27 @@ export function EditTaskForm({ task, onClose }: EditTaskFormProps) {
                 </div>
                 <input
                   type="date"
-                  value={editedTask.dueDate.split('T')[0]}
-                  onChange={(e) => setEditedTask({...editedTask, dueDate: e.target.value})}
+                  value={editedTask.startDate ? editedTask.startDate.split('T')[0] : ''}
+                  onChange={(e) => setEditedTask({...editedTask, startDate: e.target.value})}
+                  className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
+                />
+              </div>
+            </div>
+
+            {/* Date de fin */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Date de fin
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <CalendarIcon className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="date"
+                  value={editedTask.endDate ? editedTask.endDate.split('T')[0] : ''}
+                  min={editedTask.startDate || undefined}
+                  onChange={(e) => setEditedTask({...editedTask, endDate: e.target.value})}
                   className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
                 />
               </div>

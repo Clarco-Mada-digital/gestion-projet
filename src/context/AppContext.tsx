@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { Project, Task, User, ViewMode, Theme, EmailSettings, AppSettings } from '../types';
+import { Project, Task, User, UserSettings, ViewMode, Theme, EmailSettings, AppSettings, DEFAULT_AI_SETTINGS } from '../types';
 
 interface AppState {
   projects: Project[];
@@ -11,6 +11,7 @@ interface AppState {
   notifications: any[];
   isLoading: boolean;
   error: string | null;
+  selectedProject: string | null;
   // L'utilisateur principal est le premier utilisateur du tableau users
 }
 
@@ -39,26 +40,24 @@ const defaultUser: User = {
   id: 'user-1',
   name: 'Admin',
   email: 'admin@example.com',
+  avatar: '',
   phone: '+261 34 00 000 00',
   position: 'Administrateur',
   department: 'Direction',
-  role: 'admin',
-  status: 'active',
+  role: 'admin' as const,
+  status: 'active' as const,
   lastActive: new Date().toISOString(),
   settings: {
     theme: 'light',
     language: 'fr',
-    timezone: 'Africa/Nairobi',
+    timezone: 'Indian/Antananarivo',
     notifications: true,
     emailNotifications: true,
-  },
-  avatar: '',
+    pushNotifications: true,
+    daysOff: ['saturday', 'sunday']
+  } as UserSettings,
   isPrimary: true,
   cannotDelete: true,
-  emailNotifications: true,
-  pushNotifications: true,
-  language: 'fr',
-  timezone: 'Africa/Nairobi',
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
@@ -69,26 +68,24 @@ const exampleUsers: User[] = [
     id: '2',
     name: 'Jean Dupont',
     email: 'jean.dupont@example.com',
+    avatar: '',
     phone: '+261 34 00 000 01',
     position: 'Chef de projet',
     department: 'Gestion de projet',
-    role: 'member',
-    status: 'active',
+    role: 'member' as const,
+    status: 'active' as const,
     lastActive: new Date().toISOString(),
     settings: {
       theme: 'light',
       language: 'fr',
-      timezone: 'Africa/Nairobi',
+      timezone: 'Europe/Paris',
       notifications: true,
       emailNotifications: true,
-    },
-    avatar: '',
+      pushNotifications: true,
+      daysOff: ['saturday', 'sunday']
+    } as UserSettings,
     isPrimary: false,
     cannotDelete: false,
-    emailNotifications: true,
-    pushNotifications: true,
-    language: 'fr',
-    timezone: 'Africa/Nairobi',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   },
@@ -96,11 +93,12 @@ const exampleUsers: User[] = [
     id: '3',
     name: 'Marie Martin',
     email: 'marie.martin@example.com',
+    avatar: '',
     phone: '+261 34 00 000 02',
     position: 'Développeuse',
     department: 'Développement',
-    role: 'member',
-    status: 'active',
+    role: 'member' as const,
+    status: 'active' as const,
     lastActive: new Date().toISOString(),
     settings: {
       theme: 'dark',
@@ -108,14 +106,10 @@ const exampleUsers: User[] = [
       timezone: 'Indian/Antananarivo',
       notifications: true,
       emailNotifications: true,
-    },
-    avatar: '',
+      pushNotifications: true
+    } as UserSettings,
     isPrimary: false,
     cannotDelete: false,
-    emailNotifications: true,
-    pushNotifications: true,
-    language: 'fr',
-    timezone: 'Indian/Antananarivo',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   },
@@ -135,14 +129,12 @@ const exampleUsers: User[] = [
       timezone: 'Indian/Antananarivo',
       notifications: true,
       emailNotifications: true,
-    },
+      pushNotifications: true,
+      daysOff: ['saturday', 'sunday']
+    } as UserSettings,
     avatar: '',
     isPrimary: false,
     cannotDelete: false,
-    emailNotifications: true,
-    pushNotifications: true,
-    language: 'fr',
-    timezone: 'Indian/Antananarivo',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   }
@@ -231,15 +223,21 @@ const initialState: AppState = {
   projects: [],
   users: [{
     ...defaultUser,
-    emailNotifications: true,
-    pushNotifications: true,
-    language: 'fr',
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    settings: {
+      theme: 'light',
+      language: 'fr',
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      notifications: true,
+      emailNotifications: true,
+      pushNotifications: true,
+      daysOff: ['saturday', 'sunday']
+    } as UserSettings,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }],
   theme: 'light',
   currentView: 'dashboard',
+  selectedProject: null,
   emailSettings: {
     smtpHost: 'smtp.example.com',
     smtpPort: 587,
@@ -255,7 +253,8 @@ const initialState: AppState = {
     defaultView: 'today',
     itemsPerPage: 10,
     enableAnalytics: true,
-    enableErrorReporting: false
+    enableErrorReporting: false,
+    aiSettings: DEFAULT_AI_SETTINGS
   },
   notifications: [],
   isLoading: true,
@@ -312,10 +311,21 @@ function appReducer(state: AppState, action: AppAction): AppState {
       // Mettre à jour le thème à la fois dans l'état global et dans les paramètres de l'utilisateur principal
       const updatedUsers = [...state.users];
       if (updatedUsers.length > 0) {
+        const currentSettings: UserSettings = {
+          theme: 'light',
+          language: 'fr',
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          notifications: true,
+          emailNotifications: true,
+          pushNotifications: true,
+          daysOff: ['saturday', 'sunday'],
+          ...(updatedUsers[0].settings || {}) as Partial<UserSettings>
+        };
+        
         updatedUsers[0] = {
           ...updatedUsers[0],
           settings: {
-            ...updatedUsers[0].settings,
+            ...currentSettings,
             theme: action.payload
           }
         };
@@ -349,17 +359,30 @@ function appReducer(state: AppState, action: AppAction): AppState {
         return state;
       }
       
-      // Définir les valeurs par défaut pour les paramètres
-      const defaultSettings = {
+      // Créer un nouvel utilisateur avec un ID unique et des timestamps
+      const now = new Date().toISOString();
+      
+      // Créer un objet settings avec des valeurs par défaut complètes
+      const defaultUserSettings: UserSettings = {
         theme: 'light',
         language: 'fr',
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         notifications: true,
-        emailNotifications: true
+        emailNotifications: true,
+        pushNotifications: true,
+        daysOff: ['saturday', 'sunday']
       };
+      
+      // Fusionner avec les paramètres fournis, en s'assurant que tous les champs requis sont définis
+      const userSettings: UserSettings = {
+        ...defaultUserSettings,
+        ...(action.payload.settings || {})
+      };
+      
+      // S'assurer que les champs obligatoires ne sont pas undefined
+      userSettings.language = userSettings.language || 'fr';
+      userSettings.timezone = userSettings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-      // Créer un nouvel utilisateur avec un ID unique et des timestamps
-      const now = new Date().toISOString();
       const newUser: User = {
         id: `user-${Date.now()}`,
         name: action.payload.name || '',
@@ -371,16 +394,11 @@ function appReducer(state: AppState, action: AppAction): AppState {
         role: (action.payload.role as 'admin' | 'member' | 'viewer') || 'member',
         status: 'active',
         lastActive: now,
-        emailNotifications: typeof action.payload.emailNotifications === 'boolean' ? action.payload.emailNotifications : true,
-        pushNotifications: typeof action.payload.pushNotifications === 'boolean' ? action.payload.pushNotifications : true,
-        language: action.payload.language || 'fr',
-        timezone: action.payload.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
         createdAt: now,
         updatedAt: now,
-        settings: {
-          ...defaultSettings,
-          ...(action.payload.settings || {})
-        }
+        settings: userSettings,
+        isPrimary: false,
+        cannotDelete: false
       };
       
       return {
@@ -404,9 +422,22 @@ function appReducer(state: AppState, action: AppAction): AppState {
         emailSettings: { ...state.emailSettings, ...action.payload }
       };
     case 'UPDATE_APP_SETTINGS':
+      // Fusionner les paramètres IA existants avec les nouveaux
+      const updatedAiSettings = action.payload.aiSettings 
+        ? { 
+            ...(state.appSettings.aiSettings || {}), 
+            ...action.payload.aiSettings 
+          } 
+        : state.appSettings.aiSettings;
+          
       return {
         ...state,
-        appSettings: { ...state.appSettings, ...action.payload }
+        appSettings: { 
+          ...state.appSettings, 
+          ...action.payload,
+          // Si des paramètres IA sont fournis, on les fusionne
+          ...(action.payload.aiSettings ? { aiSettings: updatedAiSettings } : {})
+        }
       };
     case 'SET_LOADING':
       return { ...state, isLoading: action.payload };

@@ -917,11 +917,30 @@ export function ProjectsView() {
           
           {/* Liste des tâches existantes */}
           <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-              Tâches du projet
-            </h3>
-            
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                Tâches du projet
+              </h3>
+              <button
+                type="button"
+                onClick={handleGenerateTasksWithAI}
+                disabled={!editingProject?.aiSettings?.provider}
+                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Cpu className="w-3.5 h-3.5 mr-1.5" />
+                {isGeneratingTasks ? 'Génération...' : 'Générer avec IA'}
+              </button>
+            </div>
             {editingProject?.tasks?.length ? (
+              {generationStatus && (
+                <div className={`p-3 rounded-md ${
+                  generationStatus.success 
+                    ? 'bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-200' 
+                    : 'bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-200'
+                }`}>
+                  {generationStatus.message}
+                </div>
+              )}
               <div className="space-y-3">
                 {editingProject.tasks.map((task) => (
                   <div key={task.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">

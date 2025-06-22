@@ -12,7 +12,9 @@ export interface Task {
   description: string;
   status: 'todo' | 'in-progress' | 'done';
   priority: 'low' | 'medium' | 'high';
-  dueDate: string;
+  dueDate: string; // À déprécier, utiliser startDate et endDate
+  startDate: string; // Date de début de la tâche
+  endDate: string;   // Date de fin de la tâche
   assignees: string[];
   projectId: string;
   createdAt: string;
@@ -20,8 +22,18 @@ export interface Task {
   tags: string[];
   subTasks: SubTask[];
   notes?: string;
-  startDate?: string;
   estimatedHours?: number;
+}
+
+export interface ProjectAISettings {
+  enabled: boolean;
+  provider: 'openai' | 'openrouter' | null;
+  openaiApiKey: string | null;
+  openrouterApiKey: string | null;
+  openaiModel: string;
+  openrouterModel: string;
+  maxTokens: number;
+  temperature: number;
 }
 
 export interface Project {
@@ -33,6 +45,7 @@ export interface Project {
   createdAt: string;
   updatedAt: string;
   tasks: Task[];
+  aiSettings?: ProjectAISettings;
 }
 
 export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
@@ -54,6 +67,16 @@ export const getDayName = (day: DayOfWeek): string => {
   return days[day] || day;
 };
 
+export interface UserSettings {
+  theme: string;
+  language: string;
+  timezone: string;
+  notifications: boolean;
+  emailNotifications: boolean;
+  pushNotifications?: boolean; // Rendre optionnel pour la rétrocompatibilité
+  daysOff?: DayOfWeek[];
+}
+
 export interface User {
   id: string;
   name: string;
@@ -65,21 +88,9 @@ export interface User {
   role?: 'admin' | 'member' | 'viewer';
   status?: 'active' | 'inactive';
   lastActive?: string;
-  settings?: {
-    theme: string;
-    language: string;
-    timezone: string;
-    notifications: boolean;
-    emailNotifications: boolean;
-    daysOff?: DayOfWeek[]; // Jours de repos hebdomadaires
-  };
+  settings?: UserSettings;
   isPrimary?: boolean;
   cannotDelete?: boolean;
-  emailNotifications: boolean;
-  pushNotifications: boolean;
-  language: string;
-  timezone: string;
-  daysOff?: DayOfWeek[]; // Pour rétrocompatibilité
   createdAt: string;
   updatedAt: string;
 }
@@ -97,11 +108,40 @@ export interface EmailSettings {
   useTLS: boolean;
 }
 
+export interface AISettings {
+  provider: 'openai' | 'openrouter' | null;
+  openaiApiKey: string | null;
+  openrouterApiKey: string | null;
+  openrouterModel: string;
+  openaiModel: string;
+  maxTokens: number;
+  temperature: number;
+  isConfigured: boolean;
+  lastTested: string | null;
+  lastTestStatus: 'success' | 'error' | null;
+  lastTestMessage: string | null;
+}
+
+export const DEFAULT_AI_SETTINGS: AISettings = {
+  provider: null,
+  openaiApiKey: null,
+  openrouterApiKey: null,
+  openrouterModel: 'openai/gpt-3.5-turbo',
+  openaiModel: 'gpt-3.5-turbo',
+  maxTokens: 1000,
+  temperature: 0.7,
+  isConfigured: false,
+  lastTested: null,
+  lastTestStatus: null,
+  lastTestMessage: null,
+};
+
 export interface AppSettings {
   theme: Theme;
   defaultView: ViewMode;
   itemsPerPage: number;
   enableAnalytics: boolean;
   enableErrorReporting: boolean;
+  aiSettings: AISettings;
 }
 export type Theme = 'light' | 'dark';
