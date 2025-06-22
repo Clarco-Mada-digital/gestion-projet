@@ -20,9 +20,25 @@ export function EditTaskForm({ task, onClose }: EditTaskFormProps) {
   const [newTag, setNewTag] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
 
+  // Utiliser le premier utilisateur comme utilisateur principal
+  const primaryUser = state.users && state.users.length > 0 ? state.users[0] : null;
+  
+  // Liste des utilisateurs disponibles (tous sauf ceux déjà assignés)
   const availableUsers = state.users.filter(user => 
     !editedTask.assignees.includes(user.id)
   );
+  
+  // S'assurer que l'utilisateur principal est assigné par défaut pour les nouvelles tâches
+  useEffect(() => {
+    if (primaryUser && 
+        !editedTask.assignees.length && 
+        !editedTask.id) { // Seulement pour les nouvelles tâches
+      setEditedTask(prev => ({
+        ...prev,
+        assignees: [primaryUser.id, ...prev.assignees]
+      }));
+    }
+  }, [primaryUser, editedTask.id, editedTask.assignees.length]);
 
   useEffect(() => {
     setEditedTask({ 
@@ -210,15 +226,20 @@ export function EditTaskForm({ task, onClose }: EditTaskFormProps) {
           <div>
             <label className="block text-sm font-medium mb-1">Assigné à</label>
             <div className="flex flex-wrap gap-2 mb-4">
+              {/* Afficher tous les utilisateurs assignés */}
               {state.users
                 .filter(user => editedTask.assignees.includes(user.id))
                 .map(user => (
                   <div 
                     key={user.id}
-                    className="flex items-center bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800 rounded-full px-3 py-1 text-xs font-medium cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800"
+                    className={`flex items-center rounded-full px-3 py-1 text-xs font-medium cursor-pointer ${
+                      user.id === primaryUser?.id 
+                        ? 'bg-blue-600 text-white border border-blue-700 hover:bg-blue-700' 
+                        : 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800 hover:bg-blue-200 dark:hover:bg-blue-800'
+                    }`}
                     onClick={() => toggleAssignee(user.id)}
                   >
-                    {user.name}
+                    {user.name} {user.id === primaryUser?.id && '(Moi)'}
                     <XIcon className="ml-1 w-3 h-3" />
                   </div>
                 ))}
@@ -226,13 +247,18 @@ export function EditTaskForm({ task, onClose }: EditTaskFormProps) {
               {availableUsers.length > 0 && (
                 <select
                   value=""
-                  onChange={(e) => toggleAssignee(e.target.value)}
-                  className="text-xs border rounded-full px-2 py-1 bg-white dark:bg-gray-800"
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      toggleAssignee(e.target.value);
+                      // La réinitialisation se fait automatiquement car on utilise value=""
+                    }
+                  }}
+                  className="text-xs border rounded-full px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                 >
                   <option value="">Ajouter un membre</option>
                   {availableUsers.map(user => (
                     <option key={user.id} value={user.id}>
-                      {user.name}
+                      {user.name} {user.id === primaryUser?.id ? '(Moi)' : ''}
                     </option>
                   ))}
                 </select>

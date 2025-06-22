@@ -1,12 +1,17 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { Project, Task, User, ViewMode, Theme } from '../types';
+import { Project, Task, User, ViewMode, Theme, EmailSettings, AppSettings } from '../types';
 
 interface AppState {
   projects: Project[];
   users: User[];
-  currentView: ViewMode;
-  theme: Theme;
-  selectedProject: string | null;
+  theme: 'light' | 'dark';
+  currentView: string;
+  emailSettings: EmailSettings;
+  appSettings: AppSettings;
+  notifications: any[];
+  isLoading: boolean;
+  error: string | null;
+  // L'utilisateur principal est le premier utilisateur du tableau users
 }
 
 type AppAction =
@@ -19,19 +24,242 @@ type AppAction =
   | { type: 'DELETE_TASK'; payload: { projectId: string; taskId: string } }
   | { type: 'SET_VIEW'; payload: ViewMode }
   | { type: 'SET_THEME'; payload: Theme }
-  | { type: 'SET_SELECTED_PROJECT'; payload: string | null };
+  | { type: 'SET_SELECTED_PROJECT'; payload: string | null }
+  | { type: 'UPDATE_USER'; payload: Partial<User> }
+  | { type: 'ADD_USER'; payload: User }
+  | { type: 'REMOVE_USER'; payload: string }
+  | { type: 'UPDATE_EMAIL_SETTINGS'; payload: Partial<EmailSettings> }
+  | { type: 'UPDATE_APP_SETTINGS'; payload: Partial<AppSettings> }
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_ERROR'; payload: string | null }
+  | { type: 'INIT_STATE'; payload: any };
+
+// Données par défaut pour l'utilisateur principal
+const defaultUser: User = {
+  id: 'user-1',
+  name: 'Admin',
+  email: 'admin@example.com',
+  phone: '+261 34 00 000 00',
+  position: 'Administrateur',
+  department: 'Direction',
+  role: 'admin',
+  status: 'active',
+  lastActive: new Date().toISOString(),
+  settings: {
+    theme: 'light',
+    language: 'fr',
+    timezone: 'Africa/Nairobi',
+    notifications: true,
+    emailNotifications: true,
+  },
+  avatar: '',
+  isPrimary: true,
+  cannotDelete: true,
+  emailNotifications: true,
+  pushNotifications: true,
+  language: 'fr',
+  timezone: 'Africa/Nairobi',
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+
+// Données d'exemple pour les autres utilisateurs
+const exampleUsers: User[] = [
+  {
+    id: '2',
+    name: 'Jean Dupont',
+    email: 'jean.dupont@example.com',
+    phone: '+261 34 00 000 01',
+    position: 'Chef de projet',
+    department: 'Gestion de projet',
+    role: 'member',
+    status: 'active',
+    lastActive: new Date().toISOString(),
+    settings: {
+      theme: 'light',
+      language: 'fr',
+      timezone: 'Africa/Nairobi',
+      notifications: true,
+      emailNotifications: true,
+    },
+    avatar: '',
+    isPrimary: false,
+    cannotDelete: false,
+    emailNotifications: true,
+    pushNotifications: true,
+    language: 'fr',
+    timezone: 'Africa/Nairobi',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: '3',
+    name: 'Marie Martin',
+    email: 'marie.martin@example.com',
+    phone: '+261 34 00 000 02',
+    position: 'Développeuse',
+    department: 'Développement',
+    role: 'member',
+    status: 'active',
+    lastActive: new Date().toISOString(),
+    settings: {
+      theme: 'dark',
+      language: 'fr',
+      timezone: 'Indian/Antananarivo',
+      notifications: true,
+      emailNotifications: true,
+    },
+    avatar: '',
+    isPrimary: false,
+    cannotDelete: false,
+    emailNotifications: true,
+    pushNotifications: true,
+    language: 'fr',
+    timezone: 'Indian/Antananarivo',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: '4',
+    name: 'Paul Durand',
+    email: 'paul.durand@example.com',
+    phone: '+261 34 00 000 03',
+    position: 'Designer UX/UI',
+    department: 'Design',
+    role: 'viewer',
+    status: 'active',
+    lastActive: new Date().toISOString(),
+    settings: {
+      theme: 'light',
+      language: 'fr',
+      timezone: 'Indian/Antananarivo',
+      notifications: true,
+      emailNotifications: true,
+    },
+    avatar: '',
+    isPrimary: false,
+    cannotDelete: false,
+    emailNotifications: true,
+    pushNotifications: true,
+    language: 'fr',
+    timezone: 'Indian/Antananarivo',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+];
+
+// Données d'exemple pour les projets
+const exampleProjects: Project[] = [
+  {
+    id: 'p1',
+    name: 'Application Mobile',
+    description: 'Développement de l\'application mobile principale',
+    color: '#3b82f6',
+    status: 'active',
+    createdAt: new Date('2023-01-15').toISOString(),
+    updatedAt: new Date('2023-06-20').toISOString(),
+    tasks: [
+      {
+        id: 't1',
+        title: 'Concevoir les maquettes',
+        description: 'Créer les maquettes pour les écrans principaux',
+        status: 'done',
+        priority: 'high',
+        dueDate: new Date('2023-02-15').toISOString(),
+        assignees: ['4'], // Paul Durand (Designer)
+        projectId: 'p1',
+        createdAt: new Date('2023-01-16').toISOString(),
+        updatedAt: new Date('2023-02-10').toISOString(),
+        tags: ['design', 'ui/ux'],
+        subTasks: [
+          {
+            id: 'st1',
+            title: 'Maquette écran de connexion',
+            completed: true,
+            createdAt: new Date('2023-01-16').toISOString(),
+            updatedAt: new Date('2023-01-20').toISOString()
+          }
+        ]
+      },
+      {
+        id: 't2',
+        title: 'Implémenter l\'authentification',
+        description: 'Développer le système de connexion/inscription',
+        status: 'in-progress',
+        priority: 'high',
+        dueDate: new Date('2023-03-10').toISOString(),
+        assignees: ['3'], // Marie Martin
+        projectId: 'p1',
+        createdAt: new Date('2023-02-01').toISOString(),
+        updatedAt: new Date('2023-02-15').toISOString(),
+        tags: ['backend', 'auth'],
+        subTasks: [],
+        estimatedHours: 16,
+        startDate: new Date('2023-02-15').toISOString()
+      }
+    ]
+  },
+  {
+    id: 'p2',
+    name: 'Site Web Corporate',
+    description: 'Refonte du site web de l\'entreprise',
+    color: '#10b981',
+    status: 'active',
+    createdAt: new Date('2023-02-01').toISOString(),
+    updatedAt: new Date('2023-06-18').toISOString(),
+    tasks: [
+      {
+        id: 't3',
+        title: 'Mise à jour du contenu',
+        description: 'Actualiser les textes et images du site',
+        status: 'todo',
+        priority: 'medium',
+        dueDate: new Date('2023-07-15').toISOString(),
+        assignees: ['2'], // Jean Dupont
+        projectId: 'p2',
+        createdAt: new Date('2023-06-01').toISOString(),
+        updatedAt: new Date('2023-06-01').toISOString(),
+        tags: ['contenu', 'seo'],
+        subTasks: []
+      }
+    ]
+  }
+];
+
 
 const initialState: AppState = {
   projects: [],
-  users: [
-    { id: '1', name: 'Vous', email: 'vous@example.com', avatar: '👤' },
-    { id: '2', name: 'Alice Martin', email: 'alice@example.com', avatar: '👩' },
-    { id: '3', name: 'Bob Dupont', email: 'bob@example.com', avatar: '👨' },
-    { id: '4', name: 'Clara Moreau', email: 'clara@example.com', avatar: '👩‍💼' }
-  ],
-  currentView: 'today',
-  theme: 'dark',
-  selectedProject: null,
+  users: [{
+    ...defaultUser,
+    emailNotifications: true,
+    pushNotifications: true,
+    language: 'fr',
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }],
+  theme: 'light',
+  currentView: 'dashboard',
+  emailSettings: {
+    smtpHost: 'smtp.example.com',
+    smtpPort: 587,
+    smtpUser: 'contact@example.com',
+    smtpPassword: '',
+    fromEmail: 'noreply@example.com',
+    fromName: 'Équipe Gestion de Projet',
+    useSSL: false,
+    useTLS: true
+  },
+  appSettings: {
+    theme: 'light',
+    defaultView: 'today',
+    itemsPerPage: 10,
+    enableAnalytics: true,
+    enableErrorReporting: false
+  },
+  notifications: [],
+  isLoading: true,
+  error: null
 };
 
 function appReducer(state: AppState, action: AppAction): AppState {
@@ -53,35 +281,142 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'ADD_TASK':
       return {
         ...state,
-        projects: state.projects.map(p =>
-          p.id === action.payload.projectId
-            ? { ...p, tasks: [...p.tasks, action.payload.task] }
-            : p
+        projects: state.projects.map(project => 
+          project.id === action.payload.projectId 
+            ? { ...project, tasks: [...project.tasks, action.payload.task] } 
+            : project
         )
       };
     case 'UPDATE_TASK':
       return {
         ...state,
-        projects: state.projects.map(p => ({
-          ...p,
-          tasks: p.tasks.map(t => t.id === action.payload.id ? action.payload : t)
+        projects: state.projects.map(project => ({
+          ...project,
+          tasks: project.tasks.map(task =>
+            task.id === action.payload.id ? action.payload : task
+          )
         }))
       };
     case 'DELETE_TASK':
       return {
         ...state,
-        projects: state.projects.map(p =>
-          p.id === action.payload.projectId
-            ? { ...p, tasks: p.tasks.filter(t => t.id !== action.payload.taskId) }
-            : p
+        projects: state.projects.map(project =>
+          project.id === action.payload.projectId
+            ? { ...project, tasks: project.tasks.filter(t => t.id !== action.payload.taskId) }
+            : project
         )
       };
     case 'SET_VIEW':
       return { ...state, currentView: action.payload };
-    case 'SET_THEME':
-      return { ...state, theme: action.payload };
+    case 'SET_THEME': {
+      // Mettre à jour le thème à la fois dans l'état global et dans les paramètres de l'utilisateur principal
+      const updatedUsers = [...state.users];
+      if (updatedUsers.length > 0) {
+        updatedUsers[0] = {
+          ...updatedUsers[0],
+          settings: {
+            ...updatedUsers[0].settings,
+            theme: action.payload
+          }
+        };
+      }
+      
+      return { 
+        ...state, 
+        theme: action.payload,
+        users: updatedUsers
+      };
+    }
     case 'SET_SELECTED_PROJECT':
       return { ...state, selectedProject: action.payload };
+    case 'UPDATE_USER':
+      if (!action.payload.id) {
+        console.warn('UPDATE_USER: ID manquant');
+        return state;
+      }
+      return {
+        ...state,
+        users: state.users.map(user =>
+          user.id === action.payload.id ? { ...user, ...action.payload, updatedAt: new Date().toISOString() } : user
+        )
+      };
+    case 'ADD_USER': {
+      // Vérifier si l'utilisateur existe déjà par email
+      const userExists = state.users.some(user => user.email === action.payload.email);
+      
+      if (userExists) {
+        console.warn('Un utilisateur avec cet email existe déjà');
+        return state;
+      }
+      
+      // Définir les valeurs par défaut pour les paramètres
+      const defaultSettings = {
+        theme: 'light',
+        language: 'fr',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        notifications: true,
+        emailNotifications: true
+      };
+
+      // Créer un nouvel utilisateur avec un ID unique et des timestamps
+      const now = new Date().toISOString();
+      const newUser: User = {
+        id: `user-${Date.now()}`,
+        name: action.payload.name || '',
+        email: action.payload.email || '',
+        avatar: action.payload.avatar || '',
+        phone: action.payload.phone || '',
+        position: action.payload.position || '',
+        department: action.payload.department || '',
+        role: (action.payload.role as 'admin' | 'member' | 'viewer') || 'member',
+        status: 'active',
+        lastActive: now,
+        emailNotifications: typeof action.payload.emailNotifications === 'boolean' ? action.payload.emailNotifications : true,
+        pushNotifications: typeof action.payload.pushNotifications === 'boolean' ? action.payload.pushNotifications : true,
+        language: action.payload.language || 'fr',
+        timezone: action.payload.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+        createdAt: now,
+        updatedAt: now,
+        settings: {
+          ...defaultSettings,
+          ...(action.payload.settings || {})
+        }
+      };
+      
+      return {
+        ...state,
+        users: [...state.users, newUser]
+      };
+    }
+    case 'REMOVE_USER':
+      // Ne pas permettre la suppression de l'utilisateur principal
+      if (action.payload === state.users[0]?.id) {
+        console.warn('Impossible de supprimer l\'utilisateur principal');
+        return state;
+      }
+      return {
+        ...state,
+        users: state.users.filter(user => user.id !== action.payload)
+      };
+    case 'UPDATE_EMAIL_SETTINGS':
+      return {
+        ...state,
+        emailSettings: { ...state.emailSettings, ...action.payload }
+      };
+    case 'UPDATE_APP_SETTINGS':
+      return {
+        ...state,
+        appSettings: { ...state.appSettings, ...action.payload }
+      };
+    case 'SET_LOADING':
+      return { ...state, isLoading: action.payload };
+    case 'SET_ERROR':
+      return { ...state, error: action.payload };
+    case 'INIT_STATE':
+      const { users, ...rest } = action.payload;
+      // S'assurer qu'il y a toujours au moins un utilisateur
+      const validUsers = users && users.length > 0 ? users : [defaultUser];
+      return { ...state, ...rest, users: validUsers };
     default:
       return state;
   }
@@ -92,132 +427,114 @@ const AppContext = createContext<{
   dispatch: React.Dispatch<AppAction>;
 } | null>(null);
 
-export function AppProvider({ children }: { children: React.ReactNode }) {
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
+  // Effet pour charger les données initiales
   useEffect(() => {
-    console.log('Chargement des données depuis le localStorage...');
-    const savedData = localStorage.getItem('astroProjectManagerData');
-    console.log('Données brutes du localStorage:', savedData);
+    console.log('Chargement des données initiales...');
     
-    if (savedData) {
+    const loadInitialData = async () => {
       try {
-        const data = JSON.parse(savedData);
-        console.log('Données parsées du localStorage:', data);
+        const savedData = localStorage.getItem('astroProjectManagerData');
         
-        if (data.projects && data.projects.length > 0) {
-          console.log('Chargement des projets depuis le localStorage:', data.projects);
-          dispatch({ type: 'SET_PROJECTS', payload: data.projects });
+        if (savedData) {
+          const parsedData = JSON.parse(savedData);
+          console.log('Données chargées depuis le localStorage:', parsedData);
+          
+          // S'assurer qu'il y a au moins un utilisateur
+          const users = parsedData.users && parsedData.users.length > 0 
+            ? parsedData.users 
+            : [defaultUser];
+
+          // Vérification que la vue est valide
+          const validViews: ViewMode[] = ['today', 'projects', 'kanban', 'calendar', 'settings'];
+          const viewToSet = parsedData.currentView || 'today';
+          
+          console.log('Vue à appliquer:', viewToSet);
+          console.log('Est-ce une vue valide?', validViews.includes(viewToSet));
+          
+          // Mettre à jour l'état avec les données chargées
+          dispatch({
+            type: 'INIT_STATE',
+            payload: {
+              ...parsedData,
+              users,
+              currentView: validViews.includes(viewToSet) ? viewToSet : 'today'
+            }
+          });
+
+          console.log('Données initiales chargées avec succès');
         } else {
-          console.log('Aucun projet trouvé dans le localStorage, utilisation des données de démonstration');
-          initializeSampleData();
+          console.log('Aucune donnée sauvegardée trouvée, utilisation des valeurs par défaut');
+          // Utiliser les valeurs par défaut avec des exemples
+          dispatch({
+            type: 'INIT_STATE',
+            payload: {
+              ...initialState,
+              users: [defaultUser, ...exampleUsers],
+              projects: exampleProjects
+            }
+          });
         }
-        
-        dispatch({ type: 'SET_THEME', payload: data.theme || 'dark' });
-      } catch (e) {
-        console.error('Erreur lors du chargement des données:', e);
-        console.log('Initialisation avec les données de démonstration suite à une erreur');
-        initializeSampleData();
+      } catch (error) {
+        console.error('Erreur lors du chargement des données:', error);
+        // En cas d'erreur, utiliser les valeurs par défaut
+        dispatch({
+          type: 'INIT_STATE',
+          payload: {
+            ...initialState,
+            users: [defaultUser, ...exampleUsers],
+            projects: exampleProjects
+          }
+        });
+      } finally {
+        dispatch({ type: 'SET_LOADING', payload: false });
       }
-    } else {
-      console.log('Aucune donnée sauvegardée trouvée, initialisation avec les données de démonstration');
-      // Initialize with sample data
-      initializeSampleData();
+    };
+
+    loadInitialData();
+  }, []);
+
+  // Effet pour sauvegarder les données dans le localStorage
+  useEffect(() => {
+    if (state.isLoading) return; // Ne pas sauvegarder pendant le chargement initial
+    
+    try {
+      console.log('Sauvegarde des données dans le localStorage...');
+      
+      // Préparer les données à sauvegarder
+      const { isLoading, error, notifications, ...dataToSave } = state;
+      
+      localStorage.setItem('astroProjectManagerData', JSON.stringify({
+        ...dataToSave,
+        // S'assurer que les notifications ne sont pas sauvegardées
+        notifications: []
+      }));
+      
+      console.log('Données sauvegardées avec succès');
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde des données:', error);
+    }
+  }, [state]);
+
+  // Appliquer le thème
+  useEffect(() => {
+    const theme = state.theme;
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    
+    // Sauvegarder le thème dans le localStorage pour la persistance
+    // entre les rechargements de page
+    localStorage.setItem('astroProjectManagerTheme', theme);
+  }, [state.theme]);
+  
+  // Effet pour charger le thème au démarrage
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('astroProjectManagerTheme') as Theme | null;
+    if (savedTheme && savedTheme !== state.theme) {
+      dispatch({ type: 'SET_THEME', payload: savedTheme });
     }
   }, []);
-  
-  const initializeSampleData = () => {
-    console.log('Initialisation avec des données de démonstration');
-    const sampleProjects: Project[] = [
-      {
-        id: '1',
-        name: 'Site Web E-commerce',
-        description: 'Développement d\'un site e-commerce moderne avec Astro.js',
-        color: '#0EA5E9',
-        status: 'active',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        tasks: [
-          {
-            id: '1',
-            title: 'Design de l\'interface utilisateur',
-            description: 'Créer les maquettes et prototypes avec Figma',
-            status: 'done',
-            priority: 'high',
-            dueDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-            assignees: ['1', '2'],
-            projectId: '1',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            tags: ['design', 'ui/ux', 'figma']
-          },
-          {
-            id: '2',
-            title: 'Intégration des paiements Stripe',
-            description: 'Configurer Stripe et les méthodes de paiement sécurisées',
-            status: 'in-progress',
-            priority: 'high',
-            dueDate: new Date().toISOString(),
-            assignees: ['1'],
-            projectId: '1',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            tags: ['backend', 'paiement', 'stripe']
-          },
-          {
-            id: '3',
-            title: 'Optimisation SEO avec Astro',
-            description: 'Améliorer le référencement naturel et les performances',
-            status: 'todo',
-            priority: 'medium',
-            dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-            assignees: ['3'],
-            projectId: '1',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            tags: ['seo', 'performance', 'astro']
-          }
-        ]
-      },
-      {
-        id: '2',
-        name: 'Application Mobile React Native',
-        description: 'Application mobile cross-platform avec React Native',
-        color: '#8B5CF6',
-        status: 'active',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        tasks: [
-          {
-            id: '4',
-            title: 'Authentification utilisateur',
-            description: 'Système de connexion et inscription sécurisé',
-            status: 'todo',
-            priority: 'high',
-            dueDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-            assignees: ['2', '4'],
-            projectId: '2',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            tags: ['auth', 'mobile', 'react-native']
-          }
-        ]
-      }
-    ];
-    dispatch({ type: 'SET_PROJECTS', payload: sampleProjects });
-  };
-
-  useEffect(() => {
-    localStorage.setItem('astroProjectManagerData', JSON.stringify({
-      projects: state.projects,
-      theme: state.theme
-    }));
-  }, [state.projects, state.theme]);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', state.theme === 'dark');
-    localStorage.setItem('theme', state.theme);
-  }, [state.theme]);
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>

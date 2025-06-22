@@ -1,8 +1,10 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import ProjectManager from '../components/ProjectManager';
+import App from '../App';
 ---
 
 <Layout title="ProjectFlow - Gestion de Projets">
-  <ProjectManager client:load />
+  <main>
+    <App client:load />
+  </main>
 </Layout>

@@ -158,7 +158,6 @@ export function KanbanView() {
     // Vérifier si la colonne est une colonne personnalisée
     const isCustomColumn = customColumns.some(col => col.id === columnId);
     console.log('Est une colonne personnalisée:', isCustomColumn);
-    console.log('Colonnes personnalisées actuelles:', customColumns);
     
     if (!isCustomColumn) {
       console.log('La colonne ne peut pas être supprimée car elle n\'est pas personnalisée');
@@ -166,36 +165,35 @@ export function KanbanView() {
     }
     
     // Demander confirmation avant de supprimer
-    console.log('Affichage de la boîte de dialogue de confirmation');
     const confirmDelete = window.confirm(
-      'Êtes-vous sûr de vouloir supprimer cette colonne ? Toutes les tâches qu\'elle contient seront déplacées dans "À fait".'
+      'Êtes-vous sûr de vouloir supprimer cette colonne ? Toutes les tâches qu\'elle contient seront déplacées dans "À faire".'
     );
-    console.log('Confirmation utilisateur:', confirmDelete);
     
     if (confirmDelete) {
-      // Créer une copie des tâches actuelles
-      const updatedTasks = [...state.tasks];
-      let tasksUpdated = false;
-      
-      // Mettre à jour le statut des tâches de la colonne à supprimer
-      updatedTasks.forEach((task, index) => {
-        if (task.status === columnId) {
-          updatedTasks[index] = {
-            ...task,
-            status: 'todo',
-            updatedAt: new Date().toISOString()
-          };
-          tasksUpdated = true;
-        }
+      // Mettre à jour les tâches des projets
+      const updatedProjects = state.projects.map(project => {
+        const updatedTasks = project.tasks.map(task => {
+          if (task.status === columnId) {
+            return {
+              ...task,
+              status: 'todo',
+              updatedAt: new Date().toISOString()
+            };
+          }
+          return task;
+        });
+        
+        return {
+          ...project,
+          tasks: updatedTasks
+        };
       });
       
-      // Mettre à jour les tâches dans le store si nécessaire
-      if (tasksUpdated) {
-        dispatch({
-          type: 'UPDATE_TASKS',
-          payload: updatedTasks
-        });
-      }
+      // Mettre à jour les projets avec les tâches mises à jour
+      dispatch({
+        type: 'SET_PROJECTS',
+        payload: updatedProjects
+      });
       
       // Mettre à jour l'état local des colonnes personnalisées
       const updatedCustomColumns = customColumns.filter(col => col.id !== columnId);

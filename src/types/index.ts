@@ -40,7 +40,47 @@ export interface User {
   name: string;
   email: string;
   avatar: string;
+  phone?: string;
+  position?: string;
+  department?: string;
+  role?: 'admin' | 'member' | 'viewer';
+  status?: 'active' | 'inactive';
+  lastActive?: string;
+  settings?: {
+    theme: string;
+    language: string;
+    timezone: string;
+    notifications: boolean;
+    emailNotifications: boolean;
+  };
+  isPrimary?: boolean;
+  cannotDelete?: boolean;
+  emailNotifications: boolean;
+  pushNotifications: boolean;
+  language: string;
+  timezone: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export type ViewMode = 'today' | 'projects' | 'kanban' | 'calendar';
+export type ViewMode = 'today' | 'projects' | 'kanban' | 'calendar' | 'settings';
+
+export interface EmailSettings {
+  smtpHost: string;
+  smtpPort: number;
+  smtpUser: string;
+  smtpPassword: string;
+  fromEmail: string;
+  fromName: string;
+  useSSL: boolean;
+  useTLS: boolean;
+}
+
+export interface AppSettings {
+  theme: Theme;
+  defaultView: ViewMode;
+  itemsPerPage: number;
+  enableAnalytics: boolean;
+  enableErrorReporting: boolean;
+}
 export type Theme = 'light' | 'dark';
