@@ -35,6 +35,25 @@ export interface Project {
   tasks: Task[];
 }
 
+export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+
+// Fonction utilitaire pour les jours de la semaine
+export const DAYS_OF_WEEK: DayOfWeek[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+// Fonction utilitaire pour obtenir le nom du jour en français
+export const getDayName = (day: DayOfWeek): string => {
+  const days = {
+    monday: 'Lundi',
+    tuesday: 'Mardi',
+    wednesday: 'Mercredi',
+    thursday: 'Jeudi',
+    friday: 'Vendredi',
+    saturday: 'Samedi',
+    sunday: 'Dimanche'
+  };
+  return days[day] || day;
+};
+
 export interface User {
   id: string;
   name: string;
@@ -52,6 +71,7 @@ export interface User {
     timezone: string;
     notifications: boolean;
     emailNotifications: boolean;
+    daysOff?: DayOfWeek[]; // Jours de repos hebdomadaires
   };
   isPrimary?: boolean;
   cannotDelete?: boolean;
@@ -59,6 +79,7 @@ export interface User {
   pushNotifications: boolean;
   language: string;
   timezone: string;
+  daysOff?: DayOfWeek[]; // Pour rétrocompatibilité
   createdAt: string;
   updatedAt: string;
 }

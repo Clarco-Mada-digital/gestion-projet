@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { User, TeamMember } from '../../types';
+import { User, TeamMember, DayOfWeek, getDayName, DAYS_OF_WEEK } from '../../types';
 import { Card } from '../UI/Card';
 import { TeamManagement } from '../Settings/TeamManagement';
 import { TeamModal } from '../Modals/TeamModal';
@@ -26,7 +26,12 @@ export function SettingsView() {
   ];
   
   // États pour le formulaire de profil
-  const [formData, setFormData] = useState<Partial<User>>({});
+  const [formData, setFormData] = useState<Partial<User>>({
+    settings: {
+      daysOff: ['sunday'] // Valeur par défaut
+    },
+    daysOff: ['sunday']
+  });
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -185,6 +190,9 @@ export function SettingsView() {
   useEffect(() => {
     if (state.users.length > 0) {
       const primaryUser = state.users[0];
+      const defaultDaysOff = ['sunday'];
+      const userDaysOff = primaryUser.daysOff || primaryUser.settings?.daysOff || defaultDaysOff;
+      
       setFormData({
         name: primaryUser.name,
         email: primaryUser.email,
@@ -194,7 +202,12 @@ export function SettingsView() {
         language: primaryUser.language || 'fr',
         timezone: primaryUser.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
         emailNotifications: primaryUser.emailNotifications !== false,
-        pushNotifications: primaryUser.pushNotifications !== false
+        pushNotifications: primaryUser.pushNotifications !== false,
+        settings: {
+          ...primaryUser.settings,
+          daysOff: Array.isArray(userDaysOff) ? userDaysOff : defaultDaysOff
+        },
+        daysOff: Array.isArray(userDaysOff) ? userDaysOff : defaultDaysOff
       });
     }
   }, [state.users]);
@@ -640,6 +653,56 @@ export function SettingsView() {
                       <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
                     </select>
                   </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Jours de repos hebdomadaires
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {DAYS_OF_WEEK.map((day) => {
+                        const isSelected = formData.daysOff?.includes(day) || formData.settings?.daysOff?.includes(day);
+                        return (
+                          <div key={day} className="flex items-center">
+                            <input
+                              type="checkbox"
+                              id={`day-${day}`}
+                              checked={isSelected}
+                              onChange={() => {
+                                setFormData(prev => {
+                                  const currentDays = Array.isArray(prev.daysOff) ? [...prev.daysOff] : [];
+                                  const newDays = isSelected 
+                                    ? currentDays.filter(d => d !== day)
+                                    : [...currentDays, day];
+                                  
+                                  return {
+                                    ...prev,
+                                    daysOff: newDays,
+                                    settings: {
+                                      ...prev.settings,
+                                      daysOff: newDays
+                                    }
+                                  };
+                                });
+                              }}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600"
+                              disabled={isLoading}
+                            />
+                            <label 
+                              htmlFor={`day-${day}`} 
+                              className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
+                            >
+                              {getDayName(day)}
+                            </label>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {(!formData.daysOff?.length && !formData.settings?.daysOff?.length) && (
+                      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        Aucun jour de repos sélectionné
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -759,6 +822,25 @@ export function SettingsView() {
                           }`}>
                             {formData.pushNotifications ? 'Activées' : 'Désactivées'}
                           </span>
+                        </dd>
+                      </div>
+                      <div className="bg-white dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                        <dt className="text-sm font-medium text-gray-500 dark:text-gray-300">Jours de repos</dt>
+                        <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
+                          {(!formData.daysOff?.length && !formData.settings?.daysOff?.length) ? (
+                            <span className="text-gray-500 dark:text-gray-400">Aucun jour de repos défini</span>
+                          ) : (
+                            <div className="flex flex-wrap gap-2">
+                              {(formData.daysOff || formData.settings?.daysOff || []).map(day => (
+                                <span 
+                                  key={day}
+                                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100"
+                                >
+                                  {getDayName(day as DayOfWeek)}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </dd>
                       </div>
                     </dl>
