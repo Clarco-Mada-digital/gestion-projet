@@ -90,24 +90,33 @@ export function AddTaskForm({ projects, selectedProjectId, status, onAddTask, on
     e.preventDefault();
     if (!title.trim() || !projectId) return;
 
+    const now = new Date().toISOString();
+    const defaultDate = new Date().toISOString().split('T')[0];
+    const taskStartDate = startDate || defaultDate;
+    const taskEndDate = endDate || taskStartDate;
+
     const newTask: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> = {
       title: title.trim(),
       description: description.trim(),
       status,
       projectId,
-      startDate: startDate || new Date().toISOString().split('T')[0],
-      endDate: endDate || startDate || new Date().toISOString().split('T')[0],
-      dueDate: endDate || startDate || new Date().toISOString().split('T')[0], // Utilisation de endDate comme dueDate
+      startDate: taskStartDate,
+      endDate: taskEndDate,
+      dueDate: taskEndDate,
       priority: 'medium',
       assignees: [],
       tags: [],
       subTasks: [],
+      createdAt: now,
+      updatedAt: now,
+      completedAt: status === 'done' ? now : undefined
     };
 
     onAddTask(newTask);
     setTitle('');
     setDescription('');
-    setDueDate('');
+    setStartDate(defaultDate);
+    setEndDate(defaultDate);
   };
   
   const isFormValid = title.trim() !== '' && projectId !== '';

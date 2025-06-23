@@ -19,6 +19,7 @@ export interface Task {
   projectId: string;
   createdAt: string;
   updatedAt: string;
+  completedAt?: string; // Date de complétion de la tâche
   tags: string[];
   subTasks: SubTask[];
   notes?: string;
@@ -95,7 +96,7 @@ export interface User {
   updatedAt: string;
 }
 
-export type ViewMode = 'today' | 'projects' | 'kanban' | 'calendar' | 'settings';
+export type ViewMode = 'today' | 'projects' | 'kanban' | 'calendar' | 'settings' | 'reports';
 
 export interface EmailSettings {
   smtpHost: string;

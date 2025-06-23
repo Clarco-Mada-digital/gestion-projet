@@ -61,6 +61,8 @@ export function TaskCard({ task, className = '' }: TaskCardProps) {
 
 
   const toggleStatus = () => {
+    const now = new Date().toISOString();
+    
     // Si on essaie de marquer la tâche comme terminée
     if (task.status !== 'done' && task.subTasks && task.subTasks.length > 0) {
       // Vérifier si toutes les sous-tâches sont terminées
@@ -72,7 +74,13 @@ export function TaskCard({ task, className = '' }: TaskCardProps) {
         
         dispatch({
           type: 'UPDATE_TASK',
-          payload: { ...task, status: newStatus, updatedAt: new Date().toISOString() }
+          payload: { 
+            ...task, 
+            status: newStatus, 
+            updatedAt: now,
+            // Si on revient à 'in-progress' depuis 'done', on ne touche pas à completedAt
+            completedAt: newStatus === 'in-progress' ? undefined : task.completedAt
+          }
         });
         
         // Afficher un message à l'utilisateur
@@ -85,9 +93,18 @@ export function TaskCard({ task, className = '' }: TaskCardProps) {
     const newStatus = task.status === 'done' ? 'todo' : 
                      task.status === 'todo' ? 'in-progress' : 'done';
     
+    // Mettre à jour la tâche avec le nouveau statut
     dispatch({
       type: 'UPDATE_TASK',
-      payload: { ...task, status: newStatus, updatedAt: new Date().toISOString() }
+      payload: { 
+        ...task, 
+        status: newStatus, 
+        updatedAt: now,
+        // Mettre à jour completedAt uniquement si on passe à 'done'
+        completedAt: newStatus === 'done' ? now : 
+                   newStatus === 'in-progress' ? undefined : 
+                   task.completedAt
+      }
     });
   };
 

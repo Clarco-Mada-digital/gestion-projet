@@ -15,13 +15,18 @@ export function EditTaskForm({ task, onClose }: EditTaskFormProps) {
   const currentProject = state.projects.find((p: Project) => p.id === task.projectId) as Project;
   const [editedTask, setEditedTask] = useState<Task>({ 
     ...task,
+    // S'assurer que toutes les propriétés requises sont définies
     tags: [...(task.tags || [])],
     assignees: [...(task.assignees || [])],
-    // Initialiser les dates si elles n'existent pas
-    startDate: task.startDate || '',
-    endDate: task.endDate || '',
+    startDate: task.startDate || new Date().toISOString().split('T')[0],
+    endDate: task.endDate || new Date().toISOString().split('T')[0],
+    dueDate: task.dueDate || task.endDate || new Date().toISOString().split('T')[0],
+    priority: task.priority || 'medium',
     estimatedHours: task.estimatedHours || 0,
     subTasks: [...(task.subTasks || [])],
+    completedAt: task.completedAt,
+    createdAt: task.createdAt || new Date().toISOString(),
+    updatedAt: task.updatedAt || new Date().toISOString()
   });
 
   const [isAddingTag, setIsAddingTag] = useState(false);
@@ -81,10 +86,21 @@ export function EditTaskForm({ task, onClose }: EditTaskFormProps) {
   // Gérer la soumission du formulaire
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
     // Mettre à jour la tâche avec les dernières modifications
-    const updatedTask = {
+    const now = new Date().toISOString();
+    const updatedTask: Task = {
       ...editedTask,
-      updatedAt: new Date().toISOString()
+      // S'assurer que les dates sont correctement formatées
+      startDate: editedTask.startDate || new Date().toISOString().split('T')[0],
+      endDate: editedTask.endDate || editedTask.startDate || new Date().toISOString().split('T')[0],
+      dueDate: editedTask.dueDate || editedTask.endDate || new Date().toISOString().split('T')[0],
+      // Mettre à jour les timestamps
+      updatedAt: now,
+      // Si la tâche est marquée comme terminée et ne l'était pas avant, mettre à jour completedAt
+      completedAt: editedTask.status === 'done' && task.status !== 'done' 
+        ? now 
+        : editedTask.completedAt
     };
     
     // Mettre à jour la tâche dans l'état global

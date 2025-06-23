@@ -19,6 +19,67 @@ type AIResponse = {
 };
 
 export class AIService {
+  static async generateText(prompt: string, settings: AISettings): Promise<string> {
+    try {
+      const { provider } = settings;
+      const apiKey = provider === 'openai' 
+        ? settings.openaiApiKey 
+        : settings.openrouterApiKey;
+      
+      if (!apiKey) {
+        throw new Error(`Clé API ${provider} manquante`);
+      }
+
+      const endpoint = provider === 'openai'
+        ? 'https://api.openai.com/v1/chat/completions'
+        : 'https://openrouter.ai/api/v1/chat/completions';
+
+      const model = provider === 'openai' 
+        ? settings.openaiModel 
+        : settings.openrouterModel;
+
+      const messages: AIMessage[] = [
+        {
+          role: 'system',
+          content: 'Tu es un assistant qui aide à générer des rapports professionnels.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ];
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          ...(provider === 'openrouter' && {
+            'HTTP-Referer': window.location.origin,
+            'X-Title': 'Gestion de Projet App'
+          })
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: 0.7,
+          max_tokens: 2000
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Erreur lors de la génération du texte');
+      }
+
+      const data: AIResponse = await response.json();
+      return data.choices[0]?.message?.content || 'Aucune réponse générée';
+    } catch (error) {
+      console.error('Erreur dans generateText:', error);
+      throw error;
+    }
+  }
+  
   static async generateSubTasksWithAI(
     settings: AISettings,
     project: Project,
@@ -224,6 +285,60 @@ export class AIService {
         title: title || 'Tâche générée',
         description: description || 'Une erreur est survenue lors de la génération avec IA.'
       };
+    }
+  }
+
+  static async generateAiText(settings: AISettings, prompt: string): Promise<string> {
+    try {
+      const { provider } = settings;
+      const apiKey = provider === 'openai' 
+        ? settings.openaiApiKey 
+        : settings.openrouterApiKey;
+      
+      if (!apiKey) {
+        throw new Error(`Clé API ${provider} manquante`);
+      }
+
+      const endpoint = provider === 'openai'
+        ? 'https://api.openai.com/v1/chat/completions'
+        : 'https://openrouter.ai/api/v1/chat/completions';
+
+      const model = provider === 'openai' 
+        ? settings.openaiModel 
+        : settings.openrouterModel;
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          ...(provider === 'openrouter' && { 'HTTP-Referer': window.location.origin }),
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { 
+              role: 'system', 
+              content: 'Tu es un assistant qui aide à générer des rapports professionnels.'
+            },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.7,
+          max_tokens: 2000,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Erreur API: ${JSON.stringify(errorData)}`);
+      }
+
+      const data = await response.json();
+      return data.choices?.[0]?.message?.content || 'Aucune réponse générée';
+      
+    } catch (error) {
+      console.error('Erreur lors de la génération de texte avec IA:', error);
+      throw error;
     }
   }
 

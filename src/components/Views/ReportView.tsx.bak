@@ -1,0 +1,10 @@
+import { useState, useEffect, useRef } from 'react';
+import { FileText, CheckCircle2, Send, Loader2, Edit, X, Save } from 'lucide-react';
+import { useApp } from '../../context/AppContext';
+import AIService from '../../services/aiService';
+import { Button } from '../UI/Button';
+import { Card } from '../UI/Card';
+import { Input } from '../UI/Input';
+import { Textarea } from '../UI/Textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../UI/dialog';
+import { EmailService } from '../../services/emailService';

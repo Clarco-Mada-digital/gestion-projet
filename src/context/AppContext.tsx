@@ -174,10 +174,13 @@ const exampleProjects: Project[] = [
         status: 'done',
         priority: 'high',
         dueDate: new Date('2023-02-15').toISOString(),
+        startDate: new Date('2023-01-16').toISOString(),
+        endDate: new Date('2023-02-10').toISOString(),
         assignees: ['4'], // Paul Durand (Designer)
         projectId: 'p1',
         createdAt: new Date('2023-01-16').toISOString(),
         updatedAt: new Date('2023-02-10').toISOString(),
+        completedAt: new Date('2023-02-10').toISOString(),
         tags: ['design', 'ui/ux'],
         subTasks: [
           {
@@ -196,14 +199,15 @@ const exampleProjects: Project[] = [
         status: 'in-progress',
         priority: 'high',
         dueDate: new Date('2023-03-10').toISOString(),
+        startDate: new Date('2023-02-15').toISOString(),
+        endDate: new Date('2023-03-10').toISOString(),
         assignees: ['3'], // Marie Martin
         projectId: 'p1',
         createdAt: new Date('2023-02-01').toISOString(),
         updatedAt: new Date('2023-02-15').toISOString(),
         tags: ['backend', 'auth'],
         subTasks: [],
-        estimatedHours: 16,
-        startDate: new Date('2023-02-15').toISOString()
+        estimatedHours: 16
       }
     ]
   },
@@ -223,6 +227,8 @@ const exampleProjects: Project[] = [
         status: 'todo',
         priority: 'medium',
         dueDate: new Date('2023-07-15').toISOString(),
+        startDate: new Date('2023-06-01').toISOString(),
+        endDate: new Date('2023-07-15').toISOString(),
         assignees: ['2'], // Jean Dupont
         projectId: 'p2',
         createdAt: new Date('2023-06-01').toISOString(),
@@ -316,9 +322,20 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
           if (!project.tasks) return project;
           return {
             ...project,
-            tasks: project.tasks.map(task =>
-              task.id === action.payload.id ? action.payload : task
-            ),
+            tasks: project.tasks.map(task => {
+              if (task.id === action.payload.id) {
+                // Si la tâche passe à l'état 'done', on met à jour completedAt
+                const completedAt = action.payload.status === 'done' && task.status !== 'done' 
+                  ? new Date().toISOString() 
+                  : action.payload.completedAt || task.completedAt;
+                
+                return {
+                  ...action.payload,
+                  completedAt: action.payload.completedAt || completedAt
+                };
+              }
+              return task;
+            }),
           };
         }),
       };
