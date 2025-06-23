@@ -2,97 +2,70 @@ import React, { useEffect, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { ModalProvider } from './context/ModalContext';
 import { MainLayout } from './components/Layout/MainLayout';
+import { TodayView } from './components/Views/TodayView';
+import { ProjectsView } from './components/Views/ProjectsView';
+import { KanbanView } from './components/Views/KanbanView';
+import { CalendarView } from './components/Views/CalendarView';
+import { SettingsView } from './components/Views/SettingsView';
 
-// Composant de débogage temporaire
-function DebugPanel() {
-  const { state, dispatch } = useApp();
-  
-  const forceSettingsView = () => {
-    console.log('=== FORCAGE DE LA VUE PARAMÈTRES ===');
-    // Forcer la vue paramètres
-    dispatch({ type: 'SET_VIEW', payload: 'settings' });
-    // Forcer la sauvegarde dans le localStorage
-    const data = JSON.parse(localStorage.getItem('astroProjectManagerData') || '{}');
-    data.currentView = 'settings';
-    localStorage.setItem('astroProjectManagerData', JSON.stringify(data));
-  };
-  
-  const resetView = () => {
-    console.log('=== RÉINITIALISATION DE LA VUE ===');
-    dispatch({ type: 'SET_VIEW', payload: 'today' });
-  };
-  
-  const clearLocalStorage = () => {
-    if (window.confirm('Êtes-vous sûr de vouloir réinitialiser toutes les données ?')) {
-      console.log('=== RÉINITIALISATION DU LOCALSTORAGE ===');
-      localStorage.removeItem('astroProjectManagerData');
-      window.location.reload();
+// Fonction utilitaire pour charger l'état depuis le localStorage
+const loadStateFromLocalStorage = () => {
+  try {
+    const savedData = localStorage.getItem('astroProjectManagerData');
+    if (savedData) {
+      return JSON.parse(savedData);
     }
-  };
-  
-  return (
-    <div className="fixed bottom-4 right-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50">
-      <h3 className="font-bold mb-2 text-sm text-gray-700 dark:text-gray-300">Débogage</h3>
-      <div className="space-y-2">
-        <div className="text-xs mb-2 p-2 bg-gray-100 dark:bg-gray-700 rounded">
-          <p>Vue actuelle: <span className="font-bold">{state.currentView}</span></p>
-        </div>
-        <button
-          onClick={forceSettingsView}
-          className="w-full bg-blue-500 hover:bg-blue-600 text-white text-xs py-1 px-2 rounded"
-        >
-          Forcer Paramètres
-        </button>
-        <button
-          onClick={resetView}
-          className="w-full bg-gray-500 hover:bg-gray-600 text-white text-xs py-1 px-2 rounded"
-        >
-          Réinitialiser Vue
-        </button>
-        <button
-          onClick={clearLocalStorage}
-          className="w-full bg-red-500 hover:bg-red-600 text-white text-xs py-1 px-2 rounded mt-2"
-        >
-          Réinitialiser Données
-        </button>
-      </div>
-    </div>
-  );
-}
+  } catch (error) {
+    console.error('Erreur lors du chargement des données depuis le localStorage:', error);
+  }
+  return null;
+};
 
 function AppContent() {
   // Extraire toutes les valeurs nécessaires du contexte en un seul appel
   const { state, dispatch } = useApp();
-  const { currentView } = state;
+  const { currentView, appSettings } = state;
+  const { fontSize = 'medium' } = appSettings || {};
+  
+  // Appliquer la classe de taille de police au body
+  useEffect(() => {
+    // Supprimer les classes de taille de police existantes
+    document.body.classList.remove('font-size-small', 'font-size-medium', 'font-size-large');
+    
+    // Ajouter la classe de taille de police actuelle
+    document.body.classList.add(`font-size-${fontSize}`);
+    
+    // Mettre à jour la propriété CSS personnalisée pour la taille de police de base
+    document.documentElement.style.setProperty('--font-size-base', 
+      fontSize === 'small' ? '0.875rem' : 
+      fontSize === 'large' ? '1.125rem' : '1rem'
+    );
+  }, [fontSize]);
   
   // États de chargement
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
-  const [debugMode, setDebugMode] = useState(false);
 
-  // Effet pour le chargement initial et le mode debug
+  // Effet pour le chargement initial
   useEffect(() => {
     let isMounted = true;
     
     const initializeApp = async () => {
       try {
-        // Vérifier le mode debug
-        const forceSettings = localStorage.getItem('debug_force_settings') === 'true';
-        if (forceSettings) {
-          console.log('=== FORCAGE DE LA VUE SETTINGS (DEBUG) ===');
-          localStorage.removeItem('debug_force_settings');
-          if (isMounted) {
-            setDebugMode(true);
-            dispatch({ type: 'SET_VIEW', payload: 'settings' });
-          }
-        }
-
-        // Charger les données
-        const savedData = localStorage.getItem('astroProjectManagerData');
+        // Charger les données depuis le localStorage
+        const savedData = loadStateFromLocalStorage();
         if (savedData) {
-          const parsedData = JSON.parse(savedData);
-          if (isMounted) {
-            dispatch({ type: 'LOAD_STATE', payload: parsedData });
+          // Mettre à jour l'état avec les données chargées
+          if (savedData.currentView) {
+            dispatch({ type: 'SET_VIEW', payload: savedData.currentView });
+          }
+          
+          if (savedData.theme) {
+            dispatch({ type: 'SET_THEME', payload: savedData.theme });
+          }
+          
+          if (savedData.appSettings) {
+            dispatch({ type: 'UPDATE_APP_SETTINGS', payload: savedData.appSettings });
           }
         }
       } catch (error) {
@@ -137,7 +110,17 @@ function AppContent() {
     );
   }
 
-  return <MainLayout />;
+  return (
+    <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200`}>
+      <MainLayout currentView={currentView}>
+        {currentView === 'today' && <TodayView />}
+        {currentView === 'projects' && <ProjectsView />}
+        {currentView === 'kanban' && <KanbanView />}
+        {currentView === 'calendar' && <CalendarView />}
+        {currentView === 'settings' && <SettingsView />}
+      </MainLayout>
+    </div>
+  );
 }
 
 // Composant pour regrouper les fournisseurs

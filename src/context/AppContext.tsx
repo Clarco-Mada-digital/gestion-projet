@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { Project, Task, User, UserSettings, ViewMode, Theme, EmailSettings, AppSettings, DEFAULT_AI_SETTINGS } from '../types';
+import { Project, Task, User, UserSettings, ViewMode, Theme, EmailSettings, AppSettings, DEFAULT_AI_SETTINGS, FontSize } from '../types';
 
 interface AppState {
   projects: Project[];
@@ -31,6 +31,7 @@ type AppAction =
   | { type: 'REMOVE_USER'; payload: string }
   | { type: 'UPDATE_EMAIL_SETTINGS'; payload: Partial<EmailSettings> }
   | { type: 'UPDATE_APP_SETTINGS'; payload: Partial<AppSettings> }
+  | { type: 'SET_FONT_SIZE'; payload: FontSize }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'INIT_STATE'; payload: any };
@@ -140,6 +141,8 @@ const exampleUsers: User[] = [
   }
 ];
 
+
+
 // Données d'exemple pour les projets
 const exampleProjects: Project[] = [
   {
@@ -219,6 +222,17 @@ const exampleProjects: Project[] = [
 ];
 
 
+// Paramètres par défaut de l'application
+const initialAppSettings: AppSettings = {
+  theme: 'light',
+  fontSize: 'medium',
+  defaultView: 'today',
+  itemsPerPage: 10,
+  enableAnalytics: false,
+  enableErrorReporting: false,
+  aiSettings: DEFAULT_AI_SETTINGS
+};
+
 const initialState: AppState = {
   projects: [],
   users: [{
@@ -231,34 +245,25 @@ const initialState: AppState = {
       emailNotifications: true,
       pushNotifications: true,
       daysOff: ['saturday', 'sunday']
-    } as UserSettings,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    }
   }],
   theme: 'light',
-  currentView: 'dashboard',
-  selectedProject: null,
+  currentView: 'today',
   emailSettings: {
-    smtpHost: 'smtp.example.com',
+    smtpHost: '',
     smtpPort: 587,
-    smtpUser: 'contact@example.com',
+    smtpUser: '',
     smtpPassword: '',
-    fromEmail: 'noreply@example.com',
-    fromName: 'Équipe Gestion de Projet',
+    fromEmail: '',
+    fromName: '',
     useSSL: false,
     useTLS: true
   },
-  appSettings: {
-    theme: 'light',
-    defaultView: 'today',
-    itemsPerPage: 10,
-    enableAnalytics: true,
-    enableErrorReporting: false,
-    aiSettings: DEFAULT_AI_SETTINGS
-  },
+  appSettings: initialAppSettings,
   notifications: [],
-  isLoading: true,
-  error: null
+  isLoading: false,
+  error: null,
+  selectedProject: null
 };
 
 function appReducer(state: AppState, action: AppAction): AppState {
@@ -422,21 +427,19 @@ function appReducer(state: AppState, action: AppAction): AppState {
         emailSettings: { ...state.emailSettings, ...action.payload }
       };
     case 'UPDATE_APP_SETTINGS':
-      // Fusionner les paramètres IA existants avec les nouveaux
-      const updatedAiSettings = action.payload.aiSettings 
-        ? { 
-            ...(state.appSettings.aiSettings || {}), 
-            ...action.payload.aiSettings 
-          } 
-        : state.appSettings.aiSettings;
-          
       return {
         ...state,
-        appSettings: { 
-          ...state.appSettings, 
-          ...action.payload,
-          // Si des paramètres IA sont fournis, on les fusionne
-          ...(action.payload.aiSettings ? { aiSettings: updatedAiSettings } : {})
+        appSettings: {
+          ...state.appSettings,
+          ...action.payload
+        }
+      };
+    case 'SET_FONT_SIZE':
+      return {
+        ...state,
+        appSettings: {
+          ...state.appSettings,
+          fontSize: action.payload
         }
       };
     case 'SET_LOADING':

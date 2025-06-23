@@ -138,6 +138,7 @@ export const DEFAULT_AI_SETTINGS: AISettings = {
 
 export interface AppSettings {
   theme: Theme;
+  fontSize: FontSize;
   defaultView: ViewMode;
   itemsPerPage: number;
   enableAnalytics: boolean;
@@ -145,3 +146,5 @@ export interface AppSettings {
   aiSettings: AISettings;
 }
 export type Theme = 'light' | 'dark';
+
+export type FontSize = 'small' | 'medium' | 'large';

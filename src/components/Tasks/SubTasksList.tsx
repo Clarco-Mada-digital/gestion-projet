@@ -1,15 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Check, Plus, Trash2, GripVertical } from 'lucide-react';
-import { SubTask } from '../../types';
+import { SubTask, Project, Task } from '../../types';
 import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
+import { AIService } from '../../services/aiService';
+import { useApp } from '../../context/AppContext';
 
 interface SubTasksListProps {
   subTasks: SubTask[];
   onSubTasksChange: (subTasks: SubTask[]) => void;
+  project: Project;
+  task: Task;
 }
 
-export function SubTasksList({ subTasks = [], onSubTasksChange }: SubTasksListProps) {
+export function SubTasksList({ subTasks = [], onSubTasksChange, project, task }: SubTasksListProps) {
   const [newTask, setNewTask] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const { state } = useApp();
+  const aiSettings = state.appSettings?.aiSettings;
 
   const addTask = (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +49,42 @@ export function SubTasksList({ subTasks = [], onSubTasksChange }: SubTasksListPr
     const updated = subTasks.filter(task => task.id !== id);
     onSubTasksChange(updated);
   };
+
+  const generateWithAI = useCallback(async () => {
+    if (!aiSettings?.isConfigured) {
+      alert('La fonctionnalité IA n\'est pas configurée dans les paramètres');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const generatedSubTasks = await AIService.generateSubTasksWithAI(
+        aiSettings,
+        project,
+        task,
+        subTasks
+      );
+
+      const newSubTasks = generatedSubTasks.map(st => ({
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        title: st.title,
+        description: st.description || '',
+        completed: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }));
+
+      onSubTasksChange([...subTasks, ...newSubTasks]);
+    } catch (error) {
+      console.error('Erreur lors de la génération des sous-tâches:', error);
+      alert('Erreur lors de la génération des sous-tâches. Voir la console pour plus de détails.');
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [aiSettings, project, task, subTasks, onSubTasksChange]);
+
+  // Vérifier si l'IA est disponible
+  const isAIAvailable = aiSettings?.isConfigured === true;
 
   const onDragEnd = (result: DropResult) => {
     if (!result.destination) return;
@@ -106,40 +149,63 @@ export function SubTasksList({ subTasks = [], onSubTasksChange }: SubTasksListPr
         </Droppable>
       </DragDropContext>
 
-      <form className="flex gap-2 mt-3">
-        <input
-          type="text"
-          value={newTask}
-          onChange={(e) => setNewTask(e.target.value)}
-          className="flex-1 px-3 py-2 text-sm border bg-transparent rounded-lg focus:ring-2 focus:ring-blue-500"
-          placeholder="Ajouter une sous-tâche"
-        />
-        <div className="flex gap-1">
+      <div className="flex items-center gap-2 mb-2 pt-2">
+        <form className="flex-1 flex gap-2">
+          <input
+            type="text"
+            value={newTask}
+            onChange={(e) => setNewTask(e.target.value)}
+            placeholder="Ajouter une sous-tâche..."
+            className="flex-1 px-3 py-2 border border-gray-300 bg-transparent rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
           <button
-            type="submit"
             onClick={addTask}
-            className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            type="submit"
+            className="p-2 text-gray-500 hover:text-gray-700 focus:outline-none"
             title="Ajouter une sous-tâche"
           >
-            <Plus className="w-4 h-4" />
+            <Plus size={18} />
           </button>
           <button
             type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              // Fonctionnalité IA à implémenter
-              console.log('Génération de sous-tâches avec IA');
-            }}
-            className="p-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors flex items-center gap-1 text-xs"
-            title="Générer avec IA"
+            onClick={generateWithAI}
+            disabled={isGenerating || !isAIAvailable}
+            className={`p-2 rounded-md focus:outline-none ${
+              isAIAvailable
+                ? 'text-blue-500 hover:text-blue-700 hover:bg-blue-50'
+                : 'text-gray-300 cursor-not-allowed'
+            }`}
+            title={
+              isAIAvailable
+                ? "Générer des sous-tâches avec l'IA"
+                : "Configurez l'IA dans les paramètres pour utiliser cette fonctionnalité"
+            }
           >
-            <Plus className="w-3 h-3" />
-            <span>IA</span>
+            {isGenerating ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+            ) : (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-6 h-6"
+              >
+                <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
+                <path d="M5 3v4"></path>
+                <path d="M19 17v4"></path>
+                <path d="M3 5h4"></path>
+                <path d="M17 19h4"></path>
+              </svg>
+            )}
           </button>
-        </div>
-      </form>
-
+        </form>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar as CalendarIcon, Clock, Tag as TagIcon, Users, Plus, X as XIcon } from 'lucide-react';
-import { Task, SubTask, User } from '../../types';
+import { Task, SubTask, User, Project } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { SubTasksList } from './SubTasksList';
 import { v4 as uuidv4 } from 'uuid';
@@ -12,127 +12,126 @@ interface EditTaskFormProps {
 
 export function EditTaskForm({ task, onClose }: EditTaskFormProps) {
   const { state, dispatch } = useApp();
+  const currentProject = state.projects.find((p: Project) => p.id === task.projectId) as Project;
   const [editedTask, setEditedTask] = useState<Task>({ 
     ...task,
     tags: [...(task.tags || [])],
     assignees: [...(task.assignees || [])],
     // Initialiser les dates si elles n'existent pas
-    startDate: task.startDate || task.dueDate || new Date().toISOString().split('T')[0],
-    endDate: task.endDate || task.dueDate || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    startDate: task.startDate || '',
+    endDate: task.endDate || '',
+    estimatedHours: task.estimatedHours || 0,
+    subTasks: [...(task.subTasks || [])],
   });
-  const [newTag, setNewTag] = useState('');
+
   const [isAddingTag, setIsAddingTag] = useState(false);
+  const [newTag, setNewTag] = useState('');
+  const [primaryUser, setPrimaryUser] = useState<User | null>(null);
 
-  // Utiliser le premier utilisateur comme utilisateur principal
-  const primaryUser = state.users && state.users.length > 0 ? state.users[0] : null;
-  
-  // Liste des utilisateurs disponibles (tous sauf ceux déjà assignés)
-  const availableUsers = state.users.filter(user => 
-    !editedTask.assignees.includes(user.id)
-  );
-  
-  // S'assurer que l'utilisateur principal est assigné par défaut pour les nouvelles tâches
+  // Récupérer l'utilisateur principal
   useEffect(() => {
-    if (primaryUser && 
-        !editedTask.assignees.length && 
-        !editedTask.id) { // Seulement pour les nouvelles tâches
-      setEditedTask(prev => ({
-        ...prev,
-        assignees: [primaryUser.id, ...prev.assignees]
-      }));
-    }
-  }, [primaryUser, editedTask.id, editedTask.assignees.length]);
+    const primary = state.users.find(u => u.isPrimary);
+    setPrimaryUser(primary || null);
+  }, [state.users]);
 
-  useEffect(() => {
-    setEditedTask({ 
-      ...task,
-      tags: [...(task.tags || [])],
-      assignees: [...(task.assignees || [])]
-    });
-  }, [task]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    dispatch({ 
-      type: 'UPDATE_TASK', 
-      payload: {
-        ...editedTask,
-        updatedAt: new Date().toISOString()
-      } 
-    });
-    onClose();
-  };
-
-  const handleSubTasksChange = (subTasks: SubTask[]) => {
+  // Gérer les changements des sous-tâches
+  const handleSubTasksChange = (newSubTasks: SubTask[]) => {
     setEditedTask(prev => ({
       ...prev,
-      subTasks: subTasks.map(st => ({
-        ...st,
-        updatedAt: new Date().toISOString()
-      }))
+      subTasks: newSubTasks,
     }));
   };
 
+  // Gérer l'ajout d'un tag
   const addTag = (e: React.FormEvent) => {
     e.preventDefault();
-    e.stopPropagation();
     if (newTag.trim() && !editedTask.tags.includes(newTag.trim())) {
+      const updatedTags = [...editedTask.tags, newTag.trim()];
       setEditedTask(prev => ({
         ...prev,
-        tags: [...prev.tags, newTag.trim()]
+        tags: updatedTags,
       }));
       setNewTag('');
       setIsAddingTag(false);
     }
-    return false;
   };
 
+  // Gérer la suppression d'un tag
   const removeTag = (tagToRemove: string) => {
+    const updatedTags = editedTask.tags.filter(tag => tag !== tagToRemove);
     setEditedTask(prev => ({
       ...prev,
-      tags: prev.tags.filter(tag => tag !== tagToRemove)
+      tags: updatedTags,
     }));
   };
 
+  // Gérer l'ajout/suppression d'un assigné
   const toggleAssignee = (userId: string) => {
+    const isAssigned = editedTask.assignees.includes(userId);
+    const updatedAssignees = isAssigned
+      ? editedTask.assignees.filter(id => id !== userId)
+      : [...editedTask.assignees, userId];
+    
     setEditedTask(prev => ({
       ...prev,
-      assignees: prev.assignees.includes(userId)
-        ? prev.assignees.filter(id => id !== userId)
-        : [...prev.assignees, userId]
+      assignees: updatedAssignees,
     }));
   };
+
+  // Gérer la soumission du formulaire
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Mettre à jour la tâche avec les dernières modifications
+    const updatedTask = {
+      ...editedTask,
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Mettre à jour la tâche dans l'état global
+    dispatch({ type: 'UPDATE_TASK', payload: updatedTask });
+    onClose();
+  };
+
+  // Filtrer les utilisateurs disponibles pour l'assignation
+  const availableUsers = state.users.filter(
+    user => !editedTask.assignees.includes(user.id)
+  );
 
   return (
-    <div className="w-full">
-      {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h2 className="text-lg font-medium leading-6 text-gray-900 dark:text-white">
-          Modifier la tâche
-        </h2>
-      </div>
-      
-      {/* Content */}
-      <div className="max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex justify-between items-center z-10">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+            Modifier la tâche
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Titre */}
+          {/* Titre de la tâche */}
           <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Titre
+            <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Titre de la tâche
             </label>
             <input
               type="text"
               id="title"
               value={editedTask.title}
               onChange={(e) => setEditedTask({...editedTask, title: e.target.value})}
-              className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white placeholder-gray-400 transition duration-200"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white bg-white dark:bg-gray-700 transition duration-200"
+              placeholder="Titre de la tâche"
               required
             />
           </div>
 
           {/* Description */}
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Description
             </label>
             <textarea
@@ -140,46 +139,16 @@ export function EditTaskForm({ task, onClose }: EditTaskFormProps) {
               rows={3}
               value={editedTask.description || ''}
               onChange={(e) => setEditedTask({...editedTask, description: e.target.value})}
-              className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white placeholder-gray-400 transition duration-200"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white bg-white dark:bg-gray-700 transition duration-200"
+              placeholder="Décrivez la tâche en détail..."
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            {/* Statut */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Statut</label>
-              <select
-                value={editedTask.status}
-                onChange={(e) => setEditedTask({...editedTask, status: e.target.value as any})}
-                className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white"
-              >
-                <option value="todo">À faire</option>
-                <option value="in-progress">En cours</option>
-                <option value="done">Terminé</option>
-              </select>
-            </div>
-
-            {/* Priorité */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Priorité</label>
-              <select
-                value={editedTask.priority}
-                onChange={(e) => setEditedTask({...editedTask, priority: e.target.value as any})}
-                className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white"
-              >
-                <option value="low">Basse</option>
-                <option value="medium">Moyenne</option>
-                <option value="high">Haute</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          {/* Dates et estimation */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Date de début */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Date de début
-              </label>
+              <label className="block text-sm font-medium mb-1">Date de début</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <CalendarIcon className="h-5 w-5 text-gray-400" />
@@ -195,9 +164,7 @@ export function EditTaskForm({ task, onClose }: EditTaskFormProps) {
 
             {/* Date de fin */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Date de fin
-              </label>
+              <label className="block text-sm font-medium mb-1">Date de fin</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <CalendarIcon className="h-5 w-5 text-gray-400" />
@@ -239,7 +206,9 @@ export function EditTaskForm({ task, onClose }: EditTaskFormProps) {
             <div className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
               <SubTasksList 
                 subTasks={editedTask.subTasks || []} 
-                onSubTasksChange={handleSubTasksChange} 
+                onSubTasksChange={handleSubTasksChange}
+                project={currentProject}
+                task={editedTask}
               />
             </div>
           </div>
@@ -352,9 +321,8 @@ export function EditTaskForm({ task, onClose }: EditTaskFormProps) {
             </div>
           </div>
 
-        
           {/* Pied de page fixe */}
-          <div className="sticky bottom-0 left-0 right-0 border rounded-lg border-gray-200 bg-gray-800 dark:border-gray-800 p-4 shadow-lg">
+          <div className="sticky bottom-0 left-0 right-0 border rounded-lg border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-800 p-4 shadow-lg">
             <div className="flex justify-between space-x-3 max-w-4xl mx-auto w-full">
               <button
                 type="button"
@@ -375,4 +343,4 @@ export function EditTaskForm({ task, onClose }: EditTaskFormProps) {
       </div>
     </div>
   );
-};
+}

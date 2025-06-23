@@ -470,9 +470,36 @@ export function SettingsView() {
                   <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
                     <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Taille de la police</h4>
                     <div className="flex items-center space-x-4">
-                      <button className="text-xs px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">Petit</button>
-                      <button className="text-sm px-3 py-1 rounded-md bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 font-medium">Moyen</button>
-                      <button className="text-base px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">Grand</button>
+                      <button 
+                        onClick={() => dispatch({ type: 'UPDATE_APP_SETTINGS', payload: { fontSize: 'small' } })}
+                        className={`px-3 py-1 rounded-md ${
+                          state.appSettings.fontSize === 'small' 
+                            ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 font-medium' 
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+                        }`}
+                      >
+                        Petit
+                      </button>
+                      <button 
+                        onClick={() => dispatch({ type: 'UPDATE_APP_SETTINGS', payload: { fontSize: 'medium' } })}
+                        className={`px-3 py-1 rounded-md ${
+                          state.appSettings.fontSize === 'medium' 
+                            ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 font-medium' 
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+                        }`}
+                      >
+                        Moyen
+                      </button>
+                      <button 
+                        onClick={() => dispatch({ type: 'UPDATE_APP_SETTINGS', payload: { fontSize: 'large' } })}
+                        className={`px-3 py-1 rounded-md ${
+                          state.appSettings.fontSize === 'large' 
+                            ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 font-medium' 
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+                        }`}
+                      >
+                        Grand
+                      </button>
                     </div>
                   </div>
 

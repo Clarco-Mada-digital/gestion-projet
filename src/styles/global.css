@@ -7,10 +7,28 @@
 @layer base {
   html {
     font-family: 'Inter', system-ui, sans-serif;
+    /* Taille de police par défaut */
+    font-size: 100%;
   }
   
   body {
     @apply antialiased;
+  }
+  
+  /* Classes pour les différentes tailles de police */
+  .font-size-small {
+    font-size: 0.875rem; /* 14px */
+    line-height: 1.25rem; /* 20px */
+  }
+  
+  .font-size-medium {
+    font-size: 1rem; /* 16px */
+    line-height: 1.5rem; /* 24px */
+  }
+  
+  .font-size-large {
+    font-size: 1.125rem; /* 18px */
+    line-height: 1.75rem; /* 28px */
   }
 }
 
