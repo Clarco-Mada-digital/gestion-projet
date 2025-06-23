@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Redirection...</title>
+    <script>
+      // Rediriger vers la page d'accueil avec le chemin actuel
+      const path = window.location.pathname.split('/');
+      const repoName = 'gestion-projet';
+      const basePath = window.location.hostname === 'clarco-mada-digital.github.io' ? `/${repoName}/` : '/';
+      const redirectTo = basePath + 'index.html' + window.location.search + window.location.hash;
+      
+      // Stocker le chemin actuel pour le routage côté client
+      sessionStorage.setItem('_astro_redirect', window.location.pathname + window.location.search + window.location.hash);
+      
+      // Rediriger vers index.html
+      window.location.href = redirectTo;
+    </script>
+  </head>
+  <body>
+    <p>Redirection en cours...</p>
+  </body>
+</html>
