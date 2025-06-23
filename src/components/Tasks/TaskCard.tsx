@@ -61,6 +61,27 @@ export function TaskCard({ task, className = '' }: TaskCardProps) {
 
 
   const toggleStatus = () => {
+    // Si on essaie de marquer la tâche comme terminée
+    if (task.status !== 'done' && task.subTasks && task.subTasks.length > 0) {
+      // Vérifier si toutes les sous-tâches sont terminées
+      const allSubtasksCompleted = task.subTasks.every(subtask => subtask.completed);
+      
+      if (!allSubtasksCompleted) {
+        // Si toutes les sous-tâches ne sont pas terminées, on passe en 'in-progress' au lieu de 'done'
+        const newStatus = task.status === 'todo' ? 'in-progress' : 'todo';
+        
+        dispatch({
+          type: 'UPDATE_TASK',
+          payload: { ...task, status: newStatus, updatedAt: new Date().toISOString() }
+        });
+        
+        // Afficher un message à l'utilisateur
+        alert('Veuvez terminer toutes les sous-tâches avant de marquer cette tâche comme terminée.');
+        return;
+      }
+    }
+    
+    // Si on n'est pas en train d'essayer de marquer comme terminé, ou si toutes les sous-tâches sont terminées
     const newStatus = task.status === 'done' ? 'todo' : 
                      task.status === 'todo' ? 'in-progress' : 'done';
     
