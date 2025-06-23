@@ -139,7 +139,94 @@ export class AIService {
     }
   }
 
-  // ... reste du code existant ...
+  static async generateTask(
+    settings: AISettings,
+    project: Project,
+    title: string,
+    description: string
+  ): Promise<{ title: string; description: string }> {
+    try {
+      const { provider } = settings;
+      const apiKey = provider === 'openai' 
+        ? settings.openaiApiKey 
+        : settings.openrouterApiKey;
+      
+      if (!apiKey) {
+        throw new Error(`Clé API ${provider} manquante`);
+      }
+
+      const endpoint = provider === 'openai'
+        ? 'https://api.openai.com/v1/chat/completions'
+        : 'https://openrouter.ai/api/v1/chat/completions';
+
+      const model = provider === 'openai' 
+        ? settings.openaiModel 
+        : settings.openrouterModel;
+
+      // Construire le prompt pour générer une tâche
+      const prompt = `Génère une tâche pour le projet "${project.name}". ` +
+        (title ? `Titre suggéré: "${title}"` : '') +
+        (description ? `\nDescription suggérée: "${description}"` : '') +
+        '\n\nGénère un titre et une description détaillée pour cette tâche. ' +
+        'Réponds au format JSON: { "title": "...", "description": "..." }';
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          ...(provider === 'openrouter' && { 'HTTP-Referer': window.location.origin }),
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { 
+              role: 'system', 
+              content: 'Tu es un assistant qui aide à rédiger des titres et descriptions de tâches clairs et précis.'
+            },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.7,
+          max_tokens: 1000,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Erreur API: ${JSON.stringify(errorData)}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content;
+      
+      if (!content) {
+        throw new Error('Réponse de l\'IA invalide');
+      }
+
+      // Essayer d'extraire le JSON de la réponse
+      try {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          return JSON.parse(jsonMatch[0]);
+        }
+      } catch (e) {
+        console.warn('Impossible de parser la réponse JSON, utilisation du texte brut');
+      }
+
+      // Si on n'a pas pu extraire de JSON, on utilise le contenu brut
+      return {
+        title: title || 'Tâche générée',
+        description: content
+      };
+    } catch (error) {
+      console.error('Erreur lors de la génération de la tâche avec IA:', error);
+      return {
+        title: title || 'Tâche générée',
+        description: description || 'Une erreur est survenue lors de la génération avec IA.'
+      };
+    }
+  }
+
   static async testConnection(settings: AISettings, message: string = 'Test de connexion'): Promise<{
     success: boolean;
     message: string;
