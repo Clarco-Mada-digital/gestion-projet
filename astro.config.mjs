@@ -2,17 +2,26 @@ import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import tailwind from '@astrojs/tailwind';
 
-// Obtenez le nom de votre dépôt GitHub depuis l'URL
+// Configuration pour GitHub Pages
+const isGithubPages = process.env.GITHUB_ACTIONS === 'true';
 const repositoryName = 'gestion-projet';
+const base = isGithubPages ? `/${repositoryName}/` : '/';
 
 export default defineConfig({
   site: 'https://clarco-mada-digital.github.io',
-  base: `/${repositoryName}/`,
+  base: base,
   output: 'static',
   integrations: [
     react(),
     tailwind({
       applyBaseStyles: false,
     })
-  ]
+  ],
+  build: {
+    format: 'directory',
+    inlineStylesheets: 'never'
+  },
+  vite: {
+    base: base === '/' ? '' : base
+  }
 });
