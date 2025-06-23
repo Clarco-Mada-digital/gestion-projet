@@ -5,8 +5,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -29,21 +32,15 @@ jobs:
           ls -la dist/
           echo "=============================="
 
+      - name: Create .nojekyll
+        run: touch ./dist/.nojekyll
+
       - name: Deploy to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4
+        uses: JamesIves/github-pages-deploy-action@v4.5.0
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           branch: gh-pages
           folder: dist
-          token: ${{ secrets.GITHUB_TOKEN }}
           clean: true
-          clean-exclude: |
-            .nojekyll
-            CNAME
-            404.html
           commit-message: 'Deploy: Update site content'
-          single-commit: true
-
-      - name: Verify deployment
-        run: |
-          echo "Vérification du déploiement..."
-          echo "Votre site sera disponible à: https://clarco-mada-digital.github.io/gestion-projet/"
+          force: true
