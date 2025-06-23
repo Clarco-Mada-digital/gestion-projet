@@ -31,9 +31,19 @@ export function TaskCard({ task, className = '' }: TaskCardProps) {
   const startDate = task.startDate || task.dueDate;
   const endDate = task.endDate || task.dueDate || startDate;
   
-  const isOverdue = isValidDate(endDate) && 
-                   new Date(endDate).toDateString() < new Date().toDateString() && 
-                   task.status !== 'done';
+  const isOverdue = (() => {
+    if (!isValidDate(endDate) || task.status === 'done') return false;
+    
+    const now = new Date();
+    const taskEndDate = new Date(endDate);
+    
+    // Réinitialiser les heures pour la comparaison
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endDateOnly = new Date(taskEndDate.getFullYear(), taskEndDate.getMonth(), taskEndDate.getDate());
+    
+    // La tâche est en retard si la date de fin est antérieure à aujourd'hui
+    return endDateOnly < today;
+  })();
                    
   const isToday = isValidDate(startDate) && isValidDate(endDate) &&
                  new Date(startDate).toDateString() <= new Date().toDateString() && 

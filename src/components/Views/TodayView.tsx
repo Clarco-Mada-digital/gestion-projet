@@ -9,11 +9,11 @@ export function TodayView() {
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
   const today = new Date().toDateString();
   
-  // Initialiser tous les projets comme étant dépliés par défaut
+  // Initialiser tous les projets comme étant repliés par défaut
   React.useEffect(() => {
     const initialExpanded: Record<string, boolean> = {};
     state.projects.forEach(project => {
-      initialExpanded[project.id] = true;
+      initialExpanded[project.id] = false; // false pour que les projets soient repliés par défaut
     });
     setExpandedProjects(initialExpanded);
   }, [state.projects]);
@@ -27,6 +27,12 @@ export function TodayView() {
   
   // Fonction utilitaire pour vérifier si une date est dans la plage de la tâche
   const isTaskInDateRange = (task: any, targetDate: Date) => {
+    // Si la tâche n'a pas de date de début ni de fin, on la considère comme non concernée
+    if (!task.startDate && !task.endDate && !task.dueDate) return false;
+    
+    // Exclure les tâches terminées de la liste des tâches d'aujourd'hui
+    if (task.status === 'done') return false;
+    
     const taskStartDate = new Date(task.startDate || task.dueDate);
     const taskEndDate = new Date(task.endDate || task.dueDate);
     
@@ -37,6 +43,7 @@ export function TodayView() {
     taskStartDate.setHours(0, 0, 0, 0);
     taskEndDate.setHours(0, 0, 0, 0);
     
+    // Vérifier si la date actuelle est dans la plage de la tâche
     return currentDate >= taskStartDate && currentDate <= taskEndDate;
   };
 
@@ -75,14 +82,14 @@ export function TodayView() {
   return (
     <div className="space-y-8">
       {/* En-tête avec design futuriste */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div className="flex-1">
           <div className="flex items-center space-x-3 mb-2">
             <div className="w-12 h-12 bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg">
               <Target className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 bg-clip-text text-transparent">
+              <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 bg-clip-text text-transparent">
                 Travail d'aujourd'hui
               </h1>
               <p className="text-gray-600 dark:text-gray-400 mt-1 font-medium">
@@ -97,54 +104,27 @@ export function TodayView() {
           </div>
         </div>
         
-        <Card className="p-6" gradient>
-          <div className="flex items-center space-x-6">
-            <div className="text-center">
-              <p className="text-3xl font-bold bg-gradient-to-r from-green-500 to-emerald-500 bg-clip-text text-transparent">
-                {completedToday}/{totalToday}
+        <Card className="w-full md:w-auto" gradient>
+          <div className="grid grid-cols-2 gap-6">
+            <div className="text-center p-4">
+              <p className="text-3xl font-bold bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent">
+                {todayTasks.filter(t => t.status === 'todo').length}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                Tâches terminées
+                À faire
               </p>
             </div>
-            <div className="relative w-20 h-20">
-              <svg className="w-20 h-20 transform -rotate-90">
-                <circle
-                  cx="40"
-                  cy="40"
-                  r="32"
-                  stroke="currentColor"
-                  strokeWidth="6"
-                  fill="none"
-                  className="text-gray-200 dark:text-gray-700"
-                />
-                <circle
-                  cx="40"
-                  cy="40"
-                  r="32"
-                  stroke="url(#gradient)"
-                  strokeWidth="6"
-                  fill="none"
-                  strokeDasharray={`${2 * Math.PI * 32}`}
-                  strokeDashoffset={`${2 * Math.PI * 32 * (1 - progressPercentage / 100)}`}
-                  className="transition-all duration-500"
-                  strokeLinecap="round"
-                />
-                <defs>
-                  <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#10B981" />
-                    <stop offset="100%" stopColor="#06B6D4" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <CheckCircle className="w-8 h-8 text-green-500" />
-              </div>
+            <div className="text-center p-4">
+              <p className="text-3xl font-bold bg-gradient-to-r from-yellow-500 to-orange-500 bg-clip-text text-transparent">
+                {todayTasks.filter(t => t.status === 'in-progress').length}
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                En cours
+              </p>
             </div>
           </div>
         </Card>
       </div>
-
       {/* Tâches en retard avec design d'alerte */}
       {overdueTasks.length > 0 && (
         <Card className="p-6 bg-gradient-to-r from-red-50/80 via-pink-50/80 to-orange-50/80 dark:from-red-900/20 dark:via-pink-900/20 dark:to-orange-900/20 border-red-200/50 dark:border-red-800/50" gradient>
@@ -257,7 +237,7 @@ export function TodayView() {
       </Card>
 
       {/* Résumé rapide avec statistiques */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="p-6 text-center" hover gradient>
           <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
             <span className="text-2xl font-bold text-white">
@@ -284,7 +264,7 @@ export function TodayView() {
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">Terminées</div>
         </Card>
-      </div>
+      </div> */}
     </div>
   );
 }
