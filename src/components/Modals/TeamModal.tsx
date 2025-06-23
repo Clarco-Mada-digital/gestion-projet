@@ -167,15 +167,16 @@ export function TeamModal({ isOpen, onClose, member, onSubmit }: TeamModalProps)
       
       {/* Modal Container */}
       <div 
-        className="relative w-full max-w-2xl bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700"
+        className="w-full bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700"
         style={{
           maxHeight: '90vh',
           display: 'flex',
+          padding: '20px 15px',
           flexDirection: 'column',
           position: 'relative',
           zIndex: 2,
           width: '100%',
-          maxWidth: '32rem',
+          maxWidth: '75vw',
           overflowY: 'auto',
           boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
         }}
@@ -449,11 +450,11 @@ export function TeamModal({ isOpen, onClose, member, onSubmit }: TeamModalProps)
             </div>
 
             {/* Actions */}
-            <div className="mt-8 pt-5 border-t border-gray-200 dark:border-gray-700 flex flex-col-reverse sm:flex-row justify-end gap-3">
+            <div className="mt-8 pt-5 border-t border-gray-200 dark:border-gray-700 flex flex-col-reverse sm:flex-row justify-between gap-3">
               <button
                 type="button"
                 onClick={onClose}
-                className="inline-flex justify-center items-center rounded-lg border border-gray-300 bg-white dark:bg-gray-700 py-2.5 px-5 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                className="inline-flex justify-center items-center rounded-lg border border-red-300 bg-white dark:bg-red-700 py-2.5 px-5 text-sm font-medium text-red-700 dark:text-red-300 shadow-sm hover:bg-red-50 dark:hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
               >
                 Annuler
               </button>

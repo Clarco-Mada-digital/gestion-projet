@@ -7,7 +7,7 @@ import { Button } from '../UI/Button';
 import { Modal } from '../UI/Modal';
 import { Project, Task, AISettings as AISettingsType } from '../../types';
 import { AISettings } from '../Settings/AISettings';
-import { Tabs, Form, Input, Select, Row, Col, message } from 'antd';
+import { Tabs, Form, Input, Select, Row, Col, InputNumber, message } from 'antd';
 
 interface ProjectCardProps {
   project: Project;
@@ -133,6 +133,17 @@ export function ProjectsView() {
   const { state, dispatch } = useApp();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  
+  const resetNewProjectForm = () => {
+    setNewProject({
+      name: '',
+      description: '',
+      color: '#0EA5E9',
+      status: 'active',
+      estimatedDuration: 0,
+      tasks: []
+    });
+  };
   const [activeTab, setActiveTab] = useState('general'); // État pour gérer l'onglet actif
   const [aiSettings, setAISettings] = useState<AISettingsType>({
     provider: 'openai',
@@ -150,51 +161,57 @@ export function ProjectsView() {
   const [showCompletedProjects, setShowCompletedProjects] = useState(false);
   const [showArchivedProjects, setShowArchivedProjects] = useState(false);
 
-  const [newProject, setNewProject] = useState<Omit<Project, 'id' | 'createdAt' | 'updatedAt'> & { tasks: Task[] }>({
+  const [newProject, setNewProject] = useState<Omit<Project, 'id' | 'createdAt' | 'updatedAt' | 'tasks'>>({
     name: '',
     description: '',
     color: '#0EA5E9',
     status: 'active',
+    estimatedDuration: 0,
     tasks: []
   });
   
-  const [newTask, setNewTask] = useState<Omit<Task, 'id' | 'projectId' | 'createdAt' | 'updatedAt' | 'subTasks'>>({
+  const [newTask, setNewTask] = useState({
     title: '',
     description: '',
-    status: 'todo',
-    priority: 'medium',
-    dueDate: new Date().toISOString().split('T')[0],
-    assignees: [],
-    tags: [],
-    notes: '',
-    estimatedHours: 0
+    status: 'todo' as const,
+    priority: 'medium' as const,
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Demain par défaut
+    estimatedHours: 1,
   });
 
-
-
   const addTask = () => {
-    if (!newTask.title.trim()) return;
+    if (!editingProject || !newTask.title.trim()) return;
     
-    const taskToAdd: Task = {
-      ...newTask,
+    const task: Task = {
       id: uuidv4(),
-      projectId: editingProject?.id || '',
+      title: newTask.title,
+      description: newTask.description,
+      status: 'todo',
+      priority: newTask.priority,
+      dueDate: newTask.endDate, // Gardé pour compatibilité
+      startDate: newTask.startDate,
+      endDate: newTask.endDate,
+      assignees: [],
+      projectId: editingProject.id,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      subTasks: []
+      tags: [],
+      subTasks: [],
+      estimatedHours: newTask.estimatedHours || 0,
     };
-    
+
     if (editingProject) {
       // Ajouter la tâche au projet en cours d'édition
       setEditingProject({
         ...editingProject,
-        tasks: [...(editingProject.tasks || []), taskToAdd]
+        tasks: [...(editingProject.tasks || []), task]
       });
     } else {
       // Ajouter la tâche au nouveau projet
       setNewProject({
         ...newProject,
-        tasks: [...newProject.tasks, taskToAdd]
+        tasks: [...newProject.tasks, task]
       });
     }
     
@@ -204,11 +221,9 @@ export function ProjectsView() {
       description: '',
       status: 'todo',
       priority: 'medium',
-      dueDate: new Date().toISOString().split('T')[0],
-      assignees: [],
-      tags: [],
-      notes: '',
-      estimatedHours: 0
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Demain par défaut
+      estimatedHours: 1,
     });
   };
   
@@ -238,6 +253,7 @@ export function ProjectsView() {
       description: newProject.description,
       color: newProject.color,
       status: 'active',
+      estimatedDuration: newProject.estimatedDuration || 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       tasks: (newProject.tasks || []).map(task => ({
@@ -250,14 +266,10 @@ export function ProjectsView() {
       }))
     };
 
+    // Réinitialiser le formulaire après la création
+    resetNewProjectForm();
+
     dispatch({ type: 'ADD_PROJECT', payload: project });
-    setNewProject({ 
-      name: '', 
-      description: '', 
-      color: '#0EA5E9', 
-      status: 'active',
-      tasks: []
-    });
     setShowCreateModal(false);
   };
 
@@ -405,6 +417,7 @@ export function ProjectsView() {
       description: project.description || '',
       color: project.color,
       status: project.status,
+      estimatedDuration: project.estimatedDuration || 0,
     });
     setActiveTab('general'); // Réinitialiser à l'onglet général
     setShowProjectModal(true);
@@ -416,6 +429,7 @@ export function ProjectsView() {
       description: '',
       color: '#1890ff',
       status: 'active',
+      estimatedDuration: 0,
     });
     setAISettings({
       provider: 'openai',
@@ -455,6 +469,7 @@ export function ProjectsView() {
         description: newProject.description,
         color: newProject.color,
         status: newProject.status,
+        estimatedDuration: newProject.estimatedDuration || 0,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         tasks: [],
@@ -465,7 +480,7 @@ export function ProjectsView() {
     }
 
     setShowProjectModal(false);
-    setNewProject({ name: '', description: '', color: '#1890ff', status: 'active' });
+    setNewProject({ name: '', description: '', color: '#1890ff', status: 'active', estimatedDuration: 0 });
     setEditingProject(null);
     setAISettings(null);
   };
@@ -476,7 +491,10 @@ export function ProjectsView() {
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Projets</h1>
         <Button
           icon={Plus}
-          onClick={() => setShowCreateModal(true)}
+          onClick={() => {
+            resetNewProjectForm();
+            setShowCreateModal(true);
+          }}
           variant="gradient"
           size="lg"
         >
@@ -535,7 +553,10 @@ export function ProjectsView() {
           </p>
           <Button
             icon={Plus}
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => {
+              resetNewProjectForm();
+              setShowCreateModal(true);
+            }}
             variant="gradient"
             size="lg"
           >
@@ -819,6 +840,15 @@ export function ProjectsView() {
                   </Form.Item>
                 </Col>
               </Row>
+              <Form.Item label="Durée estimée (jours)">
+                <InputNumber
+                  min={1}
+                  value={newProject.estimatedDuration}
+                  onChange={(value) => setNewProject({ ...newProject, estimatedDuration: Math.max(1, value || 1) })}
+                  style={{ width: '100%' }}
+                  placeholder="Durée estimée en jours"
+                />
+              </Form.Item>
             </Form>
           </Tabs.TabPane>
           <Tabs.TabPane 
@@ -852,7 +882,7 @@ export function ProjectsView() {
         onClose={() => setEditingProject(null)}
         title="Modifier le projet"
         size="lg"
-      >
+        >
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -880,20 +910,37 @@ export function ProjectsView() {
                 <option value="active">Actif</option>
                 <option value="on-hold">En attente</option>
                 <option value="completed">Terminé</option>
+                <option value="archived">Archivé</option>
               </select>
             </div>
           </div>
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Description
-            </label>
-            <textarea
-              value={editingProject?.description || ''}
-              onChange={(e) => editingProject && setEditingProject({...editingProject, description: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white min-h-[100px]"
-              placeholder="Description du projet..."
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Description
+              </label>
+              <textarea
+                value={editingProject?.description || ''}
+                onChange={(e) => editingProject && setEditingProject({...editingProject, description: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white min-h-[100px]"
+                placeholder="Description du projet..."
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Durée estimée (jours)
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={editingProject?.estimatedDuration || 1}
+                onChange={(e) => editingProject && setEditingProject({...editingProject, estimatedDuration: Math.max(1, Number(e.target.value))})}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
+                placeholder="Durée estimée en jours"
+              />
+            </div>
           </div>
           
           <div>
@@ -928,7 +975,7 @@ export function ProjectsView() {
                     <div>
                       <h4 className="font-medium text-gray-900 dark:text-white">{task.title}</h4>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {task.dueDate} • {task.estimatedHours}h estimées
+                        {task.startDate} → {task.endDate} • {task.estimatedHours}h estimées
                       </p>
                     </div>
                     <button
@@ -991,15 +1038,27 @@ export function ProjectsView() {
               />
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Date d'échéance
+                  Date de début
                 </label>
                 <input
                   type="date"
-                  value={newTask.dueDate}
-                  onChange={(e) => setNewTask({...newTask, dueDate: e.target.value})}
+                  value={newTask.startDate}
+                  onChange={(e) => setNewTask({...newTask, startDate: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Date de fin
+                </label>
+                <input
+                  type="date"
+                  min={newTask.startDate}
+                  value={newTask.endDate}
+                  onChange={(e) => setNewTask({...newTask, endDate: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
                 />
               </div>
@@ -1048,14 +1107,14 @@ export function ProjectsView() {
           </div>
         </div>
       </Modal>
-      
+
       {/* Confirmation de suppression */}
       <Modal
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
         title="Confirmer la suppression"
         size="sm"
-      >
+        >
         <div className="space-y-6">
           <div className="flex items-center justify-center text-yellow-500 mb-4">
             <AlertTriangle className="w-12 h-12" />
@@ -1092,6 +1151,84 @@ export function ProjectsView() {
             >
               <Trash2 className="w-4 h-4 mr-2" />
               Supprimer
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal de création de projet */}
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="Nouveau Projet"
+        size="lg"
+      >
+        <div className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Nom du projet *
+            </label>
+            <input
+              type="text"
+              value={newProject.name}
+              onChange={(e) => setNewProject({...newProject, name: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
+              placeholder="Ex: Site web client"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Description (optionnel)
+            </label>
+            <textarea
+              value={newProject.description}
+              onChange={(e) => setNewProject({...newProject, description: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white min-h-[100px]"
+              placeholder="Décrivez votre projet..."
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              Couleur du projet
+            </label>
+            <div className="flex flex-wrap gap-3">
+              {colors.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setNewProject({...newProject, color})}
+                  className={`w-10 h-10 rounded-2xl border-2 transition-all duration-200 transform hover:scale-110 shadow-lg ${
+                    newProject.color === color ? 'border-gray-400 scale-110' : 'border-transparent'
+                  }`}
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </div>
+          </div>
+          
+          <div className="flex space-x-4 pt-6">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowCreateModal(false);
+                resetNewProjectForm();
+              }}
+              className="flex-1"
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={() => {
+                createProject();
+                setShowCreateModal(false);
+              }}
+              variant="gradient"
+              className="flex-1"
+              disabled={!newProject.name.trim()}
+            >
+              Créer le projet
             </Button>
           </div>
         </div>

@@ -176,6 +176,26 @@ export class AIService {
     existingTitle?: string,
     existingDescription?: string
   ): Promise<Partial<Task>> {
+    // Récupérer les tâches existantes du projet
+    const existingTasks = project.tasks?.map(task => ({
+      title: task.title,
+      description: task.description,
+      status: task.status,
+      priority: task.priority,
+      tags: task.tags
+    })) || [];
+    
+    // Préparer la liste des tâches existantes pour le prompt
+    const existingTasksText = existingTasks.length > 0
+      ? `Tâches existantes dans le projet (à ne pas dupliquer) :\n` +
+        existingTasks
+          .map((task, index) => 
+            `${index + 1}. "${task.title}" (${task.status}) - Priorité: ${task.priority}` + 
+            (task.tags?.length ? ` - Tags: ${task.tags.join(', ')}` : '') +
+            (task.description ? `\n   Description: ${task.description.substring(0, 100)}${task.description.length > 100 ? '...' : ''}` : '')
+          )
+          .join('\n') + '\n\n'
+      : '';
     try {
       const { provider } = settings;
       const apiKey = provider === 'openai' 
@@ -195,15 +215,23 @@ export class AIService {
         : settings.openrouterModel;
 
       // Créer un prompt détaillé pour la génération de tâche
-      const prompt = `Génère une tâche pour le projet "${project.name}".
+      const prompt = `Génère une nouvelle tâche pour le projet "${project.name}". 
+
+${existingTasksText}
 ${existingTitle ? `Titre suggéré: ${existingTitle}\n` : ''}${existingDescription ? `Description: ${existingDescription}\n` : ''}
+
+Instructions importantes :
+- Ne propose pas de tâches qui existent déjà dans le projet (voir ci-dessus)
+- La tâche doit être cohérente avec les autres tâches du projet
+- Propose une tâche qui suit logiquement les tâches existantes
+
 La tâche doit inclure :
-- Un titre clair et concis
+- Un titre clair et concis (différent des tâches existantes)
 - Une description détaillée
 - Une priorité (low, medium, high)
 - Une estimation en heures
 - Des sous-tâches si nécessaire
-- Des tags pertinents
+- Des tags pertinents (en français, en minuscules)
 
 Format de réponse attendu en JSON :
 {
@@ -227,7 +255,7 @@ Format de réponse attendu en JSON :
           messages: [
             { 
               role: 'system', 
-              content: 'Tu es un assistant qui aide à la gestion de projet. Génère des tâches pertinentes et bien structurées.' 
+              content: 'Tu es un expert en gestion de projet. Ton rôle est de générer des tâches pertinentes, uniques et bien structurées qui s\'intègrent parfaitement dans le projet existant. Fais attention à ne pas proposer de tâches qui existent déjà et assure-toi que les nouvelles tâches sont cohérentes avec le contexte du projet.' 
             },
             { 
               role: 'user', 

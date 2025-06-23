@@ -79,7 +79,7 @@ export function TaskCard({ task, className = '' }: TaskCardProps) {
   return (
     <div className="relative">
       <Card 
-        className={`p-6 transition-all duration-200 ${isOverdue ? 'border-l-4 border-red-500' : ''} ${isToday ? 'ring-2 ring-blue-500/20' : ''} ${className}`} 
+        className={`p-6 transition-all duration-200 ${isOverdue ? 'border-l-4 border-red-500 dark:border-red-700' : ''} ${isToday ? 'ring-2 ring-blue-500/20 dark:rign-blue-500' : ''} ${className}`} 
         hover 
         gradient
       >

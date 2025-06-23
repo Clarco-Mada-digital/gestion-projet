@@ -113,7 +113,7 @@ export function EditTaskForm({ task, onClose }: EditTaskFormProps) {
       </div>
       
       {/* Content */}
-      <div className="max-h-[70vh] overflow-y-auto">
+      <div className="max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Titre */}
           <div>
@@ -354,12 +354,12 @@ export function EditTaskForm({ task, onClose }: EditTaskFormProps) {
 
         
           {/* Pied de page fixe */}
-          <div className="sticky bottom-0 left-0 right-0 bg-white/95 dark:bg-gray-900/95 border-t border-gray-200 dark:border-gray-800 p-4 shadow-lg">
-            <div className="flex justify-end space-x-3 max-w-4xl mx-auto w-full">
+          <div className="sticky bottom-0 left-0 right-0 border rounded-lg border-gray-200 bg-gray-800 dark:border-gray-800 p-4 shadow-lg">
+            <div className="flex justify-between space-x-3 max-w-4xl mx-auto w-full">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+                className="px-5 py-2.5 text-sm font-medium text-red-700 dark:text-red-300 bg-white dark:bg-gray-800 border border-red-300 dark:border-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-700 transition-colors duration-200"
               >
                 Annuler
               </button>

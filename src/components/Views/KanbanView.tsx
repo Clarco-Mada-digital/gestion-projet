@@ -311,7 +311,7 @@ export function KanbanView() {
   }, [dispatch, columns]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 max-h-[95vh] overflow-y-hidden">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-4">
@@ -538,7 +538,7 @@ export function KanbanView() {
                       <div 
                         ref={provided.innerRef}
                         {...provided.droppableProps}
-                        className={`space-y-3 min-h-[200px] p-2 rounded-lg transition-all duration-200 ${
+                        className={`space-y-3 max-h-[75vh] overflow-y-auto scrollbar-thin p-2 rounded-lg transition-all duration-200 ${
                           snapshot.isDraggingOver 
                             ? 'bg-black/5 dark:bg-white/5 ring-2 ring-blue-400/50' 
                             : 'bg-transparent'

@@ -54,7 +54,7 @@ export function SubTasksList({ subTasks = [], onSubTasksChange }: SubTasksListPr
   };
 
   return (
-    <div className="mt-4">
+    <div className="mt-2">
       <h3 className="text-sm font-medium mb-2">Sous-tâches</h3> 
 
       <DragDropContext onDragEnd={onDragEnd}>
@@ -116,7 +116,7 @@ export function SubTasksList({ subTasks = [], onSubTasksChange }: SubTasksListPr
         />
         <div className="flex gap-1">
           <button
-            type="button"
+            type="submit"
             onClick={addTask}
             className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
             title="Ajouter une sous-tâche"

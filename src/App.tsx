@@ -155,7 +155,7 @@ export default function App() {
   return (
     <AppProviders>
       <AppContent />
-      <DebugPanel />
+      {/* <DebugPanel /> */}
     </AppProviders>
   );
 }
