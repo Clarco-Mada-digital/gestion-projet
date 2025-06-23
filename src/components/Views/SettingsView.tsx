@@ -6,6 +6,7 @@ import { TeamManagement } from '../Settings/TeamManagement';
 import { TeamModal } from '../Modals/TeamModal';
 import { EmailSettings } from '../Settings/EmailSettings';
 import { AISettings } from '../Settings/AISettings';
+import { DataManagement } from '../Settings/DataManagement';
 
 export function SettingsView() {
   console.log('Rendering SettingsView component');
@@ -23,6 +24,7 @@ export function SettingsView() {
     { id: 'team', name: 'Équipe' },
     { id: 'email', name: 'Paramètres Email' },
     { id: 'ai', name: 'Intelligence Artificielle' },
+    { id: 'data', name: 'Gestion des données' },
     { id: 'notifications', name: 'Notifications' },
     { id: 'appearance', name: 'Apparence' },
   ];
@@ -317,6 +319,9 @@ export function SettingsView() {
       
       case 'email':
         return <EmailSettings />;
+        
+      case 'data':
+        return <DataManagement />;
         
       case 'notifications':
         return (

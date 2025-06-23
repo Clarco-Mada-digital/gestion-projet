@@ -34,7 +34,20 @@ type AppAction =
   | { type: 'SET_FONT_SIZE'; payload: FontSize }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
-  | { type: 'INIT_STATE'; payload: any };
+  | { type: 'INIT_STATE'; payload: any }
+  | { type: 'IMPORT_DATA'; payload: any }
+  | { type: 'EXPORT_DATA' };
+
+// Type pour les données exportables
+export interface ExportableData {
+  projects: Project[];
+  users: User[];
+  theme: 'light' | 'dark';
+  emailSettings: EmailSettings;
+  appSettings: AppSettings;
+  version: string;
+  exportedAt: string;
+}
 
 // Données par défaut pour l'utilisateur principal
 const defaultUser: User = {
@@ -266,7 +279,7 @@ const initialState: AppState = {
   selectedProject: null
 };
 
-function appReducer(state: AppState, action: AppAction): AppState {
+const appReducer = (state: AppState, action: AppAction): AppState => {
   switch (action.type) {
     case 'SET_PROJECTS':
       return { ...state, projects: action.payload };
@@ -275,84 +288,68 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'UPDATE_PROJECT':
       return {
         ...state,
-        projects: state.projects.map(p => p.id === action.payload.id ? action.payload : p)
+        projects: state.projects.map(project =>
+          project.id === action.payload.id ? action.payload : project
+        ),
       };
     case 'DELETE_PROJECT':
       return {
         ...state,
-        projects: state.projects.filter(p => p.id !== action.payload)
+        projects: state.projects.filter(project => project.id !== action.payload),
       };
     case 'ADD_TASK':
       return {
         ...state,
-        projects: state.projects.map(project => 
-          project.id === action.payload.projectId 
-            ? { ...project, tasks: [...project.tasks, action.payload.task] } 
+        projects: state.projects.map(project =>
+          project.id === action.payload.projectId
+            ? {
+                ...project,
+                tasks: [...(project.tasks || []), action.payload.task],
+              }
             : project
-        )
+        ),
       };
     case 'UPDATE_TASK':
       return {
         ...state,
-        projects: state.projects.map(project => ({
-          ...project,
-          tasks: project.tasks.map(task =>
-            task.id === action.payload.id ? action.payload : task
-          )
-        }))
+        projects: state.projects.map(project => {
+          if (!project.tasks) return project;
+          return {
+            ...project,
+            tasks: project.tasks.map(task =>
+              task.id === action.payload.id ? action.payload : task
+            ),
+          };
+        }),
       };
     case 'DELETE_TASK':
       return {
         ...state,
-        projects: state.projects.map(project =>
-          project.id === action.payload.projectId
-            ? { ...project, tasks: project.tasks.filter(t => t.id !== action.payload.taskId) }
-            : project
-        )
+        projects: state.projects.map(project => {
+          if (project.id !== action.payload.projectId) return project;
+          return {
+            ...project,
+            tasks: (project.tasks || []).filter(
+              task => task.id !== action.payload.taskId
+            ),
+          };
+        }),
       };
     case 'SET_VIEW':
       return { ...state, currentView: action.payload };
-    case 'SET_THEME': {
-      // Mettre à jour le thème à la fois dans l'état global et dans les paramètres de l'utilisateur principal
-      const updatedUsers = [...state.users];
-      if (updatedUsers.length > 0) {
-        const currentSettings: UserSettings = {
-          theme: 'light',
-          language: 'fr',
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          notifications: true,
-          emailNotifications: true,
-          pushNotifications: true,
-          daysOff: ['saturday', 'sunday'],
-          ...(updatedUsers[0].settings || {}) as Partial<UserSettings>
-        };
-        
-        updatedUsers[0] = {
-          ...updatedUsers[0],
-          settings: {
-            ...currentSettings,
-            theme: action.payload
-          }
-        };
-      }
-      
-      return { 
-        ...state, 
-        theme: action.payload,
-        users: updatedUsers
-      };
-    }
+    case 'SET_THEME':
+      return { ...state, theme: action.payload };
     case 'SET_SELECTED_PROJECT':
       return { ...state, selectedProject: action.payload };
     case 'UPDATE_USER':
-      if (!action.payload.id) {
-        console.warn('UPDATE_USER: ID manquant');
-        return state;
-      }
       return {
         ...state,
         users: state.users.map(user =>
-          user.id === action.payload.id ? { ...user, ...action.payload, updatedAt: new Date().toISOString() } : user
+          user.id === action.payload.id ? { 
+            ...user, 
+            ...action.payload, 
+            updatedAt: new Date().toISOString() 
+          } : user
         )
       };
     case 'ADD_USER': {
@@ -451,10 +448,33 @@ function appReducer(state: AppState, action: AppAction): AppState {
       // S'assurer qu'il y a toujours au moins un utilisateur
       const validUsers = users && users.length > 0 ? users : [defaultUser];
       return { ...state, ...rest, users: validUsers };
+    case 'IMPORT_DATA':
+      try {
+        const data = action.payload;
+        // S'assurer que les champs requis existent
+        if (!data.projects || !data.users) {
+          throw new Error("Données d'importation invalides");
+        }
+        
+        return {
+          ...state,
+          projects: data.projects || [],
+          users: data.users || [],
+          theme: data.theme || 'light',
+          emailSettings: data.emailSettings || {},
+          appSettings: data.appSettings || {},
+        };
+      } catch (error) {
+        console.error("Erreur lors de l'importation des données:", error);
+        return { ...state, error: "Erreur lors de l'importation des données" };
+      }
+    case 'EXPORT_DATA':
+      // L'exportation est gérée dans le composant, cette action ne modifie pas l'état
+      return state;
     default:
       return state;
   }
-}
+};
 
 const AppContext = createContext<{
   state: AppState;
