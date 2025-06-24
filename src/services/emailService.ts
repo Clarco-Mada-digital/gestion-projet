@@ -1,3 +1,4 @@
+// Interface pour les options d'email
 export interface EmailOptions {
   to: string | string[];
   subject: string;
@@ -5,52 +6,62 @@ export interface EmailOptions {
   text?: string; // Version texte de l'email
   from?: string;
   fromName?: string;
+  templateId?: string; // ID du modèle EmailJS (optionnel)
+  templateParams?: Record<string, any>; // Paramètres du modèle (optionnel)
+}
+
+// Interface pour la configuration EmailJS
+export interface EmailJsConfig {
+  serviceId: string;
+  templateId: string;
+  userId: string;
+  accessToken: string;
+  fromName: string;
+  fromEmail: string;
 }
 
 export class EmailService {
-  static async sendEmail(options: EmailOptions, emailSettings: any): Promise<{ success: boolean; message: string }> {
+  // Méthode pour envoyer un email via EmailJS
+  static async sendEmail(
+    options: EmailOptions, 
+    config: EmailJsConfig
+  ): Promise<{ success: boolean; message: string }> {
     try {
-      const { smtpHost, smtpPort, smtpUser, smtpPassword, fromEmail, fromName, useTLS } = emailSettings;
-      
-      // Vérifier que les paramètres SMTP sont configurés
-      if (!smtpHost || !smtpPort || !smtpUser || !smtpPassword) {
-        console.error('Paramètres SMTP manquants');
-        return { success: false, message: 'Paramètres SMTP non configurés' };
+      // Vérifier que les paramètres requis sont présents
+      if (!config.serviceId || !config.templateId || !config.userId || !config.accessToken) {
+        throw new Error('Configuration EmailJS incomplète');
       }
 
-      // Créer le contenu de l'email
-      const emailData = {
-        from: options.from || `${fromName || 'Gestion de Projet'} <${fromEmail || smtpUser}>`,
-        to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
+      // Préparer les données pour EmailJS
+      const templateParams = {
+        to_email: Array.isArray(options.to) ? options.to[0] : options.to,
+        to_name: '', // Peut être personnalisé via options.templateParams
+        from_name: options.fromName || config.fromName || 'Gestion de Projet',
+        from_email: options.from || config.fromEmail,
         subject: options.subject,
-        html: options.html
+        message: options.html,
+        ...options.templateParams // Permet de surcharger les paramètres ci-dessus
       };
 
-      // Envoyer l'email via l'API EmailJS (à configurer côté serveur)
-      // Remarque : Dans une application réelle, vous devriez envoyer cette requête à votre backend
-      // pour éviter d'exposer vos identifiants SMTP dans le code frontend
-      const response = await fetch('/api/send-email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          emailData,
-          smtpConfig: {
-            host: smtpHost,
-            port: smtpPort,
-            secure: useTLS, // true for 465, false for other ports
-            auth: {
-              user: smtpUser,
-              pass: smtpPassword,
-            },
-          },
-        }),
-      });
+      // Vérifier si la bibliothèque EmailJS est chargée
+      if (typeof window.emailjs === 'undefined') {
+        // Charger dynamiquement la bibliothèque EmailJS si elle n'est pas déjà chargée
+        await this.loadEmailJs();
+      }
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Erreur lors de l\'envoi de l\'email');
+      // Initialiser EmailJS avec l'ID utilisateur
+      window.emailjs.init(config.userId);
+
+      // Envoyer l'email
+      const response = await window.emailjs.send(
+        config.serviceId,
+        options.templateId || config.templateId,
+        templateParams,
+        config.accessToken
+      );
+
+      if (response.status !== 200) {
+        throw new Error('Erreur lors de l\'envoi de l\'email');
       }
 
       return { success: true, message: 'Email envoyé avec succès' };
@@ -58,9 +69,39 @@ export class EmailService {
       console.error('Erreur lors de l\'envoi de l\'email:', error);
       return { 
         success: false, 
-        message: error instanceof Error ? error.message : 'Erreur lors de l\'envoi de l\'email' 
+        message: error instanceof Error ? error.message : 'Erreur lors de l\'envoi de l\'email'
       };
     }
+  }
+
+  // Méthode pour charger dynamiquement la bibliothèque EmailJS
+  private static async loadEmailJs(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      // Vérifier si le script est déjà chargé
+      if (document.querySelector('script[src*="emailjs-com"]')) {
+        resolve();
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js';
+      script.async = true;
+      
+      script.onload = () => {
+        // Vérifier que l'objet emailjs est bien disponible
+        if (window.emailjs) {
+          resolve();
+        } else {
+          reject(new Error('Échec du chargement de la bibliothèque EmailJS'));
+        }
+      };
+      
+      script.onerror = () => {
+        reject(new Error('Échec du chargement du script EmailJS'));
+      };
+      
+      document.head.appendChild(script);
+    });
   }
 
   // Méthode utilitaire pour générer le contenu HTML d'un rapport
