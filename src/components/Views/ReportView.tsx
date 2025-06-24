@@ -8,19 +8,31 @@ import { Input } from '../UI/Input';
 import { Textarea } from '../UI/Textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../UI/dialog';
 import { EmailService } from '../../services/emailService';
+import type { Task, SubTask, Project } from '../../types';
+
+interface SubTaskReport {
+  id: string;
+  title: string;
+  completed: boolean;
+  completedAt?: string;
+}
 
 interface TaskReport {
   projectId: string;
   projectName: string;
   completedTasks: number;
+  completedSubTasks: number;
   totalTasks: number;
   tasks: Array<{
     id: string;
     title: string;
     status: string;
-    completedAt?: string;
+    completedAt?: string | null;
     priority: string;
     assignees: string[];
+    subTasks?: SubTaskReport[];
+    isMainTask?: boolean;
+    isParentOfSubTasks?: boolean;
   }>;
 }
 
@@ -216,6 +228,11 @@ export function ReportView() {
     }
   };
 
+  // Vérifier si une date est dans la période sélectionnée
+  const isDateInRange = (date: Date, start: Date, end: Date) => {
+    return date >= start && date <= end;
+  };
+
   // Générer le rapport
   const generateReport = () => {
     const { start, end } = getDateRange(dateRange);
@@ -224,31 +241,107 @@ export function ReportView() {
     const projectsData = (state.projects || [])
       .filter(project => selectedProjectId === 'all' || project.id === selectedProjectId)
       .map(project => {
-        const tasks = (project.tasks || []).filter(task => {
-          const taskDate = task.completedAt ? new Date(task.completedAt) : null;
-          return (
-            task.status === 'done' &&
-            taskDate &&
-            taskDate >= start &&
-            taskDate <= end
-          );
+        // Toutes les tâches du projet
+        const allTasks = project.tasks || [];
+        
+        // Tâches principales complétées dans la période
+        const completedMainTasks = allTasks.filter((task): task is Task & { completedAt: string } => {
+          if (task.status !== 'done' || !task.completedAt) return false;
+          const taskCompletedDate = new Date(task.completedAt);
+          return isDateInRange(taskCompletedDate, start, end);
         });
         
-        const totalTasks = project.tasks?.length || 0;
+        // Sous-tâches complétées dans la période (toutes tâches confondues)
+        const allCompletedSubTasks = allTasks.flatMap(task => 
+          (task.subTasks || [])
+            .filter((subTask): subTask is SubTask & { completedAt: string } => 
+              !!subTask.completed && !!subTask.completedAt
+            )
+            .map(subTask => ({
+              ...subTask,
+              parentTaskId: task.id,
+              parentTaskTitle: task.title
+            }))
+        ).filter(subTask => {
+          const subTaskCompletedDate = new Date(subTask.completedAt);
+          return isDateInRange(subTaskCompletedDate, start, end);
+        });
+        
+        // Tâches avec sous-tâches complétées dans la période
+        const tasksWithCompletedSubTasks = allTasks
+          .map(task => {
+            const completedSubTasks = (task.subTasks || []).filter((subTask): subTask is SubTask & { completedAt: string } => 
+              !!subTask.completed && 
+              !!subTask.completedAt && 
+              isDateInRange(new Date(subTask.completedAt), start, end)
+            );
+            
+            return completedSubTasks.length > 0 ? {
+              ...task,
+              completedSubTasks
+            } : null;
+          })
+          .filter((task): task is Task & { completedSubTasks: (SubTask & { completedAt: string })[] } => task !== null);
+        
+        const totalTasks = allTasks.length;
+        const totalCompletedTasks = completedMainTasks.length;
+        const totalCompletedSubTasks = allCompletedSubTasks.length;
+        
+        // Créer un type pour les tâches du rapport
+        type ReportTask = {
+          id: string;
+          title: string;
+          status: string;
+          completedAt: string | null;
+          priority: string;
+          assignees: string[];
+          isMainTask?: boolean;
+          isParentOfSubTasks?: boolean;
+          subTasks?: Array<{
+            id: string;
+            title: string;
+            completed: boolean;
+            completedAt?: string;
+          }>;
+        };
+        
+        // Préparer les tâches pour le rapport
+        const reportTasks: ReportTask[] = [
+          // Tâches principales complétées dans la période
+          ...completedMainTasks.map(task => ({
+            id: task.id,
+            title: task.title,
+            status: task.status,
+            completedAt: task.completedAt || null,
+            priority: task.priority,
+            assignees: task.assignees,
+            isMainTask: true
+          })),
+          // Sous-tâches complétées dans la période (groupées par tâche parente)
+          ...tasksWithCompletedSubTasks.map(task => ({
+            id: `parent-${task.id}`,
+            title: task.title,
+            status: 'in-progress',
+            completedAt: null,
+            priority: task.priority,
+            assignees: task.assignees,
+            isParentOfSubTasks: true,
+            subTasks: task.completedSubTasks.map(subTask => ({
+              id: subTask.id,
+              title: subTask.title,
+              completed: true,
+              completedAt: subTask.completedAt
+            }))
+          }))
+        ];
         
         return {
           projectId: project.id,
           projectName: project.name,
-          completedTasks: tasks.length,
+          completedTasks: totalCompletedTasks,
+          completedSubTasks: totalCompletedSubTasks,
           totalTasks,
-          tasks: tasks.map(task => ({
-            id: task.id,
-            title: task.title,
-            status: task.status,
-            completedAt: task.completedAt,
-            priority: task.priority,
-            assignees: task.assignees
-          }))
+          tasks: reportTasks
         };
       });
     
@@ -287,13 +380,19 @@ export function ReportView() {
       
       // Préparer un résumé des tâches pour le prompt
       const tasksSummary = report.projects.flatMap(project => 
-        project.tasks.map(task => ({
-          project: project.projectName,
-          title: task.title,
-          completedAt: task.completedAt ? new Date(task.completedAt).toLocaleDateString('fr-FR') : 'Date inconnue',
-          priority: task.priority === 'high' ? 'Haute' : task.priority === 'medium' ? 'Moyenne' : 'Basse',
-          notes: task.notes || ''
-        }))
+        project.tasks.map(task => {
+          const priorityText = task.priority === 'high' ? 'Haute' : task.priority === 'medium' ? 'Moyenne' : 'Basse';
+          const completedAt = task.completedAt ? new Date(task.completedAt).toLocaleDateString('fr-FR') : 'Date inconnue';
+          const notes = 'notes' in task ? (task.notes || '') : '';
+          
+          return {
+            project: project.projectName,
+            title: task.title,
+            completedAt,
+            priority: priorityText,
+            notes
+          };
+        })
       );
       
       const currentUser = state.users[0]; // Utilisateur actuel
@@ -413,24 +512,109 @@ ${userInfo}`;
           <div className="space-y-6">
             {report.projects.map(project => (
               <div key={project.projectId} className="border rounded-lg p-4">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-lg font-medium">{project.projectName}</h3>
-                  <div className="text-sm text-gray-500">
-                    {project.completedTasks} tâche{project.completedTasks > 1 ? 's' : ''} sur {project.totalTasks} terminée{project.totalTasks > 1 ? 's' : ''}
+                <div className="mb-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-medium">{project.projectName}</h3>
+                    <div className="flex items-center space-x-4">
+                      <div className="text-sm text-gray-500">
+                        <span className="font-medium">{project.completedTasks}</span> tâche{project.completedTasks > 1 ? 's' : ''} principale{project.completedTasks > 1 ? 's' : ''}
+                      </div>
+                      {project.completedSubTasks > 0 && (
+                        <div className="text-sm text-blue-600 dark:text-blue-400">
+                          <span className="font-medium">{project.completedSubTasks}</span> sous-tâche{project.completedSubTasks > 1 ? 's' : ''}
+                        </div>
+                      )}
+                      <div className="text-sm text-gray-400">
+                        sur {project.totalTasks} tâche{project.totalTasks > 1 ? 's' : ''} totale{project.totalTasks > 1 ? 's' : ''}
+                      </div>
+                    </div>
                   </div>
+                  
+                  {/* Barre de progression */}
+                  {project.totalTasks > 0 && (
+                    <div className="mt-2 w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                      <div 
+                        className="bg-blue-600 h-2.5 rounded-full" 
+                        style={{ 
+                          width: `${Math.min(100, (project.completedTasks / project.totalTasks) * 100)}%`
+                        }}
+                      ></div>
+                    </div>
+                  )}
                 </div>
                 
                 {project.tasks.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {project.tasks.map(task => (
-                      <div key={task.id} className="flex items-center p-2 border rounded hover:bg-gray-50 dark:hover:bg-gray-800">
-                        <CheckCircle2 className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                        <div className="flex-1">
-                          <div className="font-medium">{task.title}</div>
-                          <div className="text-xs text-gray-500">
-                            Terminé le {task.completedAt ? new Date(task.completedAt).toLocaleDateString('fr-FR') : 'Date inconnue'}
+                      <div key={task.id} className={`p-3 border rounded-md transition-colors ${task.isMainTask ? 'bg-green-50 dark:bg-green-900/20' : 'bg-white dark:bg-gray-800'} hover:bg-gray-50 dark:hover:bg-gray-700`}>
+                        {/* En-tête de la tâche */}
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start flex-1">
+                            <div className="flex-shrink-0 mr-3 mt-0.5">
+                              {task.isMainTask ? (
+                                <CheckCircle2 className="h-5 w-5 text-green-500" />
+                              ) : (
+                                <div className="h-5 w-5 rounded-full border-2 border-blue-500 flex items-center justify-center">
+                                  <span className="text-blue-500 text-xs">{task.subTasks?.length || 0}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <div className="font-medium flex items-center">
+                                {task.title}
+                                {task.isMainTask && (
+                                  <span className="ml-2 text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 px-2 py-0.5 rounded-full">
+                                    Tâche principale
+                                  </span>
+                                )}
+                              </div>
+                              {task.completedAt && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  Terminé le {new Date(task.completedAt).toLocaleDateString('fr-FR', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </div>
+                              )}
+                            </div>
                           </div>
+                          
+                          {/* Badge de priorité */}
+                          {task.priority && (
+                            <span className={`px-2 py-1 text-xs rounded-full whitespace-nowrap ${
+                              task.priority === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
+                              task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                              'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                            }`}>
+                              {task.priority === 'high' ? 'Haute' : task.priority === 'medium' ? 'Moyenne' : 'Basse'}
+                            </span>
+                          )}
                         </div>
+                        
+                        {/* Liste des sous-tâches */}
+                        {task.isParentOfSubTasks && task.subTasks && task.subTasks.length > 0 && (
+                          <div className="mt-3 pl-8 space-y-2">
+                            <div className="text-xs font-medium text-gray-500 mb-1">
+                              Sous-tâches complétées :
+                            </div>
+                            <ul>
+                              {task.subTasks.map((subTask: SubTaskReport) => (
+                                <li key={subTask.id} className="flex items-center">
+                                  <CheckCircle2 className="h-3 w-3 text-green-500 mr-2" />
+                                  <span className="text-sm">{subTask.title}</span>
+                                  {subTask.completedAt && (
+                                    <span className="text-xs text-gray-500 ml-2">
+                                      ({new Date(subTask.completedAt).toLocaleDateString('fr-FR')})
+                                    </span>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                         <span className={`px-2 py-1 text-xs rounded-full ${
                           task.priority === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
                           task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :

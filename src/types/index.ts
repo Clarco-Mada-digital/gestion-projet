@@ -4,6 +4,7 @@ export interface SubTask {
   completed: boolean;
   createdAt: string;
   updatedAt: string;
+  completedAt?: string; // Date de complétion de la sous-tâche (définie uniquement quand la case est cochée)
 }
 
 export interface Task {

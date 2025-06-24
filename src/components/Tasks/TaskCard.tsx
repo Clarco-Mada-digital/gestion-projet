@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, Clock, Users, Tag, MoreHorizontal, Edit, Trash2, CheckCircle2 } from 'lucide-react';
+import { Calendar, Clock, Users, Tag, MoreHorizontal, Edit, Trash2, CheckCircle2, User } from 'lucide-react';
 import { Task } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { useModal } from '../../context/ModalContext';
@@ -285,14 +285,19 @@ export function TaskCard({ task, className = '' }: TaskCardProps) {
                     {assignedUsers.slice(0, 3).map((user) => (
                       <div 
                         key={user.id} 
-                        className="w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-medium text-gray-700 dark:text-gray-200 border-2 border-white dark:border-gray-800"
+                        className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-medium text-white border-2 border-white dark:border-gray-800 ${
+                          // Générer une couleur de fond basée sur le nom de l'utilisateur pour la cohérence
+                          ['bg-blue-600', 'bg-green-600', 'bg-purple-600', 'bg-red-600', 'bg-yellow-500', 'bg-pink-500', 'bg-indigo-600', 'bg-teal-500', 'bg-orange-500', 'bg-cyan-500', 'bg-fuchsia-500', 'bg-rose-500', 'bg-amber-500', 'bg-lime-500', 'bg-emerald-500', 'bg-sky-500', 'bg-violet-500', 'bg-pink-500', 'bg-rose-500', 'bg-amber-400'][
+                            Math.abs(user.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)) % 20
+                          ]
+                        }`}
                         title={user.name}
                       >
-                        {user.avatar}
+                        {user.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
                       </div>
                     ))}
                     {assignedUsers.length > 3 && (
-                      <div className="w-5 h-5 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-xs font-medium text-gray-500 dark:text-gray-400 border-2 border-white dark:border-gray-800">
+                      <div className="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-xs font-medium text-gray-500 dark:text-gray-400 border-2 border-white dark:border-gray-800">
                         +{assignedUsers.length - 3}
                       </div>
                     )}

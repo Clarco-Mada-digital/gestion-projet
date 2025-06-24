@@ -205,7 +205,7 @@ export function AddTaskForm({ projects, selectedProjectId, status, onAddTask, on
             className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Sparkles className="w-4 h-4 mr-2" />
-            {isGenerating ? 'Génération...' : 'Générer avec IA'}
+            {isGenerating ? 'Génération...' : 'IA'}
           </button>
           
           <div className="flex space-x-2">
