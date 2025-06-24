@@ -83,13 +83,20 @@ export class EmailService {
       // Préparer les paramètres du template
       const templateParams = {
         to_email: toEmail,
-        to_name: options.templateParams?.to_name || 'Utilisateur',
+        to_name: options.templateParams?.to_name || toEmail.split('@')[0],
         from_name: options.fromName || config.fromName || 'Gestion de Projet',
         from_email: options.from || config.fromEmail || 'noreply@votredomaine.com',
         subject: options.subject || 'Sans objet',
-        message: options.html || options.text || '',
-        ...options.templateParams
+        message: options.text || '',
+        html: options.html || '',
+        // Inclure tous les paramètres personnalisés du template
+        ...(options.templateParams || {})
       };
+      
+      // S'assurer que les champs essentiels ne sont pas écrasés par des valeurs vides
+      if (!templateParams.to_email) templateParams.to_email = toEmail;
+      if (!templateParams.from_email) templateParams.from_email = options.from || config.fromEmail || 'noreply@votredomaine.com';
+      if (!templateParams.from_name) templateParams.from_name = options.fromName || config.fromName || 'Gestion de Projet';
 
       console.log('Envoi d\'email avec les paramètres:', {
         serviceId: config.serviceId,
@@ -200,55 +207,193 @@ export class EmailService {
     });
   }
 
-  // Méthode utilitaire pour générer le contenu HTML d'un rapport
-  static generateReportEmail(report: any, userProfile: any): string {
-    const formatDate = (dateString: string) => {
-      return new Date(dateString).toLocaleDateString('fr-FR', {
+  // Méthode utilitaire pour formater une date au format français
+  private static formatDate(dateString: string): string {
+    if (!dateString) return 'Date non spécifiée';
+    
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'Date invalide';
+      
+      return date.toLocaleDateString('fr-FR', {
         year: 'numeric',
         month: 'long',
-        day: 'numeric'
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
       });
-    };
+    } catch (error) {
+      console.error('Erreur de formatage de date:', error);
+      return 'Date invalide';
+    }
+  }
 
+  // Méthode utilitaire pour générer le contenu HTML d'un rapport
+  static generateReportEmail(report: any, userProfile: any): string {
     // Signature de l'utilisateur
-    const userSignature = userProfile?.signature || 
-      `${userProfile?.name || 'Équipe Gestion de Projet'}<br>${userProfile?.position || ''}`;
+    const userName = userProfile?.name || 'Équipe Gestion de Projet';
+    const userPosition = userProfile?.position || '';
+    const userEmail = userProfile?.email || '';
+    const userPhone = userProfile?.phone || '';
+    
+    // Date de génération du rapport
+    const now = new Date();
+    const generatedDate = this.formatDate(now.toISOString());
+    
+    // Extraire la période du rapport si disponible
+    const startDate = report.startDate ? this.formatDate(report.startDate) : 'Non spécifiée';
+    const endDate = report.endDate ? this.formatDate(report.endDate) : 'Maintenant';
+    
+    // Nettoyer le contenu HTML pour la version texte
+    const textContent = (report.content || '')
+      .replace(/<[^>]*>?/gm, '') // Supprimer les balises HTML
+      .replace(/\s+/g, ' ') // Remplacer les espaces multiples par un seul
+      .trim();
 
     return `
       <!DOCTYPE html>
       <html>
       <head>
-        <meta charset="UTF-8">
-        <title>${report.title || 'Rapport d\'activité'}</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background-color: #4f46e5; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-          .content { padding: 20px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-top: none; }
-          .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 14px; color: #6b7280; }
-          .signature { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; }
-          .task { margin-bottom: 15px; padding: 10px; background: white; border-radius: 4px; border-left: 4px solid #4f46e5; }
-          .task-title { font-weight: bold; margin-bottom: 5px; }
-          .task-meta { font-size: 12px; color: #6b7280; }
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${report.title || 'Rapport'}</title>
+        <style type="text/css">
+          /* Styles de base pour la compatibilité email */
+          body, #bodyTable, #bodyCell { height: 100% !important; margin: 0; padding: 0; width: 100% !important; }
+          table { border-collapse: collapse; }
+          img, a img { border: 0; outline: none; text-decoration: none; }
+          h1, h2, h3, h4, h5, h6 { margin: 0; padding: 0; }
+          p { margin: 1em 0; }
+          
+          /* Styles spécifiques */
+          .email-container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          
+          .header { 
+            background-color: #4f46e5; 
+            color: #ffffff; 
+            padding: 25px 20px; 
+            text-align: center; 
+            border-radius: 8px 8px 0 0; 
+          }
+          
+          .header h1 { 
+            margin: 0; 
+            font-size: 24px; 
+            line-height: 1.3; 
+            color: #ffffff;
+          }
+          
+          .header p { 
+            margin: 10px 0 0; 
+            font-size: 16px; 
+            opacity: 0.9; 
+            color: #e0e7ff;
+          }
+          
+          .content { 
+            padding: 25px 20px; 
+            background-color: #ffffff; 
+            border: 1px solid #e5e7eb; 
+            border-top: none;
+            line-height: 1.6;
+            color: #374151;
+          }
+          
+          .footer { 
+            margin-top: 20px; 
+            padding-top: 20px; 
+            border-top: 1px solid #e5e7eb; 
+            font-size: 12px; 
+            color: #6b7280;
+            line-height: 1.5;
+          }
+          
+          .signature { 
+            margin-top: 30px; 
+            padding-top: 20px; 
+            border-top: 1px solid #e5e7eb;
+            color: #4b5563;
+          }
+          
+          .signature p { 
+            margin: 5px 0; 
+            line-height: 1.5;
+          }
+          
+          .signature .name {
+            font-weight: 600;
+            color: #1f2937;
+          }
+          
+          .signature .position {
+            font-style: italic;
+            color: #4b5563;
+          }
+          
+          .signature .contact {
+            color: #6b7280;
+            font-size: 13px;
+          }
+          
+          @media only screen and (max-width: 600px) {
+            .email-container {
+              width: 100% !important;
+            }
+            .content, .header {
+              padding: 15px !important;
+            }
+          }
         </style>
       </head>
-      <body>
-        <div class="header">
-          <h1>${report.title || 'Rapport d\'activité'}</h1>
-          <p>Période du ${formatDate(report.startDate)} au ${formatDate(report.endDate)}</p>
-        </div>
-        
-        <div class="content">
-          ${report.content || ''}
-          
-          <div class="signature">
-            <p>Cordialement,<br>${userSignature}</p>
-          </div>
-        </div>
-        
-        <div class="footer">
-          <p>Cet email a été généré automatiquement par l'application Gestion de Projet.</p>
-          <p>© ${new Date().getFullYear()} Gestion de Projet. Tous droits réservés.</p>
-        </div>
+      <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+          <tr>
+            <td align="center" valign="top">
+              <table class="email-container" border="0" cellpadding="0" cellspacing="0" width="600">
+                <!-- En-tête -->
+                <tr>
+                  <td class="header">
+                    <h1>${report.title || 'Rapport d\'activité'}</h1>
+                    <p>Période du ${startDate} au ${endDate}</p>
+                  </td>
+                </tr>
+                
+                <!-- Contenu principal -->
+                <tr>
+                  <td class="content">
+                    <!-- Contenu du rapport -->
+                    <div style="margin-bottom: 20px;">
+                      ${report.content || '<p>Aucun contenu disponible.</p>'}
+                    </div>
+                    
+                    <!-- Signature -->
+                    <div class="signature">
+                      <p class="name">${userName}</p>
+                      ${userPosition ? `<p class="position">${userPosition}</p>` : ''}
+                      ${userEmail ? `<p class="contact">${userEmail}</p>` : ''}
+                      ${userPhone ? `<p class="contact">${userPhone}</p>` : ''}
+                    </div>
+                  </td>
+                </tr>
+                
+                <!-- Pied de page -->
+                <tr>
+                  <td class="footer">
+                    <p style="margin: 0 0 5px 0;">
+                      Cet email a été généré automatiquement par l'application Gestion de Projet.
+                    </p>
+                    <p style="margin: 0 0 5px 0; font-size: 11px; color: #9ca3af;">
+                      Généré le ${generatedDate}
+                    </p>
+                    <p style="margin: 0; font-size: 11px; color: #9ca3af;">
+                      © ${now.getFullYear()} Gestion de Projet. Tous droits réservés.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
       </body>
       </html>
     `;

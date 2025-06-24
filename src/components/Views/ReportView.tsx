@@ -171,17 +171,27 @@ export function ReportView() {
         state.users[0] // Utiliser l'utilisateur actuel pour la signature
       );
       
-      // Créer un objet d'options d'email étendu
+      // Créer un objet d'options d'email étendu avec les paramètres du template
       const emailOptions: any = {
         to: emailForm.to,
         subject: emailForm.subject,
-        html: emailContent
+        html: emailContent,
+        // Ajouter les paramètres du template
+        templateParams: {
+          to_email: emailForm.to, // S'assurer que le destinataire est bien défini
+          to_name: emailForm.to.split('@')[0], // Utiliser la partie avant @ comme nom
+          from_name: state.emailSettings?.fromName || 'Gestion de Projet',
+          from_email: state.emailSettings?.fromEmail || 'noreply@votredomaine.com',
+          subject: emailForm.subject,
+          message: messageContent, // Version texte du message
+          content: emailContent,   // Version HTML du message
+          report_title: emailForm.subject,
+          user_name: state.users[0]?.name || 'Utilisateur'
+        }
       };
       
-      // Ajouter la version texte uniquement si elle est supportée
-      if (typeof EmailService.sendEmail === 'function') {
-        emailOptions.text = `Bonjour,\n\nVeuvez trouver ci-joint le rapport d'activité demandé.\n\n${messageContent}\n\nCordialement,\n${generateSignature()}`;
-      }
+      // Ajouter la version texte pour la compatibilité
+      emailOptions.text = `Bonjour,\n\nVeuvez trouver ci-joint le rapport d'activité demandé.\n\n${messageContent.replace(/<[^>]*>?/gm, '')}\n\nCordialement,\n${generateSignature()}`;
       
       // Envoyer l'email
       const result = await EmailService.sendEmail(emailOptions, state.emailSettings);
