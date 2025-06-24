@@ -188,7 +188,8 @@ const exampleProjects: Project[] = [
             title: 'Maquette écran de connexion',
             completed: true,
             createdAt: new Date('2023-01-16').toISOString(),
-            updatedAt: new Date('2023-01-20').toISOString()
+            updatedAt: new Date('2023-01-20').toISOString(),
+            completedAt: new Date('2023-01-20').toISOString() // Ajout de la date de complétion
           }
         ]
       },
@@ -206,7 +207,23 @@ const exampleProjects: Project[] = [
         createdAt: new Date('2023-02-01').toISOString(),
         updatedAt: new Date('2023-02-15').toISOString(),
         tags: ['backend', 'auth'],
-        subTasks: [],
+        subTasks: [
+          {
+            id: 'st2',
+            title: 'Configuration du fournisseur d\'authentification',
+            completed: true,
+            createdAt: new Date('2023-02-16').toISOString(),
+            updatedAt: new Date('2023-02-20').toISOString(),
+            completedAt: new Date('2023-02-20').toISOString()
+          },
+          {
+            id: 'st3',
+            title: 'Implémenter la connexion par email/mot de passe',
+            completed: false,
+            createdAt: new Date('2023-02-16').toISOString(),
+            updatedAt: new Date('2023-02-16').toISOString()
+          }
+        ],
         estimatedHours: 16
       }
     ]

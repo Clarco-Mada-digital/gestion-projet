@@ -64,6 +64,7 @@ export function ReportView() {
   const [aiReport, setAiReport] = useState<string>('');
   const [editedReport, setEditedReport] = useState<string>('');
   const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [includeSubTasks, setIncludeSubTasks] = useState<boolean>(true);
   // Référence pour le textarea d'édition
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
@@ -235,53 +236,100 @@ export function ReportView() {
 
   // Générer le rapport
   const generateReport = () => {
+    console.log('Génération du rapport...');
+    console.log('État complet des projets:', JSON.stringify(state.projects, null, 2));
+    
     const { start, end } = getDateRange(dateRange);
+    console.log(`Période du rapport: ${start.toISOString()} à ${end.toISOString()}`);
     
     // Filtrer les tâches par période et par projet
     const projectsData = (state.projects || [])
-      .filter(project => selectedProjectId === 'all' || project.id === selectedProjectId)
+      .filter(project => {
+        const isSelected = selectedProjectId === 'all' || project.id === selectedProjectId;
+        console.log(`Projet: ${project.name} (${project.id}), Sélectionné: ${isSelected}`);
+        return isSelected;
+      })
       .map(project => {
+        console.log(`Traitement du projet: ${project.name} (${project.id})`);
         // Toutes les tâches du projet
         const allTasks = project.tasks || [];
+        console.log(`Nombre total de tâches dans le projet: ${allTasks.length}`);
+        
+        // Afficher la structure complète des tâches et sous-tâches
+        allTasks.forEach((task, index) => {
+          console.log(`Tâche #${index + 1}:`, {
+            id: task.id,
+            title: task.title,
+            status: task.status,
+            completedAt: task.completedAt,
+            subTasks: task.subTasks ? task.subTasks.map(st => ({
+              id: st.id,
+              title: st.title,
+              completed: st.completed,
+              completedAt: st.completedAt
+            })) : 'Aucune sous-tâche'
+          });
+        });
         
         // Tâches principales complétées dans la période
         const completedMainTasks = allTasks.filter((task): task is Task & { completedAt: string } => {
           if (task.status !== 'done' || !task.completedAt) return false;
           const taskCompletedDate = new Date(task.completedAt);
-          return isDateInRange(taskCompletedDate, start, end);
+          const inRange = isDateInRange(taskCompletedDate, start, end);
+          console.log(`Tâche: ${task.title}, Statut: ${task.status}, Complétée: ${task.completedAt}, Dans la période: ${inRange}`);
+          return inRange;
         });
         
         // Sous-tâches complétées dans la période (toutes tâches confondues)
-        const allCompletedSubTasks = allTasks.flatMap(task => 
-          (task.subTasks || [])
-            .filter((subTask): subTask is SubTask & { completedAt: string } => 
-              !!subTask.completed && !!subTask.completedAt
-            )
-            .map(subTask => ({
-              ...subTask,
-              parentTaskId: task.id,
-              parentTaskTitle: task.title
-            }))
-        ).filter(subTask => {
-          const subTaskCompletedDate = new Date(subTask.completedAt);
-          return isDateInRange(subTaskCompletedDate, start, end);
-        });
+        const allCompletedSubTasks = allTasks.flatMap(task => {
+          const subTasks = task.subTasks || [];
+          console.log(`Tâche: ${task.title}, Nombre de sous-tâches: ${subTasks.length}`);
+          
+          return subTasks
+            .filter((subTask): subTask is SubTask & { completedAt: string } => {
+              const isCompleted = !!subTask.completed && !!subTask.completedAt;
+              console.log(`Sous-tâche: ${subTask.title}, Complétée: ${isCompleted}, Date: ${subTask.completedAt}`);
+              return isCompleted;
+            })
+            .map(subTask => {
+              const subTaskCompletedDate = new Date(subTask.completedAt);
+              const inRange = isDateInRange(subTaskCompletedDate, start, end);
+              console.log(`Sous-tâche: ${subTask.title}, Date: ${subTask.completedAt}, Dans la période: ${inRange}`);
+              
+              return {
+                ...subTask,
+                parentTaskId: task.id,
+                parentTaskTitle: task.title,
+                _inRange: inRange
+              };
+            });
+        }).filter(subTask => subTask._inRange);
         
         // Tâches avec sous-tâches complétées dans la période
-        const tasksWithCompletedSubTasks = allTasks
-          .map(task => {
-            const completedSubTasks = (task.subTasks || []).filter((subTask): subTask is SubTask & { completedAt: string } => 
-              !!subTask.completed && 
-              !!subTask.completedAt && 
-              isDateInRange(new Date(subTask.completedAt), start, end)
-            );
-            
-            return completedSubTasks.length > 0 ? {
-              ...task,
-              completedSubTasks
-            } : null;
-          })
-          .filter((task): task is Task & { completedSubTasks: (SubTask & { completedAt: string })[] } => task !== null);
+        const tasksWithCompletedSubTasks = includeSubTasks 
+          ? allTasks
+              .map(task => {
+                const subTasks = task.subTasks || [];
+                const completedSubTasks = subTasks.filter((subTask): subTask is SubTask & { completedAt: string } => {
+                  if (!subTask.completed || !subTask.completedAt) return false;
+                  const inRange = isDateInRange(new Date(subTask.completedAt), start, end);
+                  console.log(`Vérification sous-tâche: ${subTask.title}, Complétée: ${subTask.completed}, Date: ${subTask.completedAt}, Dans la période: ${inRange}`);
+                  return inRange;
+                });
+                
+                if (completedSubTasks.length > 0) {
+                  console.log(`Tâche "${task.title}" a ${completedSubTasks.length} sous-tâches complétées dans la période`);
+                  return {
+                    ...task,
+                    completedSubTasks
+                  };
+                }
+                return null;
+              })
+              .filter((task): task is Task & { completedSubTasks: (SubTask & { completedAt: string })[] } => task !== null)
+          : [];
+          
+        console.log(`Tâches avec sous-tâches complétées: ${tasksWithCompletedSubTasks.length}`);
         
         const totalTasks = allTasks.length;
         const totalCompletedTasks = completedMainTasks.length;
@@ -354,16 +402,41 @@ export function ReportView() {
 
   // Générer le rapport avec IA
   const generateAIReport = async (): Promise<void> => {
-    if (!report || report.projects.length === 0) return;
+    console.log('Début de la génération du rapport IA');
+    
+    if (!report || report.projects.length === 0) {
+      console.warn('Aucun rapport ou projet disponible pour générer le rapport IA');
+      return;
+    }
     
     setIsGenerating(true);
     
     try {
+      console.log('Préparation des données pour le rapport IA', { 
+        nbProjets: report.projects.length,
+        plageDates: `${report.startDate.toLocaleDateString('fr-FR')} - ${report.endDate.toLocaleDateString('fr-FR')}`
+      });
+      // Déclarer explicitement le type de mainTasks
+      interface TaskSummary {
+        project: string;
+        title: string;
+        completedAt: string;
+        priority: string;
+        notes: string;
+        isSubTask: boolean;
+        parentTaskTitle?: string;
+        parentTaskCompleted?: boolean;
+      }
       const project = state.projects[0]; // Utiliser le premier projet pour les paramètres IA
       const projectAiSettings = project?.aiSettings;
       const appAiSettings = state.appSettings?.aiSettings;
       
       // Créer un objet de paramètres IA complet
+      console.log('Configuration IA trouvée :', { 
+        appAiSettings: !!appAiSettings, 
+        projectAiSettings: !!projectAiSettings 
+      });
+      
       const aiSettings = {
         ...appAiSettings,
         ...projectAiSettings,
@@ -374,26 +447,76 @@ export function ReportView() {
         lastTestMessage: appAiSettings?.lastTestMessage || ''
       } as const;
       
-      if (!aiSettings) {
-        throw new Error('Paramètres IA non configurés');
+      console.log('Configuration IA fusionnée :', {
+        provider: aiSettings.provider,
+        isConfigured: aiSettings.isConfigured,
+        hasApiKey: !!(aiSettings.provider === 'openai' ? aiSettings.openaiApiKey : aiSettings.openrouterApiKey)
+      });
+      
+      if (!aiSettings || !aiSettings.isConfigured) {
+        const errorMsg = 'Paramètres IA non configurés ou non valides';
+        console.error(errorMsg, aiSettings);
+        throw new Error(errorMsg);
       }
       
       // Préparer un résumé des tâches pour le prompt
-      const tasksSummary = report.projects.flatMap(project => 
-        project.tasks.map(task => {
+      const tasksSummary = report.projects.flatMap(project => {
+        // Récupérer toutes les tâches du projet, y compris leurs sous-tâches
+        return project.tasks.flatMap(task => {
           const priorityText = task.priority === 'high' ? 'Haute' : task.priority === 'medium' ? 'Moyenne' : 'Basse';
           const completedAt = task.completedAt ? new Date(task.completedAt).toLocaleDateString('fr-FR') : 'Date inconnue';
           const notes = 'notes' in task ? (task.notes || '') : '';
+          const taskEntries = [];
           
-          return {
-            project: project.projectName,
-            title: task.title,
-            completedAt,
-            priority: priorityText,
-            notes
-          };
-        })
-      );
+          // Vérifier si la tâche est active dans la période sélectionnée
+          const taskStartDate = task.startDate ? new Date(task.startDate) : null;
+          const taskEndDate = task.endDate ? new Date(task.endDate) : null;
+          const isTaskActiveInPeriod = 
+            (!taskStartDate || taskStartDate <= report.endDate) && 
+            (!taskEndDate || taskEndDate >= report.startDate);
+          
+          // Vérifier si la tâche est marquée comme terminée
+          const isTaskCompleted = task.status === 'done' && task.completedAt;
+          
+          // Ajouter la tâche principale si elle est complétée OU si elle est active et a des sous-tâches complétées
+          if (isTaskCompleted || (isTaskActiveInPeriod && task.subTasks && task.subTasks.some(st => st.completed))) {
+            taskEntries.push({
+              project: project.projectName,
+              title: task.title,
+              completedAt: isTaskCompleted ? completedAt : 'En cours',
+              priority: priorityText,
+              notes,
+              isSubTask: false,
+              hasSubTasks: task.subTasks && task.subTasks.length > 0,
+              isActive: isTaskActiveInPeriod
+            });
+          }
+          
+          // Ajouter les sous-tâches si elles existent et si l'option est activée
+          if (includeSubTasks && task.subTasks && task.subTasks.length > 0) {
+            task.subTasks.forEach(subTask => {
+              if (subTask.completed && subTask.completedAt) {
+                const subTaskCompletedAt = new Date(subTask.completedAt);
+                if (isDateInRange(subTaskCompletedAt, report.startDate, report.endDate)) {
+                  taskEntries.push({
+                    project: project.projectName,
+                    parentTaskTitle: task.title,
+                    title: subTask.title,
+                    completedAt: subTaskCompletedAt.toLocaleDateString('fr-FR'),
+                    priority: priorityText,
+                    notes: subTask.notes || '',
+                    isSubTask: true,
+                    parentTaskCompleted: isTaskCompleted,
+                    parentTaskActive: isTaskActiveInPeriod
+                  });
+                }
+              }
+            });
+          }
+          
+          return taskEntries;
+        });
+      });
       
       const currentUser = state.users[0]; // Utilisateur actuel
       const userInfo = [
@@ -404,23 +527,85 @@ export function ReportView() {
         currentUser.phone
       ].filter(Boolean).join(' | ');
       
-      const prompt = `Génère un rapport d'activité professionnel pour la période du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}.
+      // Vérifier s'il y a des tâches à inclure dans le rapport
+      if (tasksSummary.length === 0) {
+        return `Période du rapport : du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}
 
-Tâches terminées (${tasksSummary.length} au total):
-${tasksSummary.map((t, i) => `${i + 1}. [${t.priority}] ${t.title} (${t.project}) - Terminé le ${t.completedAt}${t.notes ? `\n   Notes: ${t.notes}` : ''}`).join('\n')}
+Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
+      }
 
-Rédige un résumé professionnel des réalisations, en mettant en avant les points clés et les réalisations marquantes. 
-
-Inclus une conclusion et des perspectives pour la période suivante.
-
-Signature (à inclure à la fin):
-${userInfo}`;
+      // Créer un rapport structuré basé uniquement sur les données réelles
+      let reportContent = `Rapport d'activité - Période du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}\n\n`;
       
-      // Utiliser la méthode générique de génération de texte
-      const response = await AIService.generateText(prompt, aiSettings);
-      setAiReport(response);
-      setEditedReport(response); // Initialiser le rapport édité
+      // Grouper les tâches par projet
+      const tasksByProject: Record<string, TaskSummary[]> = {};
+      tasksSummary.forEach(task => {
+        if (!tasksByProject[task.project]) {
+          tasksByProject[task.project] = [];
+        }
+        tasksByProject[task.project].push(task);
+      });
+
+      // Ajouter les tâches groupées par projet
+      Object.entries(tasksByProject).forEach(([projectName, projectTasks]) => {
+        reportContent += `## Projet : ${projectName}\n\n`;
+        
+        // Séparer les tâches principales des sous-tâches
+        const mainTasks = projectTasks.filter(t => !t.isSubTask);
+        const subTasks = projectTasks.filter(t => t.isSubTask);
+        
+        // Ajouter les tâches principales
+        if (mainTasks.length > 0) {
+          reportContent += '### Tâches principales terminées :\n';
+          mainTasks.forEach((task, index) => {
+            reportContent += `${index + 1}. ${task.title} (${task.priority}) - Terminé le ${task.completedAt}`;
+            if (task.notes) reportContent += `\n   Notes: ${task.notes}`;
+            reportContent += '\n';
+          });
+          reportContent += '\n';
+        }
+        
+        // Ajouter les sous-tâches groupées par tâche parente
+        if (subTasks.length > 0) {
+          const subTasksByParent: Record<string, TaskSummary[]> = {};
+          subTasks.forEach(subTask => {
+            if (!subTasksByParent[subTask.parentTaskTitle]) {
+              subTasksByParent[subTask.parentTaskTitle] = [];
+            }
+            subTasksByParent[subTask.parentTaskTitle].push(subTask);
+          });
+          
+          reportContent += '### Sous-tâches terminées :\n';
+          Object.entries(subTasksByParent).forEach(([parentTask, subTaskList]) => {
+            reportContent += `- ${parentTask} :\n`;
+            subTaskList.forEach((subTask, idx) => {
+              reportContent += `  ${idx + 1}. ${subTask.title} (${subTask.priority}) - Terminé le ${subTask.completedAt}`;
+              if (subTask.notes) reportContent += `\n     Notes: ${subTask.notes}`;
+              reportContent += '\n';
+            });
+          });
+          reportContent += '\n';
+        }
+      });
+      
+      // Ajouter le résumé des statistiques
+      const totalTasks = tasksSummary.length;
+      const totalSubTasks = tasksSummary.filter(t => t.isSubTask).length;
+      const totalMainTasks = totalTasks - totalSubTasks;
+      
+      reportContent += `\n### Récapitulatif :\n`;
+      reportContent += `- Tâches principales terminées : ${totalMainTasks}\n`;
+      reportContent += `- Sous-tâches terminées : ${totalSubTasks}\n`;
+      reportContent += `- Total des éléments terminés : ${totalTasks}\n\n`;
+      
+      // Ajouter la signature
+      reportContent += `\nSignature :\n${userInfo}`;
+      
+      // Mettre à jour l'état avec le rapport généré
+      setAiReport(reportContent);
+      setEditedReport(reportContent);
       setIsEditing(false); // Sortir du mode édition si on régénère
+      return;
     } catch (error) {
       console.error('Erreur lors de la génération du rapport IA:', error);
       const errorMessage = 'Une erreur est survenue lors de la génération du rapport IA.';
@@ -443,23 +628,54 @@ ${userInfo}`;
     return hasProperty(task, 'notes') ? task.notes : '';
   };
   
-  // Déclaration de la fonction manquante handleGenerateAIReport
+  // Gestion de la génération du rapport IA avec gestion d'erreur améliorée
   const handleGenerateAIReport = async () => {
+    console.log('Bouton Générer avec IA cliqué');
+    
+    if (!report || report.projects.length === 0) {
+      const errorMsg = 'Aucune donnée de rapport disponible. Veuillez d\'abord générer un rapport standard.';
+      console.error(errorMsg);
+      alert(errorMsg);
+      return;
+    }
+    
     try {
       setIsGenerating(true);
+      console.log('Lancement de la génération du rapport IA...');
+      
       await generateAIReport();
+      console.log('Génération du rapport IA terminée avec succès');
+      
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue';
       console.error('Erreur lors de la génération du rapport IA:', error);
+      
+      // Afficher un message d'erreur à l'utilisateur
+      const userFriendlyError = `Impossible de générer le rapport IA: ${errorMsg}.\n\nVeuillez vérifier votre configuration IA dans les paramètres.`;
+      alert(userFriendlyError);
+      
+      // Mettre à jour l'état avec le message d'erreur
+      setAiReport(userFriendlyError);
+      setEditedReport(userFriendlyError);
+      
     } finally {
+      console.log('Nettoyage après génération du rapport IA');
       setIsGenerating(false);
     }
+  };
+
+  // Fonction pour basculer l'affichage des sous-tâches
+  const toggleIncludeSubTasks = () => {
+    setIncludeSubTasks(!includeSubTasks);
+    // Régénérer le rapport avec le nouvel état
+    generateReport();
   };
 
   return (
     <div className="space-y-6 p-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <h1 className="text-2xl font-bold">Rapport d'Activité</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <select
             value={dateRange}
             onChange={(e) => setDateRange(e.target.value as 'day' | 'week' | 'month')}
@@ -483,6 +699,30 @@ ${userInfo}`;
             ))}
           </select>
           
+          <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-md p-1 border border-gray-300 dark:border-gray-600">
+            <span className="px-3 py-1 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+              Sous-tâches :
+            </span>
+            <Button
+              variant={includeSubTasks ? 'primary' : 'ghost'}
+              size="sm"
+              onClick={toggleIncludeSubTasks}
+              className={`transition-all duration-200 whitespace-nowrap ${
+                includeSubTasks 
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm' 
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+              title={includeSubTasks ? 'Masquer les sous-tâches' : 'Afficher les sous-tâches'}
+            >
+              {includeSubTasks ? 'Activées' : 'Désactivées'}
+              {includeSubTasks ? (
+                <CheckCircle2 className="ml-2 h-4 w-4" />
+              ) : (
+                <X className="ml-2 h-4 w-4" />
+              )}
+            </Button>
+          </div>
+            
           <Button 
             onClick={handleGenerateAIReport} 
             disabled={isGenerating || !report?.projects?.length}
@@ -659,9 +899,9 @@ ${userInfo}`;
             <div className="flex items-center gap-2">
               {!isEditing ? (
                 <>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={handleEditReport}
                     disabled={isSendingEmail}
                   >
@@ -732,6 +972,7 @@ ${userInfo}`;
                 ref={textareaRef}
                 value={editedReport}
                 onChange={(e) => setEditedReport(e.target.value)}
+                rows={40}                
                 className="min-h-[300px] font-mono dark:bg-gray-700 text-sm"
               />
             ) : (

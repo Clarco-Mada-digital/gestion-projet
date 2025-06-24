@@ -38,8 +38,14 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task }:
   };
 
   const toggleTask = (id: string) => {
+    const now = new Date().toISOString();
     const updated = subTasks.map(task => 
-      task.id === id ? { ...task, completed: !task.completed } : task
+      task.id === id ? { 
+        ...task, 
+        completed: !task.completed,
+        updatedAt: now,
+        completedAt: !task.completed ? now : task.completedAt // Mettre à jour completedAt uniquement si la tâche est marquée comme complétée
+      } : task
     );
     onSubTasksChange(updated);
   };
@@ -51,34 +57,69 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task }:
   };
 
   const generateWithAI = useCallback(async () => {
+    console.log('Bouton Générer avec IA cliqué');
+    console.log('Paramètres IA:', aiSettings);
+    
     if (!aiSettings?.isConfigured) {
-      alert('La fonctionnalité IA n\'est pas configurée dans les paramètres');
+      const errorMsg = 'La fonctionnalité IA n\'est pas configurée dans les paramètres';
+      console.error(errorMsg);
+      alert(errorMsg);
+      return;
+    }
+
+    // Vérifier que la clé API est disponible
+    const apiKey = aiSettings.provider === 'openai' 
+      ? aiSettings.openaiApiKey 
+      : aiSettings.openrouterApiKey;
+    
+    if (!apiKey) {
+      const errorMsg = `Clé API ${aiSettings.provider} manquante. Veuillez configurer les paramètres IA.`;
+      console.error(errorMsg);
+      alert(errorMsg);
       return;
     }
 
     setIsGenerating(true);
+    console.log('Début de la génération des sous-tâches avec IA...');
+    
     try {
+      console.log('Appel à AIService.generateSubTasksWithAI avec les paramètres:', {
+        project: { name: project.name, id: project.id },
+        task: { title: task.title, id: task.id },
+        existingSubTasksCount: subTasks.length
+      });
+      
       const generatedSubTasks = await AIService.generateSubTasksWithAI(
         aiSettings,
         project,
         task,
         subTasks
       );
+      
+      console.log('Sous-tâches générées avec succès:', generatedSubTasks);
 
-      const newSubTasks = generatedSubTasks.map(st => ({
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        title: st.title,
+      if (!generatedSubTasks || generatedSubTasks.length === 0) {
+        throw new Error('Aucune sous-tâche générée par l\'IA');
+      }
+
+      const newSubTasks = generatedSubTasks.map((st, index) => ({
+        id: `ai-gen-${Date.now()}-${index}`,
+        title: st.title || `Sous-tâche ${index + 1}`,
         description: st.description || '',
         completed: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }));
 
+      console.log('Nouvelles sous-tâches à ajouter:', newSubTasks);
       onSubTasksChange([...subTasks, ...newSubTasks]);
+      
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue';
       console.error('Erreur lors de la génération des sous-tâches:', error);
-      alert('Erreur lors de la génération des sous-tâches. Voir la console pour plus de détails.');
+      alert(`Erreur lors de la génération des sous-tâches: ${errorMsg}`);
     } finally {
+      console.log('Fin de la génération des sous-tâches');
       setIsGenerating(false);
     }
   }, [aiSettings, project, task, subTasks, onSubTasksChange]);
