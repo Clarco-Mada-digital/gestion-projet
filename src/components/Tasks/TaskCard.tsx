@@ -190,8 +190,10 @@ export function TaskCard({ task, className = '' }: TaskCardProps) {
                 )}
               </button>
               
-              <h3 className={`font-semibold text-lg ${task.status === 'done' ? 'line-through text-gray-500' : 'text-gray-800 dark:text-gray-100'}`}>
-                {task.title}
+              <h3 className={`font-semibold ${task.status === 'done' ? 'line-through text-gray-500' : 'text-gray-800 dark:text-gray-100'}`}>
+                <span className={`${state.appSettings?.fontSize === 'small' ? 'text-base' : state.appSettings?.fontSize === 'large' ? 'text-xl' : 'text-lg'}`}>
+                  {task.title}
+                </span>
               </h3>
               
               {task.priority === 'high' && (

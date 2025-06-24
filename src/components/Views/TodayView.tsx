@@ -6,8 +6,25 @@ import { Card } from '../UI/Card';
 
 export function TodayView() {
   const { state } = useApp();
+  const { appSettings } = state;
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
   const today = new Date().toDateString();
+  
+  // Récupérer la taille de police depuis les paramètres
+  const fontSize = appSettings?.fontSize || 'medium';
+  
+  // Classes CSS pour les différentes tailles de police
+  const textSizeClasses = {
+    small: 'text-sm',
+    medium: 'text-base',
+    large: 'text-lg'
+  };
+  
+  const headingSizeClasses = {
+    small: 'text-xl',
+    medium: 'text-2xl',
+    large: 'text-3xl'
+  };
   
   // Initialiser tous les projets comme étant repliés par défaut
   React.useEffect(() => {
@@ -89,10 +106,10 @@ export function TodayView() {
               <Target className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 bg-clip-text text-transparent">
+              <h1 className={`${headingSizeClasses[fontSize]} md:${headingSizeClasses[fontSize].replace('xl', '3xl')} font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 bg-clip-text text-transparent`}>
                 Travail d'aujourd'hui
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-1 font-medium">
+              <p className={`${textSizeClasses[fontSize]} text-gray-600 dark:text-gray-400 mt-1 font-medium`}>
                 {new Date().toLocaleDateString('fr-FR', {
                   weekday: 'long',
                   year: 'numeric',
@@ -133,10 +150,10 @@ export function TodayView() {
               <AlertTriangle className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-red-800 dark:text-red-300">
+              <h2 className={`${headingSizeClasses[fontSize]} text-red-800 dark:text-red-300`}>
                 Tâches en retard ({overdueTasks.length})
               </h2>
-              <p className="text-sm text-red-600 dark:text-red-400 font-medium">
+              <p className={`${textSizeClasses[fontSize]} text-red-600 dark:text-red-400 font-medium`}>
                 Ces tâches doivent être finalisées avant de passer aux tâches d'aujourd'hui
               </p>
             </div>
@@ -156,7 +173,7 @@ export function TodayView() {
           <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg">
             <Calendar className="w-6 h-6 text-white" />
           </div>
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+          <h2 className={`${headingSizeClasses[fontSize]} bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent`}>
             Tâches d'aujourd'hui ({todayTasks.length})
           </h2>
         </div>
@@ -166,10 +183,10 @@ export function TodayView() {
             <div className="w-24 h-24 bg-gradient-to-r from-blue-500 to-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl">
               <Sparkles className="w-12 h-12 text-white" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+            <h3 className={`${headingSizeClasses[fontSize]} text-gray-900 dark:text-white mb-3`}>
               Aucune tâche pour aujourd'hui
             </h3>
-            <p className="text-gray-500 dark:text-gray-400 text-lg">
+            <p className={`${textSizeClasses[fontSize]} text-gray-500 dark:text-gray-400 text-lg`}>
               Profitez de cette journée libre ou planifiez de nouvelles tâches !
             </p>
           </div>
@@ -185,26 +202,27 @@ export function TodayView() {
                   <div 
                     className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors"
                     onClick={() => toggleProject(project.id)}
-                  >
-                    <div className="flex items-center space-x-3">
+                    >
+                    <div className="flex items-center space-x-3 flex-1 min-w-0">
                       {isExpanded ? (
-                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                        <ChevronDown className="w-5 h-5 text-gray-400 flex-shrink-0" />
                       ) : (
-                        <ChevronRight className="w-5 h-5 text-gray-400" />
+                        <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
                       )}
                       <div 
                         className="w-3 h-3 rounded-full flex-shrink-0"
                         style={{ backgroundColor: project.color }}
                       />
-                      <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                      <h3 className={`${textSizeClasses[fontSize].replace('text-', 'text-').replace('sm', 'base').replace('base', 'lg').replace('lg', 'xl')} font-medium text-gray-700 dark:text-gray-300 truncate flex-1 min-w-0`}>
                         {project.name}
                       </h3>
-                      <span className="text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full">
+                      <span className="text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full whitespace-nowrap ml-2">
                         {project.tasks.length} tâche{project.tasks.length > 1 ? 's' : ''}
                       </span>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-24 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    
+                    <div className="flex items-center space-x-2 ml-4">
+                      <div className="w-16 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden flex-shrink-0">
                         <div 
                           className="h-full rounded-full"
                           style={{ 
@@ -214,12 +232,12 @@ export function TodayView() {
                           }}
                         />
                       </div>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                         {completedTasks}/{project.tasks.length}
                       </span>
                     </div>
                   </div>
-                  
+
                   {isExpanded && (
                     <div className="space-y-3 pl-10 border-l-2 ml-3" style={{ borderColor: project.color + '40' }}>
                       {project.tasks.map(task => (
@@ -258,9 +276,10 @@ export function TodayView() {
         
         <Card className="p-6 text-center" hover gradient>
           <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <span className="text-2xl font-bold text-white">
-              {completedToday}
-            </span>
+            <h2 className={`${headingSizeClasses[fontSize].replace('xl', 'lg')} font-semibold flex items-center`}>
+              <AlertTriangle className="w-5 h-5 mr-2 text-amber-500" />
+              Tâches en retard
+            </h2>
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">Terminées</div>
         </Card>

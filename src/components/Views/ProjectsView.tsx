@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Archive, AlertTriangle, Calendar, Cpu } from 'lucide-react'; // Ajout de l'icône Cpu pour l'onglet IA
+import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Archive, AlertTriangle, Calendar, Cpu, ChevronDown } from 'lucide-react'; // Ajout de l'icône Cpu pour l'onglet IA
 import { useApp } from '../../context/AppContext';
 import { Card } from '../UI/Card';
 import { Button } from '../UI/Button';
@@ -8,6 +8,108 @@ import { Modal } from '../UI/Modal';
 import { Project, Task, AISettings as AISettingsType } from '../../types';
 import { AISettings } from '../Settings/AISettings';
 import { Tabs, Form, Input, Select, Row, Col, InputNumber, message } from 'antd';
+
+// Types pour les composants Ant Design
+const { TabPane } = Tabs;
+const { Option } = Select;
+const { TextArea } = Input;
+
+// Types pour les props personnalisées
+interface FormItemProps {
+  label: React.ReactNode;
+  required?: boolean;
+  children: React.ReactNode;
+}
+
+interface SelectOptionProps {
+  value: string | number;
+  children: React.ReactNode;
+  disabled?: boolean;
+}
+
+interface CustomFormItemProps {
+  children: React.ReactNode;
+  label: React.ReactNode;
+  required?: boolean;
+  className?: string;
+}
+
+const CustomFormItem: React.FC<CustomFormItemProps> = ({ 
+  children, 
+  label, 
+  required = false, 
+  className = '',
+  ...props 
+}) => {
+  return (
+    <Form.Item label={label} required={required} className={className} {...props}>
+      {children}
+    </Form.Item>
+  );
+};
+
+interface CustomSelectOptionProps {
+  children: React.ReactNode;
+  value: string | number;
+  disabled?: boolean;
+  className?: string;
+}
+
+const CustomSelectOption: React.FC<CustomSelectOptionProps> = ({ 
+  children, 
+  value, 
+  disabled = false,
+  className = '',
+  ...props 
+}) => {
+  return (
+    <Select.Option value={value} disabled={disabled} className={className} {...props}>
+      {children}
+    </Select.Option>
+  );
+};
+
+interface CustomTabPaneProps {
+  children: React.ReactNode;
+  tab: React.ReactNode;
+  key: string;
+  disabled?: boolean;
+  className?: string;
+}
+
+const CustomTabPane: React.FC<CustomTabPaneProps> = ({
+  children,
+  tab,
+  key,
+  disabled = false,
+  className = '',
+  ...props
+}) => {
+  return (
+    <Tabs.TabPane tab={tab} key={key} disabled={disabled} className={className} {...props}>
+      {children}
+    </Tabs.TabPane>
+  );
+};
+
+interface CustomFormProps {
+  children: React.ReactNode;
+  layout?: 'horizontal' | 'vertical' | 'inline';
+  className?: string;
+}
+
+const CustomForm: React.FC<CustomFormProps> = ({
+  children,
+  layout = 'vertical',
+  className = '',
+  ...props
+}) => {
+  return (
+    <Form layout={layout} className={className} {...props}>
+      {children}
+    </Form>
+  );
+};
 
 interface ProjectCardProps {
   project: Project;
@@ -26,6 +128,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
   getProjectStats,
   children 
 }) => {
+  const { state } = useApp();
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const stats = getProjectStats(project);
@@ -52,7 +155,10 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
             className="w-5 h-5 rounded-full shadow-lg"
             style={{ backgroundColor: project.color }}
           />
-          <h3 className="font-bold text-gray-900 dark:text-white text-xl">
+          <h3 className={`font-bold text-gray-900 dark:text-white ${
+            state.appSettings?.fontSize === 'small' ? 'text-lg' : 
+            state.appSettings?.fontSize === 'large' ? 'text-2xl' : 'text-xl'
+          }`}>
             {project.name}
           </h3>
         </div>
@@ -101,13 +207,19 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
       </div>
 
       {project.description && (
-        <p className="text-gray-600 dark:text-gray-400 text-sm mb-6 line-clamp-2 leading-relaxed">
+        <p className={`text-gray-600 dark:text-gray-400 mb-6 line-clamp-2 leading-relaxed ${
+          state.appSettings?.fontSize === 'small' ? 'text-xs' : 
+          state.appSettings?.fontSize === 'large' ? 'text-base' : 'text-sm'
+        }`}>
           {project.description}
         </p>
       )}
 
       <div className="space-y-4 mb-6">
-        <div className="flex justify-between text-sm">
+        <div className={`flex justify-between ${
+          state.appSettings?.fontSize === 'small' ? 'text-xs' : 
+          state.appSettings?.fontSize === 'large' ? 'text-base' : 'text-sm'
+        }`}>
           <span className="text-gray-600 dark:text-gray-400 font-medium">Progression</span>
           <span className="font-bold text-gray-900 dark:text-white">
             {stats.completedTasks}/{stats.totalTasks}
@@ -132,6 +244,14 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
 export function ProjectsView() {
   const { state, dispatch } = useApp();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setNewProject(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   
   const resetNewProjectForm = () => {
@@ -158,6 +278,8 @@ export function ProjectsView() {
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showMenuId, setShowMenuId] = useState<string | null>(null);
+  const [showActive, setShowActive] = useState(true); // État pour gérer l'affichage des projets actifs
+  const [showPending, setShowPending] = useState(false); // État pour gérer l'affichage des projets en attente (masqué par défaut)
   const [showCompletedProjects, setShowCompletedProjects] = useState(false);
   const [showArchivedProjects, setShowArchivedProjects] = useState(false);
 
@@ -170,13 +292,21 @@ export function ProjectsView() {
     tasks: []
   });
   
-  const [newTask, setNewTask] = useState({
+  const [newTask, setNewTask] = useState<{
+    title: string;
+    description: string;
+    status: 'todo' | 'in-progress' | 'done';
+    priority: 'low' | 'medium' | 'high';
+    startDate: string;
+    endDate: string;
+    estimatedHours: number;
+  }>({
     title: '',
     description: '',
-    status: 'todo' as const,
-    priority: 'medium' as const,
+    status: 'todo',
+    priority: 'medium',
     startDate: new Date().toISOString().split('T')[0],
-    endDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Demain par défaut
+    endDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     estimatedHours: 1,
   });
 
@@ -375,7 +505,7 @@ export function ProjectsView() {
     }
   };
 
-  const startEditing = (project: Project) => {
+  const startEditing = async (project: Project) => {
     setEditingProject({
       ...project,
       tasks: project.tasks || []
@@ -539,7 +669,60 @@ export function ProjectsView() {
         </Card>
       </div>
 
-      {/* Liste des projets */}
+      {/* Projets actifs */}
+      <div className="mt-12">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className={`font-bold text-gray-800 dark:text-white ${
+            state.appSettings?.fontSize === 'small' ? 'text-lg' : 
+            state.appSettings?.fontSize === 'large' ? 'text-2xl' : 'text-xl'
+          }`}>
+            Projets actifs
+          </h2>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowActive(!showActive)}
+            className="flex items-center gap-2"
+          >
+            {showActive ? 'Masquer' : 'Afficher'} les projets actifs
+            <svg 
+              className={`w-4 h-4 transition-transform ${showActive ? 'rotate-180' : ''}`} 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24" 
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </Button>
+        </div>
+        
+        {showActive && state.projects.some(p => p.status === 'active') ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {state.projects
+              .filter(project => project.status === 'active')
+              .map(project => (
+                <ProjectCard 
+                  key={project.id}
+                  project={project}
+                  onEdit={handleEditProject}
+                  onArchive={handleArchiveProject}
+                  onDelete={(p) => {
+                    setProjectToDelete(p);
+                    setShowDeleteConfirm(true);
+                  }}
+                  getProjectStats={getProjectStats}
+                />
+              ))}
+          </div>
+        ) : showActive ? (
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            Aucun projet actif pour le moment
+          </div>
+        ) : null}
+      </div>
+
+      {/* Aucun projet */}
       {state.projects.filter(p => p.status !== 'archived').length === 0 ? (
         <Card className="p-16 text-center" gradient>
           <div className="w-24 h-24 bg-gradient-to-r from-blue-500 to-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl">
@@ -560,70 +743,91 @@ export function ProjectsView() {
             variant="gradient"
             size="lg"
           >
-            Créer un Projet
+            Créer un projet
           </Button>
         </Card>
       ) : (
-        <div className="space-y-4 mb-8">
-          <h2 className="text-xl font-bold text-gray-800 dark:text-white">Projets actifs</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {state.projects
-              .filter(project => project.status === 'active')
-              .map(project => (
-                <ProjectCard 
-                  key={project.id}
-                  project={project}
-                  onEdit={handleEditProject}
-                  onArchive={handleArchiveProject}
-                  onDelete={(p) => {
-                    setProjectToDelete(p);
-                    setShowDeleteConfirm(true);
-                  }}
-                  getProjectStats={getProjectStats}
-                />
-              ))}
-          </div>
-          
+        <>
           {/* Projets en attente */}
-          {state.projects.some(p => p.status === 'on-hold') && (
-            <div className="mt-12">
-              <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-6">En attente</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="mb-8">
+            <div 
+              className="flex items-center justify-between cursor-pointer mb-4 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              onClick={() => setShowPending(!showPending)}
+            >
+              <h2 className={`flex items-center ${state.appSettings?.fontSize === 'small' ? 'text-lg' : state.appSettings?.fontSize === 'large' ? 'text-2xl' : 'text-xl'} font-bold`}>
+                <AlertTriangle className="mr-2 text-yellow-500" size={state.appSettings?.fontSize === 'large' ? 24 : 20} />
+                En attente
+                <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
+                  ({state.projects.filter(p => p.status === 'on-hold').length})
+                </span>
+              </h2>
+              <ChevronDown 
+                className={`transform transition-transform ${showPending ? 'rotate-0' : '-rotate-90'} text-gray-500`} 
+                size={20} 
+              />
+            </div>
+            
+            {showPending && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {state.projects
                   .filter(project => project.status === 'on-hold')
                   .map(project => (
                     <ProjectCard 
-                      key={project.id}
-                      project={project}
+                      key={project.id} 
+                      project={project} 
                       onEdit={handleEditProject}
                       onArchive={handleArchiveProject}
-                      onDelete={(p) => {
-                        setProjectToDelete(p);
+                      onDelete={(project) => {
+                        setProjectToDelete(project);
                         setShowDeleteConfirm(true);
                       }}
                       getProjectStats={getProjectStats}
+                      totalTasks={getProjectStats(project).totalTasks}
+                      completedTasks={getProjectStats(project).completedTasks}
                     >
-                      <Button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleActivateProject(project);
-                        }}
-                        variant="outline"
-                        size="sm"
-                        className="mt-4 w-full"
-                      >
-                        Activer le projet
-                      </Button>
+                      <div className="flex justify-between mt-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => handleActivateProject(project)}
+                          className="flex-1 mr-2"
+                        >
+                          Activer
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProjectToDelete(project);
+                            setShowDeleteConfirm(true);
+                          }}
+                          className="text-red-500 hover:bg-red-50 hover:text-red-600"
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                      </div>
                     </ProjectCard>
                   ))}
+                
+                {state.projects.filter(p => p.status === 'on-hold').length === 0 && (
+                  <div className="col-span-full text-center py-8 text-gray-500 dark:text-gray-400">
+                    Aucun projet en attente
+                  </div>
+                )}
               </div>
-            </div>
-          )}
-          
+            )}
+          </div>
+
           {/* Projets terminés */}
           <div className="mt-12">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-800 dark:text-white">Projets terminés</h2>
+              <h2 className={`font-bold text-gray-800 dark:text-white ${
+                state.appSettings?.fontSize === 'small' ? 'text-lg' : 
+                state.appSettings?.fontSize === 'large' ? 'text-2xl' : 'text-xl'
+              }`}>
+                Projets terminés
+              </h2>
               <Button 
                 variant="outline" 
                 size="sm"
@@ -778,7 +982,7 @@ export function ProjectsView() {
               </div>
             )}
           </div>
-        </div>
+        </>
       )}
 
       {/* Modal de création avec design moderne */}
@@ -792,66 +996,69 @@ export function ProjectsView() {
         cancelText="Annuler"
         destroyOnClose
       >
-        <Tabs activeKey={activeTab} onChange={setActiveTab}>
-          <Tabs.TabPane tab="Général" key="general">
-            <Form layout="vertical">
-              <Form.Item label="Nom du projet" required>
+        <Tabs activeKey={activeTab} onChange={(key: string) => setActiveTab(key)}>
+          <CustomTabPane tab="Général" key="general">
+            <CustomForm layout="vertical">
+              <CustomFormItem label="Nom du projet" required>
                 <Input
                   value={newProject.name}
-                  onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                    setNewProject({ ...newProject, name: e.target.value })}
                   placeholder="Nom du projet"
                 />
-              </Form.Item>
-              <Form.Item label="Description">
-                <Input.TextArea
+              </CustomFormItem>
+              <CustomFormItem label="Description">
+                <TextArea
                   value={newProject.description}
-                  onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => 
+                    setNewProject({ ...newProject, description: e.target.value })}
                   placeholder="Description du projet"
                   rows={4}
                 />
-              </Form.Item>
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item label="Couleur">
+              </CustomFormItem>
+              <Row gutter={16 as unknown as string}>
+                <Col span={12 as unknown as string}>
+                  <CustomFormItem label="Couleur">
                     <Select
                       value={newProject.color}
-                      onChange={(value) => setNewProject({ ...newProject, color: value })}
+                      onChange={(value: string) => 
+                        setNewProject({ ...newProject, color: value })}
                       style={{ width: '100%' }}
                     >
-                      <Select.Option value="#1890ff">Bleu</Select.Option>
-                      <Select.Option value="#52c41a">Vert</Select.Option>
-                      <Select.Option value="#faad14">Jaune</Select.Option>
-                      <Select.Option value="#f5222d">Rouge</Select.Option>
-                      <Select.Option value="#722ed1">Violet</Select.Option>
+                      <CustomSelectOption value="#1890ff">Bleu</CustomSelectOption>
+                      <CustomSelectOption value="#52c41a">Vert</CustomSelectOption>
+                      <CustomSelectOption value="#faad14">Jaune</CustomSelectOption>
+                      <CustomSelectOption value="#f5222d">Rouge</CustomSelectOption>
+                      <CustomSelectOption value="#722ed1">Violet</CustomSelectOption>
                     </Select>
-                  </Form.Item>
+                  </CustomFormItem>
                 </Col>
                 <Col span={12}>
-                  <Form.Item label="Statut">
+                  <CustomFormItem label="Statut">
                     <Select
                       value={newProject.status}
-                      onChange={(value) => setNewProject({ ...newProject, status: value })}
+                      onChange={(value: string) => setNewProject({ ...newProject, status: value })}
                       style={{ width: '100%' }}
                     >
-                      <Select.Option value="active">Actif</Select.Option>
-                      <Select.Option value="completed">Terminé</Select.Option>
-                      <Select.Option value="archived">Archivé</Select.Option>
+                      <CustomSelectOption value="active">Actif</CustomSelectOption>
+                      <CustomSelectOption value="completed">Terminé</CustomSelectOption>
+                      <CustomSelectOption value="archived">Archivé</CustomSelectOption>
                     </Select>
-                  </Form.Item>
+                  </CustomFormItem>
                 </Col>
               </Row>
-              <Form.Item label="Durée estimée (jours)">
+              <CustomFormItem label="Durée estimée (jours)">
                 <InputNumber
                   min={1}
                   value={newProject.estimatedDuration}
-                  onChange={(value) => setNewProject({ ...newProject, estimatedDuration: Math.max(1, value || 1) })}
+                  onChange={(value: number | null) => setNewProject({ ...newProject, estimatedDuration: Math.max(1, value || 1) })}
                   style={{ width: '100%' }}
                   placeholder="Durée estimée en jours"
                 />
-              </Form.Item>
-            </Form>
-          </Tabs.TabPane>
-          <Tabs.TabPane 
+              </CustomFormItem>
+            </CustomForm>
+          </CustomTabPane>
+          <CustomTabPane 
             tab={
               <span>
                 <Cpu size={16} style={{ marginRight: 8 }} />
@@ -872,7 +1079,7 @@ export function ProjectsView() {
                 <p>Veuillez d'abord enregistrer le projet pour configurer les paramètres IA.</p>
               </div>
             )}
-          </Tabs.TabPane>
+          </CustomTabPane>
         </Tabs>
       </Modal>
       
@@ -1147,7 +1354,6 @@ export function ProjectsView() {
               }}
               className="flex-1 bg-red-500 hover:bg-red-600 text-white"
               variant="gradient"
-              autoFocus
             >
               <Trash2 className="w-4 h-4 mr-2" />
               Supprimer
