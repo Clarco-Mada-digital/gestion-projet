@@ -99,14 +99,13 @@ export interface User {
 export type ViewMode = 'today' | 'projects' | 'kanban' | 'calendar' | 'settings' | 'reports';
 
 export interface EmailSettings {
-  smtpHost: string;
-  smtpPort: number;
-  smtpUser: string;
-  smtpPassword: string;
+  serviceId: string;
+  templateId: string;
+  userId: string;
+  accessToken?: string;
   fromEmail: string;
   fromName: string;
-  useSSL: boolean;
-  useTLS: boolean;
+  isEnabled: boolean;
 }
 
 export interface AISettings {

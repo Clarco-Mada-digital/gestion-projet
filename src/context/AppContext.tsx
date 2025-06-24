@@ -241,6 +241,28 @@ const exampleProjects: Project[] = [
 ];
 
 
+// Interface pour les paramètres EmailJS
+export interface EmailJsSettings {
+  serviceId: string;
+  templateId: string;
+  userId: string;
+  accessToken?: string;
+  fromEmail: string;
+  fromName: string;
+  isEnabled: boolean;
+}
+
+// Interface pour les paramètres EmailJS
+export interface EmailJsSettings {
+  serviceId: string;
+  templateId: string;
+  userId: string;
+  accessToken?: string;
+  fromEmail: string;
+  fromName: string;
+  isEnabled: boolean;
+}
+
 // Paramètres par défaut de l'application
 const initialAppSettings: AppSettings = {
   theme: 'light',
@@ -269,14 +291,13 @@ const initialState: AppState = {
   theme: 'light',
   currentView: 'today',
   emailSettings: {
-    smtpHost: '',
-    smtpPort: 587,
-    smtpUser: '',
-    smtpPassword: '',
+    serviceId: '',
+    templateId: 'template_default',
+    userId: '',
+    accessToken: '',
     fromEmail: '',
-    fromName: '',
-    useSSL: false,
-    useTLS: true
+    fromName: 'Gestion de Projet',
+    isEnabled: true
   },
   appSettings: initialAppSettings,
   notifications: [],
@@ -435,11 +456,27 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         ...state,
         users: state.users.filter(user => user.id !== action.payload)
       };
-    case 'UPDATE_EMAIL_SETTINGS':
+    case 'UPDATE_EMAIL_SETTINGS': {
+      // S'assurer que tous les champs requis sont présents
+      const updatedSettings = {
+        ...state.emailSettings,
+        ...action.payload,
+        // Forcer le typage pour s'assurer que les champs requis sont présents
+        serviceId: action.payload.serviceId ?? state.emailSettings.serviceId,
+        templateId: action.payload.templateId ?? state.emailSettings.templateId ?? 'template_default',
+        userId: action.payload.userId ?? state.emailSettings.userId,
+        fromEmail: action.payload.fromEmail ?? state.emailSettings.fromEmail,
+        fromName: action.payload.fromName ?? state.emailSettings.fromName ?? 'Gestion de Projet',
+        isEnabled: action.payload.isEnabled ?? state.emailSettings.isEnabled ?? true
+      };
+      
+      console.log('Mise à jour des paramètres email:', updatedSettings);
+      
       return {
         ...state,
-        emailSettings: { ...state.emailSettings, ...action.payload }
+        emailSettings: updatedSettings
       };
+    }
     case 'UPDATE_APP_SETTINGS':
       return {
         ...state,
