@@ -1,4 +1,4 @@
-import { Calendar, CheckSquare, FileText, FolderOpen, Kanban, Moon, Sun, Sparkles, Settings } from 'lucide-react';
+import { Calendar, CheckSquare, FileText, FolderOpen, Kanban, Moon, Sun, Sparkles, Settings, Info } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { ViewMode } from '../../types';
 
@@ -12,6 +12,7 @@ export function Sidebar() {
     { id: 'calendar' as ViewMode, label: 'Calendrier', icon: Calendar, color: 'text-cyan-500', gradient: 'from-cyan-500 to-blue-500' },
     { id: 'reports' as ViewMode, label: 'Rapports', icon: FileText, color: 'text-indigo-500', gradient: 'from-indigo-500 to-purple-500' },
     { id: 'settings' as ViewMode, label: 'Paramètres', icon: Settings, color: 'text-amber-500', gradient: 'from-amber-500 to-orange-500' },
+    { id: 'about' as ViewMode, label: 'À propos', icon: Info, color: 'text-pink-500', gradient: 'from-pink-500 to-rose-500' },
   ];
 
   console.log('Menu Items:', menuItems);

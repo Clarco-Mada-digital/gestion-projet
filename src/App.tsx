@@ -8,6 +8,7 @@ import { KanbanView } from './components/Views/KanbanView';
 import { CalendarView } from './components/Views/CalendarView';
 import { SettingsView } from './components/Views/SettingsView';
 import { ReportView } from './components/Views/ReportView';
+import { AboutView } from './components/Views/AboutView';
 
 // Fonction utilitaire pour charger l'état depuis le localStorage
 const loadStateFromLocalStorage = () => {
@@ -120,6 +121,7 @@ function AppContent() {
         {currentView === 'calendar' && <CalendarView />}
         {currentView === 'reports' && <ReportView />}
         {currentView === 'settings' && <SettingsView />}
+        {currentView === 'about' && <AboutView />}
       </MainLayout>
     </div>
   );
