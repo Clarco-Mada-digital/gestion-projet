@@ -64,8 +64,9 @@ export function TodayView() {
     return currentDate >= taskStartDate && currentDate <= taskEndDate;
   };
 
-  // Récupérer toutes les tâches groupées par projet
+  // Récupérer toutes les tâches des projets actifs groupées par projet
   const projectsWithTodayTasks = state.projects
+    .filter(project => project.status === 'active') // Ne prendre que les projets actifs
     .map(project => ({
       ...project,
       tasks: project.tasks.filter(task => 
@@ -74,10 +75,12 @@ export function TodayView() {
     }))
     .filter(project => project.tasks.length > 0);
 
-  // Toutes les tâches pour les calculs
-  const allTasks = state.projects.flatMap(p => p.tasks);
+  // Toutes les tâches des projets actifs pour les calculs
+  const allTasks = state.projects
+    .filter(project => project.status === 'active')
+    .flatMap(p => p.tasks);
   
-  // Tâches en retard (tous projets confondus)
+  // Tâches en retard (uniquement des projets actifs)
   const overdueTasks = allTasks.filter(task => {
     const taskEndDate = new Date(task.endDate || task.dueDate);
     const today = new Date();
@@ -90,7 +93,7 @@ export function TodayView() {
     );
   });
 
-  // Calcul des statistiques
+  // Calcul des statistiques (uniquement pour les projets actifs)
   const todayTasks = allTasks.filter(task => isTaskInDateRange(task, new Date()));
   const completedToday = todayTasks.filter(task => task.status === 'done').length;
   const totalToday = todayTasks.length;

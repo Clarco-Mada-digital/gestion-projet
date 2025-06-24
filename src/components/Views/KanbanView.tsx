@@ -83,10 +83,16 @@ export function KanbanView() {
     let tasksToDisplay = [];
     
     if (selectedProjectId === 'all') {
-      tasksToDisplay = state.projects.flatMap(p => p.tasks);
+      // Ne prendre que les tâches des projets actifs
+      tasksToDisplay = state.projects
+        .filter(project => project.status === 'active')
+        .flatMap(p => p.tasks);
     } else {
+      // Vérifier que le projet sélectionné est actif
       const selectedProject = state.projects.find(p => p.id === selectedProjectId);
-      tasksToDisplay = selectedProject ? selectedProject.tasks : [];
+      tasksToDisplay = (selectedProject && selectedProject.status === 'active') 
+        ? selectedProject.tasks 
+        : [];
     }
 
     // Créer les colonnes par défaut avec leurs tâches
@@ -373,7 +379,9 @@ export function KanbanView() {
                   >
                     Tous les projets
                   </button>
-                  {state.projects.map(project => (
+                  {state.projects
+                    .filter(project => project.status === 'active')
+                    .map(project => (
                     <button
                       key={project.id}
                       onClick={() => {

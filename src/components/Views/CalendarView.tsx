@@ -11,7 +11,10 @@ export function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
-  const allTasks = state.projects.flatMap(p => p.tasks);
+  // Ne prendre que les tâches des projets actifs
+  const allTasks = state.projects
+    .filter(project => project.status === 'active')
+    .flatMap(p => p.tasks);
 
   // Obtenir le premier jour du mois
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
@@ -42,6 +45,10 @@ export function CalendarView() {
 
   const getTasksForDate = (date: Date) => {
     return allTasks.filter(task => {
+      // Vérifier que la tâche appartient à un projet actif
+      const project = state.projects.find(p => p.id === task.projectId);
+      if (!project || project.status !== 'active') return false;
+      
       const taskStartDate = new Date(task.startDate || task.dueDate);
       const taskEndDate = new Date(task.endDate || task.dueDate);
       
@@ -200,10 +207,10 @@ export function CalendarView() {
                         className={`
                           text-xs p-2 rounded-lg truncate cursor-pointer transition-all duration-200 hover:scale-105 shadow-sm
                           ${task.status === 'done' 
-                            ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 dark:from-green-900/30 dark:to-emerald-900/30 dark:text-green-300' 
+                            ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 dark:from-green-900/30 dark:to-emerald-900/30 dark:text-green-300 border-l-4 border-green-500' 
                             : overdueTasks.includes(task)
-                            ? 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 dark:from-red-900/30 dark:to-pink-900/30 dark:text-red-300'
-                            : 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 dark:from-blue-900/30 dark:to-cyan-900/30 dark:text-blue-300 hover:from-blue-200 hover:to-cyan-200 dark:hover:from-blue-800/40 dark:hover:to-cyan-800/40'
+                            ? 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 dark:from-red-900/30 dark:to-pink-900/30 dark:text-red-300 border-l-4 border-red-500'
+                            : 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 dark:from-blue-900/30 dark:to-cyan-900/30 dark:text-blue-300 hover:from-blue-200 hover:to-cyan-200 dark:hover:from-blue-800/40 dark:hover:to-cyan-800/40 border-l-4 border-blue-500'
                           }
                           ${(() => {
                             const taskStartDate = new Date(task.startDate || task.dueDate);
