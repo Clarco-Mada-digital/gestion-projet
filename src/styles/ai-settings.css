@@ -1,0 +1,104 @@
+/* Styles pour les champs de formulaire */
+.ant-input,
+.ant-input-password,
+.ant-input-number,
+.ant-select-selector {
+  @apply transition-colors duration-200 ease-in-out;
+}
+
+/* Styles pour les boutons avec états de chargement */
+button[disabled] {
+  @apply opacity-75 cursor-not-allowed;
+}
+
+/* Styles pour les alertes */
+.ant-alert {
+  @apply rounded-lg border border-solid;
+}
+
+.ant-alert-success {
+  @apply bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-800 dark:text-green-200;
+}
+
+.ant-alert-error {
+  @apply bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200;
+}
+
+/* Styles pour les onglets */
+.ant-tabs-nav {
+  @apply mb-6;
+}
+
+.ant-tabs-tab {
+  @apply transition-colors duration-200 ease-in-out;
+}
+
+.ant-tabs-tab-active {
+  @apply text-blue-600 dark:text-blue-400 font-medium;
+}
+
+.ant-tabs-ink-bar {
+  @apply bg-blue-600 dark:bg-blue-400;
+}
+
+/* Styles pour les sélecteurs */
+.ant-select-dropdown {
+  @apply dark:bg-gray-800 dark:border-gray-700;
+}
+
+.ant-select-item-option {
+  @apply dark:text-white dark:hover:bg-gray-700;
+}
+
+.ant-select-item-option-active {
+  @apply dark:bg-gray-700;
+}
+
+.ant-select-item-option-selected {
+  @apply dark:bg-gray-700 text-blue-600 dark:text-blue-400 font-medium;
+}
+
+/* Styles pour les champs de formulaire en mode sombre */
+.dark .ant-input,
+.dark .ant-input-password,
+.dark .ant-input-number,
+.dark .ant-select-selector {
+  @apply bg-gray-700 border-gray-600 text-white placeholder-gray-400;
+}
+
+.dark .ant-input:focus,
+.dark .ant-input-password:focus,
+.dark .ant-input-number:focus,
+.dark .ant-select-selector:focus {
+  @apply border-blue-500 ring-1 ring-blue-500;
+}
+
+/* Styles pour les boutons en mode sombre */
+.dark .ant-btn-default {
+  @apply bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600 hover:border-gray-500;
+}
+
+/* Styles pour les icônes dans les boutons */
+button svg {
+  @apply inline-block align-middle;
+}
+
+/* Animation de chargement */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Ajustements pour les petits écrans */
+@media (max-width: 640px) {
+  .ant-col {
+    @apply w-full;
+  }
+  
+  .ant-form-item {
+    @apply mb-4;
+  }
+}

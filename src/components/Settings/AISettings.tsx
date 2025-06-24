@@ -16,6 +16,7 @@ import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 const { useToken } = theme;
 const { Password } = Input;
 import { AIService } from '../../services/aiService';
+import '../../styles/ai-settings.css';
 
 type ProviderType = 'openai' | 'openrouter';
 
@@ -72,6 +73,20 @@ export const AISettings: React.FC<AISettingsProps> = ({
   const { token } = theme.useToken();
   const { state, dispatch } = useApp();
   const isDarkMode = state.theme === 'dark';
+
+  // Styles pour les sections du formulaire
+  const sectionStyle = "mb-8 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700";
+  const sectionTitleStyle = "text-lg font-medium text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700 flex items-center";
+  const labelStyle = "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1";
+  const inputClassName = `mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 
+    shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm
+    bg-white text-gray-900 placeholder-gray-500
+    disabled:opacity-50 disabled:cursor-not-allowed`;
+  const selectClassName = `${inputClassName} [&_*]:text-gray-900 [&_*]:dark:text-white [&_.ant-select-selector]:dark:bg-gray-700 
+    [&_.ant-select-selector]:dark:border-gray-600 [&_.ant-select-selection-item]:dark:text-white`;
+  const inputNumberClassName = `${inputClassName} [&_.ant-input-number-input]:dark:bg-gray-700 [&_.ant-input-number-input]:dark:text-white`;
+  const primaryButtonStyle = "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-75 disabled:cursor-not-allowed";
+  const secondaryButtonStyle = "inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-75 disabled:cursor-not-allowed";
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{
@@ -106,7 +121,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
 
   const aiSettings = externalValue || state.appSettings.aiSettings || initialValues;
 
-  const testConnection = async () => {
+  const handleTestConnection = async (): Promise<void> => {
     try {
       const values = await form.validateFields();
       const connectionParams = {
@@ -134,7 +149,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
           ...values,
           isConfigured: true,
           lastTested: new Date().toISOString(),
-          lastTestStatus: 'success',
+          lastTestStatus: 'success' as const,
           lastTestMessage: result.message,
         };
 
@@ -143,24 +158,28 @@ export const AISettings: React.FC<AISettingsProps> = ({
         } else {
           dispatch({
             type: 'UPDATE_APP_SETTINGS',
-            payload: { aiSettings: settings },
+            payload: { 
+              ...state.appSettings,
+              aiSettings: settings 
+            },
           });
         }
       } else {
-        throw new Error(result.message || 'Échec de la connexion');
+        setTestResult({ status: 'error', message: result.message || 'Erreur inconnue lors du test de connexion' });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erreur lors du test de connexion:', error);
-      setTestResult({
-        status: 'error',
-        message: error.message || 'Erreur lors du test de connexion',
+      const errorMessage = error instanceof Error ? error.message : 'Erreur lors du test de connexion';
+      setTestResult({ 
+        status: 'error', 
+        message: errorMessage
       });
     } finally {
       setIsTesting(false);
     }
   };
 
-  const handleSave = async (values: FormValues) => {
+  const handleSave = async (values: FormValues): Promise<void> => {
     try {
       setIsSaving(true);
       const settings = {
@@ -184,9 +203,12 @@ export const AISettings: React.FC<AISettingsProps> = ({
       }
 
       message.success('Paramètres IA enregistrés avec succès');
+      return Promise.resolve();
     } catch (error: any) {
       console.error('Erreur lors de la sauvegarde des paramètres IA:', error);
-      message.error(error.message || 'Erreur lors de la sauvegarde des paramètres IA');
+      const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la sauvegarde des paramètres IA';
+      message.error(errorMessage);
+      return Promise.reject(new Error(errorMessage));
     } finally {
       setIsSaving(false);
     }
@@ -213,36 +235,78 @@ export const AISettings: React.FC<AISettingsProps> = ({
     );
   };
 
-  const ModelSelect = React.memo<{ form: FormInstance<FormValues> }>(({ form }) => {
+  interface ModelSelectProps {
+    form: FormInstance<FormValues>;
+    labelStyle: string;
+  }
+
+  const ModelSelect = React.memo<ModelSelectProps>(({ form, labelStyle }) => {
     const provider = (Form.useWatch('provider', form) as ProviderType) || 'openai';
     const modelName = provider === 'openai' ? 'openaiModel' : 'openrouterModel';
+    const { token } = theme.useToken();
     
     // S'assurer que le provider est valide
     const models = MODELS[provider] || MODELS.openai;
     
     return (
-      <div style={{ marginBottom: '20px' }}>
+      <div className="grid grid-cols-1 gap-6">
         <Form.Item
-          label="Modèle"
+          label={<span className={labelStyle}>Modèle IA</span>}
           name={modelName}
           rules={[{ required: true, message: 'Veuillez sélectionner un modèle' }]}
-          style={{ marginBottom: '16px' }}
+          className="mb-4"
         >
           <Select
             showSearch
             placeholder="Sélectionnez un modèle"
             optionFilterProp="label"
-            style={{ width: '100%' }}
+            className={selectClassName}
+            popupClassName={`dark:bg-gray-800 dark:border-gray-700 ${isDarkMode ? 'dark' : ''}`}
             dropdownStyle={{
-              backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
-              borderColor: isDarkMode ? '#374151' : '#e5e7eb',
+              backgroundColor: isDarkMode ? '#1f2937' : token.colorBgElevated,
+              borderColor: isDarkMode ? '#374151' : token.colorBorder,
+              color: isDarkMode ? token.colorText : undefined,
+            }}
+            variant={isDarkMode ? 'filled' : undefined}
+            filterOption={(input, option) => {
+              if (!option || !option.label) return false;
+              const label = typeof option.label === 'string' ? option.label : 
+                         typeof option.label === 'object' && 'props' in option.label ? 
+                         String(option.label.props.children) : '';
+              return label.toLowerCase().includes(input.toLowerCase());
             }}
             options={models.map(model => ({
               value: model.value,
-              label: model.label
+              label: (
+                <div className="flex items-center">
+                  <span className="truncate dark:text-white">{model.label}</span>
+                </div>
+              )
             }))}
+            optionRender={(option) => {
+              const label = option.label as React.ReactNode;
+              return (
+                <div className="flex items-center hover:bg-gray-100 dark:hover:bg-gray-700 px-4 py-2">
+                  <span className="truncate dark:text-white">{label}</span>
+                </div>
+              );
+            }}
+            menuItemSelectedIcon={null}
+            dropdownRender={(menu) => (
+              <div className="dark:bg-gray-800 dark:border-gray-700 rounded-md shadow-lg">
+                {menu}
+              </div>
+            )}
+            style={{
+              color: isDarkMode ? token.colorText : undefined,
+            }}
           />
         </Form.Item>
+        
+        <div className="text-xs text-gray-500 dark:text-gray-400 -mt-3">
+          <p>Le choix du modèle affecte la qualité et la vitesse des réponses de l'IA.</p>
+          <p>Les modèles plus avancés offrent de meilleurs résultats mais peuvent être plus lents et plus coûteux.</p>
+        </div>
       </div>
     );
   });
@@ -255,25 +319,6 @@ export const AISettings: React.FC<AISettingsProps> = ({
     border: `1px solid ${isDarkMode ? '#374151' : '#e5e7eb'}`,
     boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
     color: isDarkMode ? '#f9fafb' : '#111827',
-  };
-
-  // Styles pour les entrées de formulaire
-  const inputStyle: React.CSSProperties & { ':focus': any; '::placeholder': any } = {
-    backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
-    color: isDarkMode ? '#f9fafb' : '#111827',
-    borderColor: isDarkMode ? '#4b5563' : '#d1d5db',
-    borderRadius: '0.375rem',
-    borderWidth: '1px',
-    padding: '0.5rem 0.75rem',
-    width: '100%',
-    ':focus': {
-      borderColor: isDarkMode ? '#3b82f6' : '#3b82f6',
-      ring: '1px solid #3b82f6',
-      outline: 'none',
-    },
-    '::placeholder': {
-      color: isDarkMode ? '#9ca3af' : '#9ca3af',
-    },
   };
 
   // Styles pour les boutons
@@ -293,190 +338,212 @@ export const AISettings: React.FC<AISettingsProps> = ({
         border: '1px solid #2563eb',
       };
     }
-
-    return {
-      ...baseStyle,
-      backgroundColor: isDarkMode ? '#374151' : '#f3f4f6',
-      color: isDarkMode ? '#f9fafb' : '#111827',
-      border: `1px solid ${isDarkMode ? '#4b5563' : '#d1d5db'}`,
-    };
-  };
+  }
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '16px' }}>
-      <Card
-        title={
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center',
-            padding: '1rem 1.5rem',
-            borderBottom: `1px solid ${isDarkMode ? '#374151' : '#e5e7eb'}`,
-            backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
-          }}>
-            <span style={{ 
-              marginRight: '0.75rem',
-              color: isDarkMode ? '#9ca3af' : '#6b7280',
-              fontSize: '1.25rem',
-              lineHeight: '1.75rem',
-            }}>⚙️</span>
-            <h2 style={{
-              margin: 0,
-              fontSize: '1.125rem',
-              lineHeight: '1.75rem',
-              fontWeight: 600,
-              color: isDarkMode ? '#f9fafb' : '#111827',
-            }}>
-              Paramètres IA
-            </h2>
-          </div>
-        }
-        style={cardStyle}
-        bodyStyle={{
-          padding: '1.5rem',
-          color: isDarkMode ? '#f9fafb' : '#111827',
-        }}
-      >
-        <Form
-          form={form}
-          onFinish={handleSave}
-          initialValues={initialValues}
-          layout="vertical"
-        >
-          {/* Provider Section */}
-          <div style={{ marginBottom: '24px' }}>
-            <h3 style={{ 
-              color: isDarkMode ? '#fff' : 'rgba(0, 0, 0, 0.85)',
-              marginBottom: '16px'
-            }}>
-              AI Provider
-            </h3>
-            
-            <Form.Item
-              name="provider"
-              label="AI Service"
-              rules={[{ required: true, message: 'Please select a provider' }]}
-              style={{ marginBottom: '16px' }}
-            >
-              <Select 
-                placeholder="Select a provider"
-                style={{ width: '100%' }}
-              >
-                <Select.Option value="openai">OpenAI (direct)</Select.Option>
-                <Select.Option value="openrouter">OpenRouter (multiple models)</Select.Option>
-              </Select>
-            </Form.Item>
+    <div className="max-w-4xl mx-auto p-4 sm:p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+        <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+            Paramètres d'IA
+          </h3>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Configurez les paramètres d'IA pour les fonctionnalités avancées
+          </p>
+        </div>
 
-            <Form.Item noStyle shouldUpdate>
-              {({ getFieldValue }: { getFieldValue: (name: string) => any }) => {
-                const provider: ProviderType = getFieldValue('provider') || 'openai';
-                const isOpenAI = provider === 'openai';
-                const apiKeyName = isOpenAI ? 'openaiApiKey' : 'openrouterApiKey';
-                const apiKeyLabel = isOpenAI ? 'OpenAI API Key' : 'OpenRouter API Key';
-                
-                return (
-                  <Form.Item
-                    name={apiKeyName}
-                    label={apiKeyLabel}
-                    rules={[{ required: true, message: `Please enter your ${apiKeyLabel}` }]}
-                    style={{ marginBottom: '16px' }}
+        <div className="p-6">
+          <Form
+            form={form}
+            onFinish={handleSave}
+            initialValues={initialValues}
+            layout="vertical"
+            className="space-y-6"
+            >
+            {/* Section Fournisseur */}
+            <div className={sectionStyle}>
+              <h3 className={sectionTitleStyle}>
+                <svg className="h-5 w-5 inline-block mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                Fournisseur d'IA
+              </h3>
+              
+              <div className="grid grid-cols-1 gap-6">
+                <Form.Item
+                  name="provider"
+                  label={<span className={labelStyle}>Service d'IA</span>}
+                  rules={[{ required: true, message: 'Veuillez sélectionner un fournisseur' }]}
+                  className="mb-4"
+                >
+                  <Select 
+                    placeholder="Sélectionnez un fournisseur"
+                    className={selectClassName}
+                    popupClassName="dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                    dropdownStyle={isDarkMode ? { backgroundColor: '#1f2937', borderColor: '#4b5563' } : undefined}
+                    optionLabelProp="label"
                   >
-                    <Password 
-                      placeholder={isOpenAI ? 'sk-...' : 'sk-or-...'}
-                      style={inputStyle}
-                    />
-                  </Form.Item>
-                );
-              }}
-            </Form.Item>
-          </div>
+                    <Select.Option value="openai">OpenAI (direct)</Select.Option>
+                    <Select.Option value="openrouter">OpenRouter (modèles multiples)</Select.Option>
+                  </Select>
+                </Form.Item>
 
-          {/* Model Section */}
-          <div style={{ marginBottom: '24px' }}>
-            <h3 style={{ 
-              color: isDarkMode ? '#fff' : 'rgba(0, 0, 0, 0.85)',
-              marginBottom: '16px'
-            }}>
-              AI Model
-            </h3>
-            <ModelSelect form={form} />
-          </div>
-
-          {/* Advanced Settings */}
-          <div style={{ marginBottom: '24px' }}>
-            <h3 style={{ 
-              color: isDarkMode ? '#fff' : 'rgba(0, 0, 0, 0.85)',
-              marginBottom: '16px'
-            }}>
-              Advanced Settings
-            </h3>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <Form.Item
-                label="Max Tokens"
-                name="maxTokens"
-                tooltip="Maximum number of tokens to generate (1-4000)"
-                style={{ marginBottom: '16px' }}
-                labelCol={{ style: { color: isDarkMode ? '#f9fafb' : '#111827' } }}
-              >
-                <InputNumber 
-                  min={1} 
-                  max={4000}
-                  style={{ width: '100%' }}
-                />
-              </Form.Item>
-
-              <Form.Item
-                label="Temperature"
-                name="temperature"
-                tooltip="Controls randomness (0 = deterministic, 2 = very random)"
-                style={{ marginBottom: '16px' }}
-                labelCol={{ style: { color: isDarkMode ? '#f9fafb' : '#111827' } }}
-              >
-                <InputNumber 
-                  min={0} 
-                  max={2} 
-                  step={0.1}
-                  style={{ width: '100%' }}
-                />
-              </Form.Item>
+                <Form.Item noStyle shouldUpdate={true}>
+                  {({ getFieldValue }) => {
+                    const provider: ProviderType = getFieldValue('provider') || 'openai';
+                    const isOpenAI = provider === 'openai';
+                    const apiKeyName = isOpenAI ? 'openaiApiKey' : 'openrouterApiKey';
+                    const apiKeyLabel = isOpenAI ? 'Clé API OpenAI' : 'Clé API OpenRouter';
+                    
+                    return (
+                      <Form.Item
+                        name={apiKeyName}
+                        label={<span className={labelStyle}>{apiKeyLabel}</span>}
+                        rules={[{ required: true, message: `Veuillez entrer votre ${apiKeyLabel}` }]}
+                        className="mb-4"
+                      >
+                        <Input.Password 
+                    placeholder={isOpenAI ? 'sk-...' : 'sk-or-...'}
+                    className={inputClassName}
+                    visibilityToggle={true}
+                    variant={isDarkMode ? 'filled' : undefined}
+                  />
+                      </Form.Item>
+                    );
+                  }}
+                </Form.Item>
+              </div>
             </div>
-          </div>
 
-          {/* Test Result */}
-          {testResult.status && (
-            <div style={{ marginTop: '16px' }}>
-              <Alert
-                message={testResult.status === 'success' ? 'Succès' : 'Erreur'}
-                description={testResult.message}
-                type={testResult.status}
-                showIcon
-              />
+            {/* Section Modèle */}
+            <div className={sectionStyle}>
+              <h3 className={sectionTitleStyle}>
+                <svg className="h-5 w-5 inline-block mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                Modèle d'IA
+              </h3>
+              <ModelSelect form={form} labelStyle={labelStyle} />
             </div>
-          )}
-          
-          {/* Actions */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
-            <Button 
-              onClick={testConnection}
-              loading={isTesting}
-              style={buttonStyle()}
-            >
-              Tester la connexion
-            </Button>
-            <Button 
-              type="primary" 
-              htmlType="submit"
-              loading={isSaving}
-              style={buttonStyle(true)}
-            >
-              Enregistrer les paramètres
-            </Button>
-          </div>
-        </Form>
-      </Card>
+
+            {/* Paramètres avancés */}
+            <div className={sectionStyle}>
+              <h3 className={sectionTitleStyle}>
+                <svg className="h-5 w-5 inline-block mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Paramètres avancés
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Form.Item
+                  label={<span className={labelStyle}>Tokens maximum</span>}
+                  name="maxTokens"
+                  tooltip="Nombre maximum de tokens à générer (1-4000)"
+                  className="mb-4"
+                >
+                  <InputNumber 
+                    min={1} 
+                    max={4000}
+                    className={inputNumberClassName}
+                    controls={false}
+                    variant={isDarkMode ? 'filled' : undefined}
+                    formatter={(value: number | string | undefined) => 
+                      `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+                    }
+                    parser={(value: string | undefined) => 
+                      value ? parseInt(value.replace(/\s?|(,*)/g, ''), 10) : 0
+                    }
+                  />
+                </Form.Item>
+
+                <Form.Item
+                  label={<span className={labelStyle}>Température</span>}
+                  name="temperature"
+                  tooltip="Contrôle le niveau d'aléatoire (0 = déterministe, 2 = très aléatoire)"
+                  className="mb-4"
+                >
+                  <InputNumber 
+                    min={0} 
+                    max={2} 
+                    step={0.1}
+                    className={inputNumberClassName}
+                    variant={isDarkMode ? 'filled' : undefined}
+                    formatter={(value: number | string | undefined) => `${value}`}
+                    parser={(value: string | undefined) => 
+                      value ? parseFloat(value.replace(/[^0-9.]/g, '')) : 0
+                    }
+                  />
+                </Form.Item>
+              </div>
+            </div>
+
+            {/* Résultat du test */}
+            {testResult.status && (
+              <div className="mt-4">
+                <Alert
+                  message={testResult.status === 'success' ? 'Connexion réussie' : 'Erreur de connexion'}
+                  description={testResult.message}
+                  type={testResult.status}
+                  showIcon
+                  className={testResult.status === 'success' ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800'}
+                />
+              </div>
+            )}
+            
+            {/* Boutons d'action */}
+            <div className="flex flex-wrap justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <button
+                type="button"
+                onClick={handleTestConnection}
+                disabled={isTesting}
+                className={`${secondaryButtonStyle} ${isTesting ? 'opacity-75 cursor-not-allowed' : ''}`}
+                >
+                {isTesting ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-700 dark:text-gray-200" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Test en cours...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Tester la connexion
+                  </>
+                )}
+              </button>
+              
+              <button
+                type="submit"
+                disabled={isSaving}
+                className={`${primaryButtonStyle} ${isSaving ? 'opacity-75 cursor-not-allowed' : ''}`}
+                >
+                {isSaving ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Enregistrement...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Enregistrer les paramètres
+                  </>
+                )}
+              </button>
+            </div>
+          </Form>
+        </div>
+      </div>
     </div>
-  )
-  
+  );
 };
-
-
