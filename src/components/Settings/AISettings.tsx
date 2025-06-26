@@ -52,6 +52,10 @@ const MODELS: Record<ProviderType, ModelOption[]> = {
     { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
   ],
   openrouter: [
+    { value: 'openrouter/auto', label: 'Auto (sélection automatique gratuite)' },
+    { value: 'google/gemma-7b-it:free', label: 'Google: Gemma 7B (gratuit)' },
+    { value: 'mistralai/mistral-7b-instruct:free', label: 'Mistral 7B (gratuit)' },
+    { value: 'huggingfaceh4/zephyr-7b-beta:free', label: 'Zephyr 7B (gratuit)' },    
     { value: 'openai/gpt-3.5-turbo', label: 'OpenAI: GPT-3.5 Turbo' },
     { value: 'openai/gpt-4', label: 'OpenAI: GPT-4' },
     { value: 'anthropic/claude-2', label: 'Anthropic: Claude 2' },
