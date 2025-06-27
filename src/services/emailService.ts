@@ -71,19 +71,30 @@ export class EmailService {
         throw new Error('Configuration EmailJS incomplète. Vérifiez le Service ID, Template ID et User ID.');
       }
 
-      // Vérifier que l'email de destination est valide
-      const toEmail = Array.isArray(options.to) ? options.to[0] : options.to;
-      if (!toEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)) {
-        throw new Error('Adresse email de destination invalide');
+      // Vérifier et valider les adresses email des destinataires
+      const toEmails = Array.isArray(options.to) ? options.to : [options.to];
+      
+      // Valider chaque adresse email
+      const invalidEmails = toEmails.filter(email => {
+        const trimmedEmail = email.trim();
+        return !trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
+      });
+      
+      if (invalidEmails.length > 0) {
+        throw new Error(`Adresse(s) email(s) de destination invalide(s) : ${invalidEmails.join(', ')}`);
       }
+      
+      // Utiliser la première adresse pour le champ to_email (compatibilité avec les templates)
+      const toEmail = toEmails[0].trim();
 
       // Initialiser EmailJS (chargement de la bibliothèque si nécessaire)
       await this.initialize();
 
       // Préparer les paramètres du template
       const templateParams = {
-        to_email: toEmail,
-        to_name: options.templateParams?.to_name || toEmail.split('@')[0],
+        to_email: toEmail, // Première adresse pour la compatibilité
+        to_emails: toEmails, // Toutes les adresses pour référence
+        to_name: options.templateParams?.to_name || toEmails[0].split('@')[0],
         from_name: options.fromName || config.fromName || 'Gestion de Projet',
         from_email: options.from || config.fromEmail || 'noreply@votredomaine.com',
         subject: options.subject || 'Sans objet',

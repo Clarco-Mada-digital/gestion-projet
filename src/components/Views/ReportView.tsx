@@ -55,6 +55,8 @@ export function ReportView() {
     subject: 'Rapport d\'activité',
     message: 'Veuvez trouver ci-joint le rapport d\'activité demandé.'
   });
+  const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
+  const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
   
   const [report, setReport] = useState<{
     startDate: Date;
@@ -133,6 +135,48 @@ export function ReportView() {
       [name]: value
     }));
   };
+
+  // Gestion de la sélection/désélection d'un contact
+  const toggleContactSelection = (contactId: string) => {
+    const newSelection = new Set(selectedContacts);
+    if (newSelection.has(contactId)) {
+      newSelection.delete(contactId);
+    } else {
+      newSelection.add(contactId);
+    }
+    setSelectedContacts(newSelection);
+  };
+
+  // Ajouter les contacts sélectionnés au champ email
+  const addSelectedContacts = () => {
+    if (selectedContacts.size === 0) return;
+    
+    const selectedEmails = Array.from(selectedContacts)
+      .map(id => state.appSettings.contacts?.find(c => c.id === id)?.email)
+      .filter(Boolean) as string[];
+    
+    // Ajouter les nouveaux emails à la liste existante
+    const currentEmails = emailForm.to ? emailForm.to.split(',').map(e => e.trim()) : [];
+    const allEmails = [...new Set([...currentEmails, ...selectedEmails])];
+    
+    setEmailForm(prev => ({
+      ...prev,
+      to: allEmails.join(', ')
+    }));
+    
+    // Fermer la boîte de dialogue et réinitialiser la sélection
+    setIsContactDialogOpen(false);
+    setSelectedContacts(new Set());
+  };
+  
+  // Fonction pour ajouter un email manuellement
+  const handleEmailInput = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setEmailForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
   
   // Ouvrir la boîte de dialogue d'envoi d'email
   const handleOpenEmailDialog = () => {
@@ -146,6 +190,8 @@ export function ReportView() {
       }));
     }
     setEmailDialogOpen(true);
+    // Réinitialiser la sélection des contacts
+    setSelectedContacts(new Set());
   };
   
   // Envoyer l'email
@@ -162,6 +208,16 @@ export function ReportView() {
       // Si le message est vide, utiliser le rapport généré
       const messageContent = emailForm.message.trim() || reportContent;
       
+      // Préparer la liste des destinataires
+      const toEmails = emailForm.to
+        .split(',')
+        .map(email => email.trim())
+        .filter(email => email.length > 0);
+      
+      if (toEmails.length === 0) {
+        throw new Error('Veuillez spécifier au moins un destinataire');
+      }
+      
       // Générer le contenu HTML du rapport
       const emailContent = EmailService.generateReportEmail(
         {
@@ -174,13 +230,14 @@ export function ReportView() {
       
       // Créer un objet d'options d'email étendu avec les paramètres du template
       const emailOptions: any = {
-        to: emailForm.to,
+        to: toEmails, // Envoyer à tous les destinataires
         subject: emailForm.subject,
         html: emailContent,
         // Ajouter les paramètres du template
         templateParams: {
-          to_email: emailForm.to, // S'assurer que le destinataire est bien défini
-          to_name: emailForm.to.split('@')[0], // Utiliser la partie avant @ comme nom
+          to_email: toEmails[0], // Premier email pour la compatibilité
+          to_emails: toEmails,   // Tous les emails pour référence
+          to_name: toEmails[0].split('@')[0], // Utiliser la partie avant @ du premier email comme nom
           from_name: state.emailSettings?.fromName || 'Gestion de Projet',
           from_email: state.emailSettings?.fromEmail || 'noreply@gestion-projet.com',
           subject: emailForm.subject,
@@ -194,11 +251,17 @@ export function ReportView() {
       // Ajouter la version texte pour la compatibilité
       emailOptions.text = `Bonjour,\n\nVeuvez trouver ci-joint le rapport d'activité demandé.\n\n${messageContent.replace(/<[^>]*>?/gm, '')}\n\nCordialement,\n${generateSignature()}`;
       
+      console.log('Envoi d\'email avec les options:', {
+        ...emailOptions,
+        html: emailOptions.html ? '[HTML content]' : null,
+        text: emailOptions.text ? '[Text content]' : null
+      });
+      
       // Envoyer l'email
       const result = await EmailService.sendEmail(emailOptions, state.emailSettings);
       
       if (result.success) {
-        setEmailStatus({ type: 'success', message: 'Email envoyé avec succès !' });
+        setEmailStatus({ type: 'success', message: `Email envoyé avec succès à ${toEmails.length} destinataire(s) !` });
         // Fermer la boîte de dialogue après 2 secondes
         setTimeout(() => {
           setEmailDialogOpen(false);
@@ -1094,20 +1157,31 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
           
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label htmlFor="to" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Destinataire(s)
-              </label>
-              <Input
-                id="to"
-                name="to"
-                type="email"
-                value={emailForm.to}
-                onChange={handleEmailFormChange}
-                placeholder="email@exemple.com"
-                className='dark:bg-gray-700 dark:text-white'
-                required
-              />
-              <p className="text-xs text-gray-500 mt-1">Séparez les adresses par des virgules pour plusieurs destinataires.</p>
+              <div className="flex items-center justify-between">
+                <label htmlFor="to" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Destinataire(s)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsContactDialogOpen(true)}
+                  className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                >
+                  Choisir depuis les contacts
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  id="to"
+                  name="to"
+                  type="email"
+                  value={emailForm.to}
+                  onChange={handleEmailInput}
+                  placeholder="email@exemple.com"
+                  className='flex-1 dark:bg-gray-700 dark:text-white'
+                  required
+                />
+              </div>
+              <p className="text-xs text-gray-500">Séparez les adresses par des virgules pour plusieurs destinataires.</p>
             </div>
             
             <div className="space-y-2">
@@ -1174,6 +1248,72 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Boîte de dialogue de sélection des contacts */}
+      <Dialog open={isContactDialogOpen} onOpenChange={setIsContactDialogOpen}>
+        <DialogContent className="sm:max-w-[500px] max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Sélectionner des contacts</DialogTitle>
+            <DialogDescription>
+              Cochez les contacts à ajouter comme destinataires
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto space-y-2 py-4">
+            {state.appSettings?.contacts?.length > 0 ? (
+              state.appSettings.contacts.map((contact) => (
+                <label 
+                  key={contact.id}
+                  className={`flex items-start p-3 rounded-lg border ${
+                    selectedContacts.has(contact.id)
+                      ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-800'
+                      : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedContacts.has(contact.id)}
+                    onChange={() => toggleContactSelection(contact.id)}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:ring-offset-gray-800"
+                  />
+                  <div className="ml-3">
+                    <div className="font-medium text-gray-900 dark:text-white">
+                      {contact.name}
+                      {contact.position && (
+                        <span className="text-xs text-gray-500 ml-2">({contact.position})</span>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      {contact.email}
+                    </div>
+                  </div>
+                </label>
+              ))
+            ) : (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                Aucun contact enregistré. Veuillez ajouter des contacts dans les paramètres.
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter className="mt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsContactDialogOpen(false)}
+            >
+              Annuler
+            </Button>
+            <Button 
+              onClick={addSelectedContacts}
+              disabled={selectedContacts.size === 0}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              Ajouter les contacts sélectionnés
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>      
     </div>
   );
 }
+
