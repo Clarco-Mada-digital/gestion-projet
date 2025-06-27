@@ -141,7 +141,8 @@ export function ReportView() {
       const period = `Rapport d'activité du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}`;
       setEmailForm(prev => ({
         ...prev,
-        subject: period
+        subject: period,
+        message: aiReport || 'Veuvez trouver ci-dessous le rapport d\'activité demandé.'
       }));
     }
     setEmailDialogOpen(true);
