@@ -107,14 +107,14 @@ export function ContactManagement({ contacts, onUpdateContacts }: ContactManagem
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
-              label="Nom complet *"
+              className="dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               name="name"
               value={formData.name}
               onChange={handleInputChange}
               placeholder="Jean Dupont"
             />
             <Input
-              label="Email *"
+              className='dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
               name="email"
               type="email"
               value={formData.email}
@@ -122,21 +122,22 @@ export function ContactManagement({ contacts, onUpdateContacts }: ContactManagem
               placeholder="jean.dupont@example.com"
             />
             <Input
-              label="Téléphone"
+              className='dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+              type='tel'
               name="phone"
               value={formData.phone}
               onChange={handleInputChange}
               placeholder="+261 34 00 000 00"
             />
             <Input
-              label="Poste"
+              className='dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
               name="position"
               value={formData.position}
               onChange={handleInputChange}
               placeholder="Chef de projet"
             />
             <Input
-              label="Département"
+              className='dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
               name="department"
               value={formData.department}
               onChange={handleInputChange}
