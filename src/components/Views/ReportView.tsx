@@ -242,12 +242,13 @@ export function ReportView() {
     const { start, end } = getDateRange(dateRange);
     console.log(`Période du rapport: ${start.toISOString()} à ${end.toISOString()}`);
     
-    // Filtrer les tâches par période et par projet
+    // Filtrer les tâches par période, par projet et par statut (uniquement actif)
     const projectsData = (state.projects || [])
       .filter(project => {
         const isSelected = selectedProjectId === 'all' || project.id === selectedProjectId;
-        console.log(`Projet: ${project.name} (${project.id}), Sélectionné: ${isSelected}`);
-        return isSelected;
+        const isActive = project.status === 'active';
+        console.log(`Projet: ${project.name} (${project.id}), Sélectionné: ${isSelected}, Statut: ${project.status}`);
+        return isSelected && isActive;
       })
       .map(project => {
         console.log(`Traitement du projet: ${project.name} (${project.id})`);
@@ -692,11 +693,13 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
             className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           >
             <option value="all">Tous les projets</option>
-            {state.projects.map(project => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
+            {state.projects
+              .filter(project => project.status === 'active')
+              .map(project => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
           </select>
           
           <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-md p-1 border border-gray-300 dark:border-gray-600">
