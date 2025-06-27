@@ -138,6 +138,18 @@ export const DEFAULT_AI_SETTINGS: AISettings = {
   lastTestMessage: null,
 };
 
+export interface Contact {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  position?: string;
+  department?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AppSettings {
   theme: Theme;
   fontSize: FontSize;
@@ -146,7 +158,9 @@ export interface AppSettings {
   enableAnalytics: boolean;
   enableErrorReporting: boolean;
   aiSettings: AISettings;
+  contacts: Contact[];
 }
+
 export type Theme = 'light' | 'dark';
 
 export type FontSize = 'small' | 'medium' | 'large';

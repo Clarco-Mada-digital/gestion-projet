@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { User, TeamMember, DayOfWeek, getDayName, DAYS_OF_WEEK } from '../../types';
+import { User, TeamMember, DayOfWeek, getDayName, DAYS_OF_WEEK, Contact } from '../../types';
 import { Card } from '../UI/Card';
 import { TeamManagement } from '../Settings/TeamManagement';
 import { TeamModal } from '../Modals/TeamModal';
 import { EmailSettings } from '../Settings/EmailSettings';
 import { AISettings } from '../Settings/AISettings';
 import { DataManagement } from '../Settings/DataManagement';
+import { ContactManagement } from '../Settings/ContactManagement';
 
 export function SettingsView() {
   console.log('Rendering SettingsView component');
@@ -22,6 +23,7 @@ export function SettingsView() {
   const tabs = [
     { id: 'profile', name: 'Profil' },
     { id: 'team', name: 'Équipe' },
+    { id: 'contacts', name: 'Contacts' },
     { id: 'email', name: 'Paramètres Email' },
     { id: 'ai', name: 'Intelligence Artificielle' },
     { id: 'data', name: 'Gestion des données' },
@@ -317,6 +319,21 @@ export function SettingsView() {
       case 'team':
         return <TeamManagement onEditMember={handleOpenTeamModal} />;
       
+      case 'contacts':
+        return (
+          <ContactManagement 
+            contacts={state.appSettings.contacts || []} 
+            onUpdateContacts={(updatedContacts) => {
+              dispatch({ 
+                type: 'UPDATE_APP_SETTINGS', 
+                payload: { 
+                  contacts: updatedContacts 
+                } 
+              });
+            }} 
+          />
+        );
+        
       case 'email':
         return <EmailSettings />;
         
