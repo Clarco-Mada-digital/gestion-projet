@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Archive, AlertTriangle, Calendar, Cpu, ChevronDown } from 'lucide-react'; // Ajout de l'icône Cpu pour l'onglet IA
+import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Archive, AlertTriangle, Calendar, Cpu, ChevronDown, Loader2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Card } from '../UI/Card';
 import { Button } from '../UI/Button';
@@ -282,6 +282,7 @@ export function ProjectsView() {
   const [showPending, setShowPending] = useState(false); // État pour gérer l'affichage des projets en attente (masqué par défaut)
   const [showCompletedProjects, setShowCompletedProjects] = useState(false);
   const [showArchivedProjects, setShowArchivedProjects] = useState(false);
+  const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
 
   const [newProject, setNewProject] = useState<Omit<Project, 'id' | 'createdAt' | 'updatedAt' | 'tasks'>>({
     name: '',
@@ -309,6 +310,135 @@ export function ProjectsView() {
     endDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     estimatedHours: 1,
   });
+
+  // Fonction pour générer des tâches avec l'IA
+  const generateTasksWithAI = async () => {
+    if (!editingProject) return;
+    
+    setIsGeneratingTasks(true);
+    
+    try {
+      const projectDetails = {
+        name: editingProject.name,
+        description: editingProject.description || '',
+        tasks: editingProject.tasks || []
+      };
+      
+      // Préparer le prompt pour l'IA
+      let prompt = `Génère 3 à 5 tâches pour le projet "${editingProject.name}".`;
+      
+      if (editingProject.description) {
+        prompt += ` Description du projet: ${editingProject.description}\n\n`;
+      }
+      
+      if (editingProject.tasks?.length > 0) {
+        prompt += `Tâches existantes (${editingProject.tasks.length}):\n`;
+        editingProject.tasks.slice(0, 3).forEach((task, index) => {
+          prompt += `${index + 1}. ${task.title}\n`;
+        });
+        if (editingProject.tasks.length > 3) {
+          prompt += `... et ${editingProject.tasks.length - 3} de plus\n`;
+        }
+        prompt += '\n';
+      }
+      
+      prompt += `Génère des tâches pertinentes et bien structurées. \nFormat de sortie JSON : [{"title":"Titre de la tâche","description":"Description détaillée","estimatedHours":2}]`;
+      
+      // Récupérer les paramètres IA du contexte de l'application
+      const aiConfig = state.appSettings?.aiSettings || DEFAULT_AI_SETTINGS;
+      const apiKey = aiConfig.openrouterApiKey || '';
+      
+      if (!apiKey) {
+        throw new Error('Clé API OpenRouter non configurée. Veuillez configurer les paramètres IA dans les paramètres de l\'application.');
+      }
+      
+      // Appeler le service IA
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'HTTP-Referer': window.location.origin,
+          'X-Title': 'Gestion de Projet App',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: aiConfig.openrouterModel || 'openrouter/auto',
+          messages: [
+            {
+              role: 'system',
+              content: 'Tu es un assistant qui aide à la gestion de projet en générant des tâches pertinentes.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: aiConfig.temperature || 0.7,
+          max_tokens: aiConfig.maxTokens || 1000
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Erreur lors de la génération des tâches');
+      }
+      
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content;
+      
+      if (!content) {
+        throw new Error('Réponse de l\'IA invalide');
+      }
+      
+      // Extraire le JSON de la réponse
+      const jsonMatch = content.match(/\[\s*\{.*\}\s*\]/s);
+      if (!jsonMatch) {
+        throw new Error('Format de réponse inattendu');
+      }
+      
+      const generatedTasks = JSON.parse(jsonMatch[0]);
+      
+      // Ajouter les nouvelles tâches au projet
+      if (generatedTasks && Array.isArray(generatedTasks) && generatedTasks.length > 0) {
+        const updatedTasks = [...(editingProject.tasks || [])];
+        
+        generatedTasks.forEach((task: any) => {
+          if (task.title) {
+            const newTask: Task = {
+              id: uuidv4(),
+              title: task.title,
+              description: task.description || '',
+              status: 'todo',
+              priority: 'medium',
+              dueDate: '',
+              startDate: new Date().toISOString().split('T')[0],
+              endDate: '',
+              assignees: [],
+              projectId: editingProject.id,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              tags: [],
+              subTasks: [],
+              estimatedHours: task.estimatedHours || 4
+            };
+            updatedTasks.push(newTask);
+          }
+        });
+        
+        setEditingProject({
+          ...editingProject,
+          tasks: updatedTasks
+        });
+        
+        message.success(`${generatedTasks.length} tâches générées avec succès !`);
+      }
+      
+    } catch (error) {
+      console.error('Erreur lors de la génération des tâches:', error);
+      message.error('Erreur lors de la génération des tâches. Veuillez réessayer.');
+    } finally {
+      setIsGeneratingTasks(false);
+    }
+  };
 
   const addTask = () => {
     if (!editingProject || !newTask.title.trim()) return;
@@ -1282,15 +1412,46 @@ export function ProjectsView() {
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
                 />
               </div>
-              <div className="flex items-end">
+              <div className="flex gap-2 items-center">
                 <Button
-                  type="button"
                   onClick={addTask}
                   disabled={!newTask.title.trim()}
                   className="w-full mt-2"
                 >
                   Ajouter la tâche
                 </Button>
+                
+                {/* Bouton pour générer des tâches avec IA */}
+                <Button
+                  className="w-auto mt-2"
+                  onClick={generateTasksWithAI}
+                  disabled={isGeneratingTasks || !editingProject}
+                  title="Générer des tâches avec IA"
+                >
+                  {isGeneratingTasks ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="w-6 h-6"
+                    >
+                      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
+                      <path d="M5 3v4"></path>
+                      <path d="M19 17v4"></path>
+                      <path d="M3 5h4"></path>
+                      <path d="M17 19h4"></path>
+                    </svg>
+                  )}
+                </Button>
+
               </div>
             </div>
           </div>

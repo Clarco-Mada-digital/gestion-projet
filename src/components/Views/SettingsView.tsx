@@ -936,6 +936,11 @@ export function SettingsView() {
         </div>
       )}
 
+      {/* Message d'information sur le stockage local */}
+      <div className="p-4 mb-6 text-sm text-blue-700 bg-blue-50 rounded-lg dark:bg-blue-900/30 dark:text-blue-400">
+        <p>ℹ️ <span className="font-medium">Stockage local :</span> Vos paramètres sont enregistrés directement dans votre navigateur (localStorage). Cela signifie que vos données restent privées et accessibles hors ligne. Cependant, elles seront supprimées si vous videz le cache de votre navigateur ou utilisez un autre appareil/navigateur. Pour une sauvegarde permanente, pensez à exporter régulièrement vos données depuis l'onglet "Gestion des données".</p>
+      </div>
+
       {/* Contenu de l'onglet actif */}
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         {renderTabContent()}
