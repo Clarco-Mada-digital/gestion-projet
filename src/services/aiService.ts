@@ -19,66 +19,7 @@ type AIResponse = {
 };
 
 export class AIService {
-  static async generateText(prompt: string, settings: AISettings): Promise<string> {
-    try {
-      const { provider } = settings;
-      const apiKey = provider === 'openai' 
-        ? settings.openaiApiKey 
-        : settings.openrouterApiKey;
-      
-      if (!apiKey) {
-        throw new Error(`Clé API ${provider} manquante`);
-      }
 
-      const endpoint = provider === 'openai'
-        ? 'https://api.openai.com/v1/chat/completions'
-        : 'https://openrouter.ai/api/v1/chat/completions';
-
-      const model = provider === 'openai' 
-        ? settings.openaiModel 
-        : settings.openrouterModel;
-
-      const messages: AIMessage[] = [
-        {
-          role: 'system',
-          content: 'Tu es un assistant qui aide à générer des rapports professionnels.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ];
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-          ...(provider === 'openrouter' && {
-            'HTTP-Referer': window.location.origin,
-            'X-Title': 'Gestion de Projet App'
-          })
-        },
-        body: JSON.stringify({
-          model,
-          messages,
-          temperature: 0.7,
-          max_tokens: 2000
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Erreur lors de la génération du texte');
-      }
-
-      const data: AIResponse = await response.json();
-      return data.choices[0]?.message?.content || 'Aucune réponse générée';
-    } catch (error) {
-      console.error('Erreur dans generateText:', error);
-      throw error;
-    }
-  }
   
   static async generateSubTasksWithAI(
     settings: AISettings,
@@ -87,44 +28,54 @@ export class AIService {
     existingSubTasks: SubTask[] = []
   ): Promise<GeneratedSubTask[]> {
     try {
-      const { provider } = settings;
-      const apiKey = provider === 'openai' 
+      const effectiveProvider = settings.provider || 'openrouter';
+      const apiKey = effectiveProvider === 'openai' 
         ? settings.openaiApiKey 
         : settings.openrouterApiKey;
-      
-      if (!apiKey) {
-        throw new Error(`Clé API ${provider} manquante`);
-      }
 
-      const endpoint = provider === 'openai'
+      // Utiliser un modèle plus léger pour OpenRouter
+      const model = effectiveProvider === 'openai' 
+        ? settings.openaiModel || 'gpt-3.5-turbo'
+        : settings.openrouterModel || 'google/gemma-7b-it:free';
+
+      const endpoint = effectiveProvider === 'openai'
         ? 'https://api.openai.com/v1/chat/completions'
         : 'https://openrouter.ai/api/v1/chat/completions';
 
-      const model = provider === 'openai' 
-        ? settings.openaiModel 
-        : settings.openrouterModel;
-
-      // Préparer le prompt
+      // Préparer le prompt concis
       const prompt = this.buildSubTaskPrompt(project, task, existingSubTasks);
       
+      // Préparer les en-têtes
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        ...(effectiveProvider === 'openrouter' && {
+          'HTTP-Referer': window.location.origin || 'http://localhost:3000',
+          'X-Title': 'Gestion de Projet App'
+        })
+      };
+
+      // Ajouter l'authentification uniquement si nécessaire
+      if (apiKey && typeof apiKey === 'string' && apiKey.trim() !== '') {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
+
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-          ...(provider === 'openrouter' && { 'HTTP-Referer': window.location.origin }),
-        },
+        headers,
         body: JSON.stringify({
           model,
           messages: [
             { 
               role: 'system', 
-              content: 'Tu es un assistant qui aide à décomposer les tâches en sous-tâches logiques et bien structurées.'
+              content: 'Tu es un assistant concis qui aide à décomposer les tâches en sous-tâches.'
             },
-            { role: 'user', content: prompt }
+            { 
+              role: 'user', 
+              content: `${prompt} (Génère uniquement 3-5 sous-tâches maximum, sois concis)`
+            }
           ],
-          temperature: 0.7,
-          max_tokens: 2000,
+          temperature: 0.5,  // Réponse plus prévisible
+          max_tokens: 500,   // Réduit pour économiser les crédits
         }),
       });
 
@@ -150,23 +101,28 @@ export class AIService {
   }
 
   private static buildSubTaskPrompt(project: Project, task: Task, existingSubTasks: SubTask[] = []): string {
+    // Construire un prompt concis
     let prompt = `Projet: ${project.name}\n`;
     prompt += `Tâche: ${task.title}\n`;
+    
+    // Ajouter la description si elle existe
     if (task.description) {
-      prompt += `Description: ${task.description}\n\n`;
+      prompt += `Description: ${task.description.substring(0, 200)}${task.description.length > 200 ? '...' : ''}\n\n`;
     }
     
+    // Lister les sous-tâches existantes de manière concise
     if (existingSubTasks.length > 0) {
       prompt += 'Sous-tâches existantes :\n';
-      existingSubTasks.forEach((st, index) => {
-        prompt += `${index + 1}. ${st.title}${st.completed ? ' (terminée)' : ''}\n`;
+      existingSubTasks.slice(0, 3).forEach((st, index) => {
+        prompt += `- ${st.title}${st.completed ? ' ✓' : ''}\n`;
       });
+      if (existingSubTasks.length > 3) prompt += `... (${existingSubTasks.length - 3} de plus)\n`;
       prompt += '\n';
     }
 
-    prompt += `Génère entre 3 et 10 sous-tâches pour cette tâche, en tenant compte du contexte du projet et des sous-tâches existantes. \n`;
-    prompt += `Format de réponse attendu (JSON) :\n`;
-    prompt += `[\n  {\n    \"title\": \"Titre de la sous-tâche 1\",\n    \"description\": \"Description optionnelle\"\n  },\n  ...\n]`;
+    // Instructions claires et concises
+    prompt += `Génère 3-5 sous-tâches pour cette tâche.\n`;
+    prompt += `Format JSON : [{"title":"Tâche 1","description":"..."},...]`;
 
     return prompt;
   }
@@ -281,55 +237,69 @@ export class AIService {
       };
     } catch (error) {
       console.error('Erreur lors de la génération de la tâche avec IA:', error);
-      return {
-        title: title || 'Tâche générée',
-        description: description || 'Une erreur est survenue lors de la génération avec IA.'
-      };
+      throw error;
     }
   }
 
   static async generateAiText(settings: AISettings, prompt: string): Promise<string> {
     try {
-      const { provider } = settings;
-      const apiKey = provider === 'openai' 
+      // Utiliser OpenRouter par défaut avec des modèles gratuits
+      const effectiveProvider = settings.provider || 'openrouter';
+      
+      // Pour les modèles gratuits, ne pas exiger de clé API
+      const apiKey = effectiveProvider === 'openai' 
         ? settings.openaiApiKey 
         : settings.openrouterApiKey;
       
-      if (!apiKey) {
-        throw new Error(`Clé API ${provider} manquante`);
-      }
-
-      const endpoint = provider === 'openai'
-        ? 'https://api.openai.com/v1/chat/completions'
+      // Utiliser des modèles gratuits par défaut
+      const model = effectiveProvider === 'openai' 
+        ? settings.openaiModel || 'gpt-3.5-turbo' 
+        : settings.openrouterModel || 'google/gemma-7b-it:free';
+      
+      const endpoint = effectiveProvider === 'openai' 
+        ? 'https://api.openai.com/v1/chat/completions' 
         : 'https://openrouter.ai/api/v1/chat/completions';
+      
+      // Préparer les en-têtes de base
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        ...(effectiveProvider === 'openrouter' && {
+          'HTTP-Referer': window.location.origin || 'http://localhost:3000',
+          'X-Title': 'Gestion de Projet App'
+        })
+      };
 
-      const model = provider === 'openai' 
-        ? settings.openaiModel 
-        : settings.openrouterModel;
+      // Pour OpenAI, l'authentification est toujours requise
+      if (effectiveProvider === 'openai' && apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      } 
+      // Pour OpenRouter, n'ajouter l'authentification que si une clé valide est fournie
+      else if (effectiveProvider === 'openrouter' && apiKey && apiKey.trim() !== '') {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
 
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-          ...(provider === 'openrouter' && { 'HTTP-Referer': window.location.origin }),
-        },
+        headers,
         body: JSON.stringify({
           model,
           messages: [
-            { 
-              role: 'system', 
-              content: 'Tu es un assistant qui aide à générer des rapports professionnels.'
+            {
+              role: 'system',
+              content: 'Tu es un assistant concis qui aide à générer des rapports professionnels. Sois bref et va droit au but.'
             },
-            { role: 'user', content: prompt }
+            { 
+              role: 'user', 
+              content: `${prompt} (Réponds de manière concise en moins de 300 mots)`
+            }
           ],
-          temperature: 0.7,
-          max_tokens: 2000,
+          temperature: 0.5, // Réduit pour des réponses plus prévisibles
+          max_tokens: 500,  // Réduit pour économiser les crédits
         }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(`Erreur API: ${JSON.stringify(errorData)}`);
       }
 
@@ -338,7 +308,13 @@ export class AIService {
       
     } catch (error) {
       console.error('Erreur lors de la génération de texte avec IA:', error);
-      throw error;
+      // Renvoyer une réponse d'erreur plus conviviale
+      if (error instanceof Error) {
+        if (error.message.includes('402')) {
+          throw new Error('Limite de crédits gratuits dépassée. Veuillez mettre à jour votre compte OpenRouter ou réessayer plus tard.');
+        }
+      }
+      throw new Error('Erreur lors de la génération du rapport. Veuillez réessayer.');
     }
   }
 
@@ -348,30 +324,47 @@ export class AIService {
     data?: any;
   }> {
     try {
-      const { provider } = settings;
-      const apiKey = provider === 'openai' 
+      // Utiliser OpenRouter par défaut si aucun fournisseur n'est spécifié
+      const effectiveProvider = settings.provider || 'openrouter';
+      
+      // Récupérer la clé API appropriée
+      const apiKey = effectiveProvider === 'openai' 
         ? settings.openaiApiKey 
         : settings.openrouterApiKey;
       
-      if (!apiKey) {
-        throw new Error(`Clé API ${provider} manquante`);
-      }
+      // Définir le modèle en fonction du fournisseur
+      const model = (effectiveProvider === 'openai' 
+        ? settings.openaiModel?.trim() 
+        : settings.openrouterModel?.trim()) || 
+        (effectiveProvider === 'openai' ? 'gpt-3.5-turbo' : 'google/gemma-7b-it:free');
 
-      const endpoint = provider === 'openai'
+      const endpoint = effectiveProvider === 'openai'
         ? 'https://api.openai.com/v1/chat/completions'
         : 'https://openrouter.ai/api/v1/chat/completions';
 
-      const model = provider === 'openai' 
-        ? settings.openaiModel 
-        : settings.openrouterModel;
+      // Préparer les en-têtes de base
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+
+      // Configuration spécifique pour OpenRouter
+      if (effectiveProvider === 'openrouter') {
+        // Pour OpenRouter, utiliser l'authentification uniquement si la clé est valide
+        if (apiKey && typeof apiKey === 'string' && apiKey.trim() !== '') {
+          headers['Authorization'] = `Bearer ${apiKey}`;
+        }
+        // Ces en-têtes sont requis par OpenRouter
+        headers['HTTP-Referer'] = window.location.origin || 'http://localhost:3000';
+        headers['X-Title'] = 'Gestion de Projet App';
+      } 
+      // Configuration pour OpenAI
+      else if (effectiveProvider === 'openai' && apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
 
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-          ...(provider === 'openrouter' && { 'HTTP-Referer': window.location.origin }),
-        },
+        headers,
         body: JSON.stringify({
           model,
           messages: [{ role: 'user' as const, content: message }],
@@ -390,7 +383,7 @@ export class AIService {
       const result = await response.json();
       return {
         success: true,
-        message: `Connexion réussie avec ${provider === 'openai' ? 'OpenAI' : 'OpenRouter'}`,
+        message: `Connexion réussie avec ${effectiveProvider === 'openai' ? 'OpenAI' : 'OpenRouter'}`,
         data: result
       };
     } catch (error) {

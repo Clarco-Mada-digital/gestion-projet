@@ -63,33 +63,48 @@ export function TaskCard({ task, className = '' }: TaskCardProps) {
   const toggleStatus = () => {
     const now = new Date().toISOString();
     
-    // Si on essaie de marquer la tâche comme terminée
-    if (task.status !== 'done' && task.subTasks && task.subTasks.length > 0) {
-      // Vérifier si toutes les sous-tâches sont terminées
+    // Si la tâche a des sous-tâches non terminées
+    if (task.subTasks && task.subTasks.length > 0) {
       const allSubtasksCompleted = task.subTasks.every(subtask => subtask.completed);
       
-      if (!allSubtasksCompleted) {
-        // Si toutes les sous-tâches ne sont pas terminées, on passe en 'in-progress' au lieu de 'done'
-        const newStatus = task.status === 'todo' ? 'in-progress' : 'todo';
+      // Si on essaie de marquer comme terminé mais que toutes les sous-tâches ne le sont pas
+      if (task.status !== 'done' && !allSubtasksCompleted) {
+        // On force le statut à 'in-progress' et on ne permet pas de passer à 'done'
+        const newStatus = 'in-progress';
         
         dispatch({
           type: 'UPDATE_TASK',
           payload: { 
             ...task, 
-            status: newStatus, 
+            status: newStatus,
             updatedAt: now,
-            // Si on revient à 'in-progress' depuis 'done', on ne touche pas à completedAt
-            completedAt: newStatus === 'in-progress' ? undefined : task.completedAt
+            completedAt: undefined
           }
         });
         
         // Afficher un message à l'utilisateur
-        alert('Veuvez terminer toutes les sous-tâches avant de marquer cette tâche comme terminée.');
+        alert('Veuillez terminer toutes les sous-tâches avant de marquer cette tâche comme terminée.');
+        return;
+      }
+      
+      // Si on essaie de marquer comme terminé et que toutes les sous-tâches sont terminées
+      if (task.status !== 'done' && allSubtasksCompleted) {
+        const newStatus = 'done';
+        
+        dispatch({
+          type: 'UPDATE_TASK',
+          payload: { 
+            ...task, 
+            status: newStatus,
+            updatedAt: now,
+            completedAt: now
+          }
+        });
         return;
       }
     }
     
-    // Si on n'est pas en train d'essayer de marquer comme terminé, ou si toutes les sous-tâches sont terminées
+    // Pour les tâches sans sous-tâches ou pour le cycle normal des statuts
     const newStatus = task.status === 'done' ? 'todo' : 
                      task.status === 'todo' ? 'in-progress' : 'done';
     

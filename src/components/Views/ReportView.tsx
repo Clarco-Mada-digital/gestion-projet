@@ -171,17 +171,27 @@ export function ReportView() {
         state.users[0] // Utiliser l'utilisateur actuel pour la signature
       );
       
-      // Créer un objet d'options d'email étendu
+      // Créer un objet d'options d'email étendu avec les paramètres du template
       const emailOptions: any = {
         to: emailForm.to,
         subject: emailForm.subject,
-        html: emailContent
+        html: emailContent,
+        // Ajouter les paramètres du template
+        templateParams: {
+          to_email: emailForm.to, // S'assurer que le destinataire est bien défini
+          to_name: emailForm.to.split('@')[0], // Utiliser la partie avant @ comme nom
+          from_name: state.emailSettings?.fromName || 'Gestion de Projet',
+          from_email: state.emailSettings?.fromEmail || 'noreply@votredomaine.com',
+          subject: emailForm.subject,
+          message: messageContent, // Version texte du message
+          content: emailContent,   // Version HTML du message
+          report_title: emailForm.subject,
+          user_name: state.users[0]?.name || 'Utilisateur'
+        }
       };
       
-      // Ajouter la version texte uniquement si elle est supportée
-      if (typeof EmailService.sendEmail === 'function') {
-        emailOptions.text = `Bonjour,\n\nVeuvez trouver ci-joint le rapport d'activité demandé.\n\n${messageContent}\n\nCordialement,\n${generateSignature()}`;
-      }
+      // Ajouter la version texte pour la compatibilité
+      emailOptions.text = `Bonjour,\n\nVeuvez trouver ci-joint le rapport d'activité demandé.\n\n${messageContent.replace(/<[^>]*>?/gm, '')}\n\nCordialement,\n${generateSignature()}`;
       
       // Envoyer l'email
       const result = await EmailService.sendEmail(emailOptions, state.emailSettings);
@@ -417,7 +427,8 @@ export function ReportView() {
         nbProjets: report.projects.length,
         plageDates: `${report.startDate.toLocaleDateString('fr-FR')} - ${report.endDate.toLocaleDateString('fr-FR')}`
       });
-      // Déclarer explicitement le type de mainTasks
+      
+      // Interface pour le résumé des tâches
       interface TaskSummary {
         project: string;
         title: string;
@@ -428,58 +439,57 @@ export function ReportView() {
         parentTaskTitle?: string;
         parentTaskCompleted?: boolean;
       }
-      const project = state.projects[0]; // Utiliser le premier projet pour les paramètres IA
+
+      // Récupérer les paramètres IA
+      const project = state.projects[0];
       const projectAiSettings = project?.aiSettings;
       const appAiSettings = state.appSettings?.aiSettings;
       
-      // Créer un objet de paramètres IA complet
-      console.log('Configuration IA trouvée :', { 
-        appAiSettings: !!appAiSettings, 
-        projectAiSettings: !!projectAiSettings 
-      });
-      
+      // Fusionner les paramètres IA (les paramètres du projet écrasent ceux de l'application)
       const aiSettings = {
         ...appAiSettings,
         ...projectAiSettings,
-        // S'assurer que les champs requis sont présents
         isConfigured: appAiSettings?.isConfigured || false,
-        lastTested: appAiSettings?.lastTested || '',
-        lastTestStatus: appAiSettings?.lastTestStatus || '',
-        lastTestMessage: appAiSettings?.lastTestMessage || ''
       } as const;
       
-      console.log('Configuration IA fusionnée :', {
+      console.log('Configuration IA:', {
         provider: aiSettings.provider,
         isConfigured: aiSettings.isConfigured,
         hasApiKey: !!(aiSettings.provider === 'openai' ? aiSettings.openaiApiKey : aiSettings.openrouterApiKey)
       });
       
+      // Vérifier la configuration de l'IA
       if (!aiSettings || !aiSettings.isConfigured) {
-        const errorMsg = 'Paramètres IA non configurés ou non valides';
-        console.error(errorMsg, aiSettings);
-        throw new Error(errorMsg);
+        throw new Error('Veuillez configurer les paramètres IA avant de générer un rapport.');
       }
       
-      // Préparer un résumé des tâches pour le prompt
+      // Vérifier la présence de la clé API
+      const apiKey = aiSettings.provider === 'openai' 
+        ? aiSettings.openaiApiKey 
+        : aiSettings.openrouterApiKey;
+        
+      if (!apiKey) {
+        throw new Error(`Clé API ${aiSettings.provider} manquante. Veuillez vérifier vos paramètres.`);
+      }
+      
+      // Préparer un résumé structuré des tâches pour l'IA
       const tasksSummary = report.projects.flatMap(project => {
-        // Récupérer toutes les tâches du projet, y compris leurs sous-tâches
         return project.tasks.flatMap(task => {
           const priorityText = task.priority === 'high' ? 'Haute' : task.priority === 'medium' ? 'Moyenne' : 'Basse';
           const completedAt = task.completedAt ? new Date(task.completedAt).toLocaleDateString('fr-FR') : 'Date inconnue';
           const notes = 'notes' in task ? (task.notes || '') : '';
           const taskEntries = [];
           
-          // Vérifier si la tâche est active dans la période sélectionnée
+          // Vérifier si la tâche est active dans la période
           const taskStartDate = task.startDate ? new Date(task.startDate) : null;
           const taskEndDate = task.endDate ? new Date(task.endDate) : null;
           const isTaskActiveInPeriod = 
             (!taskStartDate || taskStartDate <= report.endDate) && 
             (!taskEndDate || taskEndDate >= report.startDate);
           
-          // Vérifier si la tâche est marquée comme terminée
           const isTaskCompleted = task.status === 'done' && task.completedAt;
           
-          // Ajouter la tâche principale si elle est complétée OU si elle est active et a des sous-tâches complétées
+          // Ajouter la tâche principale si pertinente
           if (isTaskCompleted || (isTaskActiveInPeriod && task.subTasks && task.subTasks.some(st => st.completed))) {
             taskEntries.push({
               project: project.projectName,
@@ -493,8 +503,8 @@ export function ReportView() {
             });
           }
           
-          // Ajouter les sous-tâches si elles existent et si l'option est activée
-          if (includeSubTasks && task.subTasks && task.subTasks.length > 0) {
+          // Ajouter les sous-tâches si nécessaire
+          if (includeSubTasks && task.subTasks?.length > 0) {
             task.subTasks.forEach(subTask => {
               if (subTask.completed && subTask.completedAt) {
                 const subTaskCompletedAt = new Date(subTask.completedAt);
@@ -519,93 +529,138 @@ export function ReportView() {
         });
       });
       
-      const currentUser = state.users[0]; // Utilisateur actuel
-      const userInfo = [
-        currentUser.name,
-        currentUser.position,
-        currentUser.department,
-        currentUser.email,
-        currentUser.phone
-      ].filter(Boolean).join(' | ');
+      // Préparer le prompt pour l'IA
+      const prompt = `
+      Tu es un assistant qui aide à générer des rapports professionnels pour la gestion de projet.
       
-      // Vérifier s'il y a des tâches à inclure dans le rapport
+      Voici les tâches à analyser pour la période du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')} :
+      
+      ${JSON.stringify(tasksSummary, null, 2)}
+      
+      Analyse ces tâches et génère un rapport professionnel qui inclut :
+      1. Un résumé exécutif des réalisations
+      2. Une analyse des tâches terminées par projet
+      3. Les points forts et les défis rencontrés
+      4. Des recommandations pour la période suivante
+      
+      Le rapport doit être en français, clair et structuré avec des titres et sous-titres.`;
+      
+      console.log('Envoi de la requête à l\'IA...');
+      
+      // Appeler le service IA
+      const aiResponse = await AIService.generateAiText(aiSettings, prompt);
+      
+      if (!aiResponse) {
+        throw new Error('Aucune réponse reçue du service IA');
+      }
+      
+      console.log('Réponse de l\'IA reçue avec succès');
+      
+      // Formater la réponse de l'IA
+      const reportContent = `
+      ===========================================
+        RAPPORT D'ACTIVITÉ - ANALYSE PAR IA
+      ===========================================
+      
+      Période : Du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}
+      Généré le : ${new Date().toLocaleString('fr-FR')}
+      
+      ${aiResponse}
+      
+      ===========================================
+        DONNÉES BRUTES POUR RÉFÉRENCE
+      ===========================================
+      
+      Nombre total de tâches analysées : ${tasksSummary.length}
+      Nombre de projets concernés : ${report.projects.length}
+      `;
+      
+      // Vérifier s'il y a des tâches à inclure
       if (tasksSummary.length === 0) {
-        return `Période du rapport : du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}
+        const noTasksMessage = `Période du rapport : du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}
 
 Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
+        setAiReport(noTasksMessage);
+        setEditedReport(noTasksMessage);
+        return;
       }
 
-      // Créer un rapport structuré basé uniquement sur les données réelles
-      let reportContent = `Rapport d'activité - Période du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}\n\n`;
-      
-      // Grouper les tâches par projet
-      const tasksByProject: Record<string, TaskSummary[]> = {};
-      tasksSummary.forEach(task => {
-        if (!tasksByProject[task.project]) {
-          tasksByProject[task.project] = [];
-        }
-        tasksByProject[task.project].push(task);
-      });
-
-      // Ajouter les tâches groupées par projet
-      Object.entries(tasksByProject).forEach(([projectName, projectTasks]) => {
-        reportContent += `## Projet : ${projectName}\n\n`;
-        
-        // Séparer les tâches principales des sous-tâches
-        const mainTasks = projectTasks.filter(t => !t.isSubTask);
-        const subTasks = projectTasks.filter(t => t.isSubTask);
-        
-        // Ajouter les tâches principales
-        if (mainTasks.length > 0) {
-          reportContent += '### Tâches principales terminées :\n';
-          mainTasks.forEach((task, index) => {
-            reportContent += `${index + 1}. ${task.title} (${task.priority}) - Terminé le ${task.completedAt}`;
-            if (task.notes) reportContent += `\n   Notes: ${task.notes}`;
-            reportContent += '\n';
-          });
-          reportContent += '\n';
-        }
-        
-        // Ajouter les sous-tâches groupées par tâche parente
-        if (subTasks.length > 0) {
-          const subTasksByParent: Record<string, TaskSummary[]> = {};
-          subTasks.forEach(subTask => {
-            if (!subTasksByParent[subTask.parentTaskTitle]) {
-              subTasksByParent[subTask.parentTaskTitle] = [];
-            }
-            subTasksByParent[subTask.parentTaskTitle].push(subTask);
-          });
+      try {
+        // Préparer le contenu du rapport avec l'IA
+        const aiResponse = await AIService.generateAiText(aiSettings, `
+          Tu es un assistant qui aide à générer des rapports professionnels pour la gestion de projet.
           
-          reportContent += '### Sous-tâches terminées :\n';
-          Object.entries(subTasksByParent).forEach(([parentTask, subTaskList]) => {
-            reportContent += `- ${parentTask} :\n`;
-            subTaskList.forEach((subTask, idx) => {
-              reportContent += `  ${idx + 1}. ${subTask.title} (${subTask.priority}) - Terminé le ${subTask.completedAt}`;
-              if (subTask.notes) reportContent += `\n     Notes: ${subTask.notes}`;
-              reportContent += '\n';
-            });
-          });
-          reportContent += '\n';
+          Voici les tâches à analyser pour la période du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')} :
+          
+          ${JSON.stringify(tasksSummary, null, 2)}
+          
+          Analyse ces tâches et génère un rapport professionnel qui inclut :
+          1. Un résumé exécutif des réalisations
+          2. Une analyse des tâches terminées par projet
+          3. Les points forts et les défis rencontrés
+          4. Des recommandations pour la période suivante
+          
+          Le rapport doit être en français, clair et structuré avec des titres et sous-titres.
+        `);
+
+        if (!aiResponse) {
+          throw new Error('Aucune réponse reçue du service IA');
         }
-      });
-      
-      // Ajouter le résumé des statistiques
-      const totalTasks = tasksSummary.length;
-      const totalSubTasks = tasksSummary.filter(t => t.isSubTask).length;
-      const totalMainTasks = totalTasks - totalSubTasks;
-      
-      reportContent += `\n### Récapitulatif :\n`;
-      reportContent += `- Tâches principales terminées : ${totalMainTasks}\n`;
-      reportContent += `- Sous-tâches terminées : ${totalSubTasks}\n`;
-      reportContent += `- Total des éléments terminés : ${totalTasks}\n\n`;
-      
-      // Ajouter la signature
-      reportContent += `\nSignature :\n${userInfo}`;
-      
-      // Mettre à jour l'état avec le rapport généré
-      setAiReport(reportContent);
-      setEditedReport(reportContent);
-      setIsEditing(false); // Sortir du mode édition si on régénère
+
+        // Récupérer les informations utilisateur pour la signature
+        const currentUser = state.users[0];
+        const userInfo = [
+          currentUser?.name || 'Utilisateur',
+          currentUser?.position,
+          currentUser?.department,
+          currentUser?.email
+        ].filter(Boolean).join(' | ');
+
+        // Construire le contenu final du rapport
+        const reportContent = `
+        ===========================================
+          RAPPORT D'ACTIVITÉ - ANALYSE PAR IA
+        ===========================================
+        
+        Période : Du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}
+        Généré le : ${new Date().toLocaleString('fr-FR')}
+        
+        ${aiResponse}
+        
+        ===========================================
+          DONNÉES BRUTES POUR RÉFÉRENCE
+        ===========================================
+        
+        Nombre total de tâches analysées : ${tasksSummary.length}
+        Nombre de projets concernés : ${report.projects.length}
+        `;
+
+        // Ajouter la signature
+        const signature = `
+        ${'='.repeat(60)}
+        SIGNATURE
+        ${'='.repeat(60)}
+        
+        Ce rapport a été généré automatiquement avec l'assistance d'une IA.
+        
+        Avec nos meilleures salutations,
+        ${userInfo}
+        
+        © ${new Date().getFullYear()} - Tous droits réservés`;
+
+        // Mettre à jour l'état avec le rapport généré
+        setAiReport(reportContent + signature);
+        setEditedReport(reportContent + signature);
+        setIsEditing(false);
+      } catch (error) {
+        console.error('Erreur lors de la génération du rapport IA :', error);
+        const errorMessage = `Erreur lors de la génération du rapport IA : ${error instanceof Error ? error.message : 'Erreur inconnue'}`;
+        setAiReport(errorMessage);
+        setEditedReport(errorMessage);
+      }
+      // La génération du rapport est maintenant gérée par l'IA
+      // Les tâches et sous-tâches sont incluses dans l'analyse IA
+      setIsEditing(false); // Sortir du mode édition
       return;
     } catch (error) {
       console.error('Erreur lors de la génération du rapport IA:', error);
@@ -629,14 +684,19 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
     return hasProperty(task, 'notes') ? task.notes : '';
   };
   
-  // Gestion de la génération du rapport IA avec gestion d'erreur améliorée
+  // Gestion de la génération du rapport IA avec gestion d'erreur améliorée et feedback utilisateur
   const handleGenerateAIReport = async () => {
     console.log('Bouton Générer avec IA cliqué');
     
     if (!report || report.projects.length === 0) {
       const errorMsg = 'Aucune donnée de rapport disponible. Veuillez d\'abord générer un rapport standard.';
       console.error(errorMsg);
-      alert(errorMsg);
+      // Utiliser une notification plus élégante qu'une alerte
+      setEmailStatus({
+        type: 'error',
+        message: errorMsg
+      });
+      setTimeout(() => setEmailStatus({ type: null, message: '' }), 5000);
       return;
     }
     
@@ -644,24 +704,51 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
       setIsGenerating(true);
       console.log('Lancement de la génération du rapport IA...');
       
+      // Ajouter un indicateur visuel de chargement
+      setAiReport('Génération du rapport en cours... Veuillez patienter.');
+      
+      // Générer le rapport
       await generateAIReport();
+      
+      // Afficher un message de succès
+      setEmailStatus({
+        type: 'success',
+        message: 'Le rapport a été généré avec succès !'
+      });
+      
       console.log('Génération du rapport IA terminée avec succès');
       
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue';
       console.error('Erreur lors de la génération du rapport IA:', error);
       
-      // Afficher un message d'erreur à l'utilisateur
-      const userFriendlyError = `Impossible de générer le rapport IA: ${errorMsg}.\n\nVeuillez vérifier votre configuration IA dans les paramètres.`;
-      alert(userFriendlyError);
+      // Message d'erreur plus détaillé
+      const userFriendlyError = `DÉTAIL DE L'ERREUR\n${'='.repeat(60)}\n\n` +
+        `Impossible de générer le rapport IA.\n\n` +
+        `Raison : ${errorMsg}\n\n` +
+        `Vérifiez que :\n` +
+        `1. Votre connexion Internet est active\n` +
+        `2. Votre clé API est valide et configurée dans les paramètres\n` +
+        `3. Votre quota d'API n'est pas dépassé\n\n` +
+        `Si le problème persiste, contactez le support technique.`;
       
-      // Mettre à jour l'état avec le message d'erreur
+      // Mettre à jour l'état avec le message d'erreur formaté
       setAiReport(userFriendlyError);
       setEditedReport(userFriendlyError);
       
+      // Afficher une notification d'erreur
+      setEmailStatus({
+        type: 'error',
+        message: 'Erreur lors de la génération du rapport'
+      });
+      
     } finally {
       console.log('Nettoyage après génération du rapport IA');
-      setIsGenerating(false);
+      // Laisser un court délai pour que l'utilisateur puisse voir le message de statut
+      setTimeout(() => {
+        setIsGenerating(false);
+        setEmailStatus({ type: null, message: '' });
+      }, 5000);
     }
   };
 

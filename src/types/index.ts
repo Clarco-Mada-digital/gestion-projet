@@ -123,15 +123,16 @@ export interface AISettings {
   lastTestMessage: string | null;
 }
 
+// Configuration pour utiliser des modèles gratuits
 export const DEFAULT_AI_SETTINGS: AISettings = {
-  provider: null,
+  provider: 'openrouter',  // OpenRouter propose des modèles gratuits
   openaiApiKey: null,
-  openrouterApiKey: null,
-  openrouterModel: 'openai/gpt-3.5-turbo',
+  openrouterApiKey: null,  // Pas de clé par défaut pour forcer l'utilisation du mode anonyme
+  openrouterModel: 'google/gemma-7b-it:free',  // Modèle gratuit spécifique
   openaiModel: 'gpt-3.5-turbo',
-  maxTokens: 1000,
-  temperature: 0.7,
-  isConfigured: false,
+  maxTokens: 500,  // Réduit pour économiser les crédits
+  temperature: 0.5,  // Réponse plus prévisible
+  isConfigured: true,
   lastTested: null,
   lastTestStatus: null,
   lastTestMessage: null,
