@@ -182,11 +182,11 @@ export function ReportView() {
           to_email: emailForm.to, // S'assurer que le destinataire est bien défini
           to_name: emailForm.to.split('@')[0], // Utiliser la partie avant @ comme nom
           from_name: state.emailSettings?.fromName || 'Gestion de Projet',
-          from_email: state.emailSettings?.fromEmail || 'noreply@votredomaine.com',
+          from_email: state.emailSettings?.fromEmail || 'noreply@gestion-projet.com',
           subject: emailForm.subject,
           message: messageContent, // Version texte du message
           content: emailContent,   // Version HTML du message
-          report_title: emailForm.subject,
+          title: emailForm.subject,
           user_name: state.users[0]?.name || 'Utilisateur'
         }
       };
