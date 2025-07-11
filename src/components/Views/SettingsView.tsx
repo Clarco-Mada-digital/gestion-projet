@@ -10,9 +10,9 @@ import { DataManagement } from '../Settings/DataManagement';
 import { ContactManagement } from '../Settings/ContactManagement';
 
 export function SettingsView() {
-  console.log('Rendering SettingsView component');
+
   const { state, dispatch } = useApp();
-  console.log('SettingsView - current state:', state);
+
   
   // États pour la gestion des onglets et des modales
   const [activeTab, setActiveTab] = useState('profile');
@@ -49,9 +49,9 @@ export function SettingsView() {
   // Effet pour suivre le cycle de vie du composant
   useEffect(() => {
     if (state.users.length > 0) {
-      console.log('=== SETTINGS VIEW MOUNTED ===');
-      console.log('Current user:', state.users[0]);
-      console.log('Current view:', state.currentView);
+
+
+
       setIsUserLoaded(true);
     }
     
@@ -167,7 +167,7 @@ export function SettingsView() {
 
   // Vérifier si les utilisateurs sont chargés
   if (state.users.length === 0) {
-    console.log('En attente du chargement des données utilisateur...');
+
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -184,7 +184,7 @@ export function SettingsView() {
   // Effet pour suivre le cycle de vie du composant
   useEffect(() => {
     console.log('=== SETTINGS VIEW MOUNTED ===');
-    console.log('Current user:', currentUser);
+
     console.log('Current view:', state.currentView);
     
     return () => {
@@ -302,7 +302,7 @@ export function SettingsView() {
 
   // Bouton de débogage temporaire - À supprimer une fois le problème résolu
   const debugForceSettings = () => {
-    console.log('=== FORCAGE DE LA VUE SETTINGS ===');
+
     window.localStorage.setItem('debug_force_settings', 'true');
     window.location.reload();
   };

@@ -99,6 +99,31 @@ export interface User {
 
 export type ViewMode = 'today' | 'projects' | 'kanban' | 'calendar' | 'settings' | 'reports';
 
+// Types pour Redux
+export interface ProjectsState {
+  projects: Project[];
+  currentProjectId: string | null;
+  status: 'idle' | 'loading' | 'succeeded' | 'failed';
+  error: string | null;
+}
+
+export interface SettingsState {
+  email: {
+    serviceId: string;
+    templateId: string;
+    publicKey: string;
+    toEmail: string;
+  };
+  theme: 'light' | 'dark';
+  language: string;
+  isInitialized: boolean;
+}
+
+export interface RootState {
+  projects: ProjectsState;
+  settings: SettingsState;
+}
+
 export interface EmailSettings {
   serviceId: string;
   templateId: string;

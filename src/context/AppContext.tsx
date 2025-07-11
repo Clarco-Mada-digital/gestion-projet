@@ -487,7 +487,7 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         isEnabled: action.payload.isEnabled ?? state.emailSettings.isEnabled ?? true
       };
       
-      console.log('Mise à jour des paramètres email:', updatedSettings);
+
       
       return {
         ...state,
@@ -557,7 +557,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Effet pour charger les données initiales
   useEffect(() => {
-    console.log('Chargement des données initiales...');
+
     
     const loadInitialData = async () => {
       try {
@@ -565,7 +565,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         if (savedData) {
           const parsedData = JSON.parse(savedData);
-          console.log('Données chargées depuis le localStorage:', parsedData);
+
           
           // S'assurer qu'il y a au moins un utilisateur
           const users = parsedData.users && parsedData.users.length > 0 
@@ -576,8 +576,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const validViews: ViewMode[] = ['today', 'projects', 'kanban', 'calendar', 'settings'];
           const viewToSet = parsedData.currentView || 'today';
           
-          console.log('Vue à appliquer:', viewToSet);
-          console.log('Est-ce une vue valide?', validViews.includes(viewToSet));
+
+
           
           // Mettre à jour l'état avec les données chargées
           dispatch({
@@ -589,9 +589,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
           });
 
-          console.log('Données initiales chargées avec succès');
+
         } else {
-          console.log('Aucune donnée sauvegardée trouvée, utilisation des valeurs par défaut');
+
           // Utiliser les valeurs par défaut avec des exemples
           dispatch({
             type: 'INIT_STATE',
@@ -626,7 +626,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (state.isLoading) return; // Ne pas sauvegarder pendant le chargement initial
     
     try {
-      console.log('Sauvegarde des données dans le localStorage...');
+
       
       // Préparer les données à sauvegarder
       const { isLoading, error, notifications, ...dataToSave } = state;
@@ -637,7 +637,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         notifications: []
       }));
       
-      console.log('Données sauvegardées avec succès');
+
     } catch (error) {
       console.error('Erreur lors de la sauvegarde des données:', error);
     }

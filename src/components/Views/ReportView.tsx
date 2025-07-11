@@ -251,12 +251,6 @@ export function ReportView() {
       // Ajouter la version texte pour la compatibilité
       emailOptions.text = `Bonjour,\n\nVeuvez trouver ci-joint le rapport d'activité demandé.\n\n${messageContent.replace(/<[^>]*>?/gm, '')}\n\nCordialement,\n${generateSignature()}`;
       
-      console.log('Envoi d\'email avec les options:', {
-        ...emailOptions,
-        html: emailOptions.html ? '[HTML content]' : null,
-        text: emailOptions.text ? '[Text content]' : null
-      });
-      
       // Envoyer l'email
       const result = await EmailService.sendEmail(emailOptions, state.emailSettings);
       
@@ -310,66 +304,50 @@ export function ReportView() {
 
   // Générer le rapport
   const generateReport = () => {
-    console.log('Génération du rapport...');
-    console.log('État complet des projets:', JSON.stringify(state.projects, null, 2));
+
+
     
     const { start, end } = getDateRange(dateRange);
-    console.log(`Période du rapport: ${start.toISOString()} à ${end.toISOString()}`);
+
     
     // Filtrer les tâches par période, par projet et par statut (uniquement actif)
     const projectsData = (state.projects || [])
       .filter(project => {
         const isSelected = selectedProjectId === 'all' || project.id === selectedProjectId;
         const isActive = project.status === 'active';
-        console.log(`Projet: ${project.name} (${project.id}), Sélectionné: ${isSelected}, Statut: ${project.status}`);
+
         return isSelected && isActive;
       })
       .map(project => {
-        console.log(`Traitement du projet: ${project.name} (${project.id})`);
+
         // Toutes les tâches du projet
-        const allTasks = project.tasks || [];
-        console.log(`Nombre total de tâches dans le projet: ${allTasks.length}`);
+        const allTasks = project.tasks || [];       
         
-        // Afficher la structure complète des tâches et sous-tâches
-        allTasks.forEach((task, index) => {
-          console.log(`Tâche #${index + 1}:`, {
-            id: task.id,
-            title: task.title,
-            status: task.status,
-            completedAt: task.completedAt,
-            subTasks: task.subTasks ? task.subTasks.map(st => ({
-              id: st.id,
-              title: st.title,
-              completed: st.completed,
-              completedAt: st.completedAt
-            })) : 'Aucune sous-tâche'
-          });
-        });
         
         // Tâches principales complétées dans la période
         const completedMainTasks = allTasks.filter((task): task is Task & { completedAt: string } => {
           if (task.status !== 'done' || !task.completedAt) return false;
           const taskCompletedDate = new Date(task.completedAt);
           const inRange = isDateInRange(taskCompletedDate, start, end);
-          console.log(`Tâche: ${task.title}, Statut: ${task.status}, Complétée: ${task.completedAt}, Dans la période: ${inRange}`);
+
           return inRange;
         });
         
         // Sous-tâches complétées dans la période (toutes tâches confondues)
         const allCompletedSubTasks = allTasks.flatMap(task => {
           const subTasks = task.subTasks || [];
-          console.log(`Tâche: ${task.title}, Nombre de sous-tâches: ${subTasks.length}`);
+
           
           return subTasks
             .filter((subTask): subTask is SubTask & { completedAt: string } => {
               const isCompleted = !!subTask.completed && !!subTask.completedAt;
-              console.log(`Sous-tâche: ${subTask.title}, Complétée: ${isCompleted}, Date: ${subTask.completedAt}`);
+
               return isCompleted;
             })
             .map(subTask => {
               const subTaskCompletedDate = new Date(subTask.completedAt);
               const inRange = isDateInRange(subTaskCompletedDate, start, end);
-              console.log(`Sous-tâche: ${subTask.title}, Date: ${subTask.completedAt}, Dans la période: ${inRange}`);
+
               
               return {
                 ...subTask,
@@ -388,12 +366,12 @@ export function ReportView() {
                 const completedSubTasks = subTasks.filter((subTask): subTask is SubTask & { completedAt: string } => {
                   if (!subTask.completed || !subTask.completedAt) return false;
                   const inRange = isDateInRange(new Date(subTask.completedAt), start, end);
-                  console.log(`Vérification sous-tâche: ${subTask.title}, Complétée: ${subTask.completed}, Date: ${subTask.completedAt}, Dans la période: ${inRange}`);
+
                   return inRange;
                 });
                 
                 if (completedSubTasks.length > 0) {
-                  console.log(`Tâche "${task.title}" a ${completedSubTasks.length} sous-tâches complétées dans la période`);
+
                   return {
                     ...task,
                     completedSubTasks
@@ -404,7 +382,7 @@ export function ReportView() {
               .filter((task): task is Task & { completedSubTasks: (SubTask & { completedAt: string })[] } => task !== null)
           : [];
           
-        console.log(`Tâches avec sous-tâches complétées: ${tasksWithCompletedSubTasks.length}`);
+
         
         const totalTasks = allTasks.length;
         const totalCompletedTasks = completedMainTasks.length;
@@ -477,7 +455,7 @@ export function ReportView() {
 
   // Générer le rapport avec IA
   const generateAIReport = async (): Promise<void> => {
-    console.log('Début de la génération du rapport IA');
+
     
     if (!report || report.projects.length === 0) {
       console.warn('Aucun rapport ou projet disponible pour générer le rapport IA');
@@ -486,12 +464,7 @@ export function ReportView() {
     
     setIsGenerating(true);
     
-    try {
-      console.log('Préparation des données pour le rapport IA', { 
-        nbProjets: report.projects.length,
-        plageDates: `${report.startDate.toLocaleDateString('fr-FR')} - ${report.endDate.toLocaleDateString('fr-FR')}`
-      });
-      
+    try {      
       // Interface pour le résumé des tâches
       interface TaskSummary {
         project: string;
@@ -515,12 +488,6 @@ export function ReportView() {
         ...projectAiSettings,
         isConfigured: appAiSettings?.isConfigured || false,
       } as const;
-      
-      console.log('Configuration IA:', {
-        provider: aiSettings.provider,
-        isConfigured: aiSettings.isConfigured,
-        hasApiKey: !!(aiSettings.provider === 'openai' ? aiSettings.openaiApiKey : aiSettings.openrouterApiKey)
-      });
       
       // Vérifier la configuration de l'IA
       if (!aiSettings || !aiSettings.isConfigured) {
@@ -609,7 +576,7 @@ export function ReportView() {
       
       Le rapport doit être en français, clair et structuré avec des titres et sous-titres.`;
       
-      console.log('Envoi de la requête à l\'IA...');
+
       
       // Appeler le service IA
       const aiResponse = await AIService.generateAiText(aiSettings, prompt);
@@ -618,7 +585,7 @@ export function ReportView() {
         throw new Error('Aucune réponse reçue du service IA');
       }
       
-      console.log('Réponse de l\'IA reçue avec succès');
+
       
       // Formater la réponse de l'IA
       const reportContent = `
@@ -750,7 +717,7 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
   
   // Gestion de la génération du rapport IA avec gestion d'erreur améliorée et feedback utilisateur
   const handleGenerateAIReport = async () => {
-    console.log('Bouton Générer avec IA cliqué');
+
     
     if (!report || report.projects.length === 0) {
       const errorMsg = 'Aucune donnée de rapport disponible. Veuillez d\'abord générer un rapport standard.';
@@ -766,7 +733,7 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
     
     try {
       setIsGenerating(true);
-      console.log('Lancement de la génération du rapport IA...');
+
       
       // Ajouter un indicateur visuel de chargement
       setAiReport('Génération du rapport en cours... Veuillez patienter.');
@@ -780,7 +747,7 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
         message: 'Le rapport a été généré avec succès !'
       });
       
-      console.log('Génération du rapport IA terminée avec succès');
+
       
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue';
@@ -807,7 +774,7 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
       });
       
     } finally {
-      console.log('Nettoyage après génération du rapport IA');
+
       // Laisser un court délai pour que l'utilisateur puisse voir le message de statut
       setTimeout(() => {
         setIsGenerating(false);

@@ -109,14 +109,6 @@ export class EmailService {
       if (!templateParams.from_email) templateParams.from_email = options.from || config.fromEmail || 'noreply@votredomaine.com';
       if (!templateParams.from_name) templateParams.from_name = options.fromName || config.fromName || 'Gestion de Projet';
 
-      console.log('Envoi d\'email avec les paramètres:', {
-        serviceId: config.serviceId,
-        templateId: options.templateId || config.templateId,
-        templateParams,
-        userId: config.userId,
-        hasAccessToken: !!config.accessToken
-      });
-
       // Envoyer l'email avec la nouvelle API EmailJS v3+
       try {
         const response = await window.emailjs.send(
@@ -130,7 +122,7 @@ export class EmailService {
           }
         );
 
-        console.log('Réponse EmailJS:', response);
+
         return { 
           success: true, 
           message: 'Email envoyé avec succès',
@@ -184,7 +176,7 @@ export class EmailService {
     return new Promise((resolve, reject) => {
       // Vérifier si le script est déjà chargé
       if (window.emailjs) {
-        console.log('EmailJS déjà chargé');
+
         resolve();
         return;
       }
@@ -198,7 +190,7 @@ export class EmailService {
         // Laisser un peu de temps pour l'initialisation
         setTimeout(() => {
           if (window.emailjs) {
-            console.log('EmailJS chargé avec succès');
+
             // Initialiser avec une clé publique vide (sera fournie à chaque envoi)
             window.emailjs.init('');
             resolve();

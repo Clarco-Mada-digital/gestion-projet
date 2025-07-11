@@ -59,9 +59,9 @@ export function KanbanView() {
   const [addingTaskColumnId, setAddingTaskColumnId] = useState<string | null>(null);
   const columnTitleRef = useRef<HTMLInputElement>(null);
 
-  // Debug: Afficher les projets chargés
+  // Charger les projets
   useEffect(() => {
-    console.log('Projets chargés dans KanbanView:', state.projects);
+    // Effet de chargement des données
   }, [state.projects]);
 
   // Charger les colonnes personnalisées et l'ordre des colonnes depuis le stockage local
