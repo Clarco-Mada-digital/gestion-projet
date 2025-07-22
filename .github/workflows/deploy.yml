@@ -23,16 +23,24 @@ jobs:
 
       - name: Install dependencies
         run: |
-          npm install --package-lock-only
-          npm ci
+          # Nettoyer le cache npm et supprimer node_modules
+          npm cache clean --force
+          rm -rf node_modules
+          rm -f package-lock.json
+          
+          # Installer les dépendances avec --legacy-peer-deps pour éviter les conflits
+          npm install --legacy-peer-deps
+          
+          # Vérifier que rollup est correctement installé
+          npm list rollup
 
       - name: Build
         run: |
           echo "Building with base URL: /gestion-projet/"
-          npm run build
+          npm run build -- --legacy-peer-deps
           echo "=== Contenu du dossier dist ==="
           ls -la dist/
-          echo "=============================="
+          echo "==============================
 
       - name: Create .nojekyll
         run: touch ./dist/.nojekyll
