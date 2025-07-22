@@ -40,7 +40,7 @@ jobs:
           npm run build -- --legacy-peer-deps
           echo "=== Contenu du dossier dist ==="
           ls -la dist/
-          echo "==============================
+          echo "=============================="
 
       - name: Create .nojekyll
         run: touch ./dist/.nojekyll
