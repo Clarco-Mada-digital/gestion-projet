@@ -13,18 +13,39 @@ export interface Task {
   description: string;
   status: 'todo' | 'in-progress' | 'done';
   priority: 'low' | 'medium' | 'high';
-  dueDate: string; // À déprécier, utiliser startDate et endDate
-  startDate: string; // Date de début de la tâche
-  endDate: string;   // Date de fin de la tâche
+  startDate: string;
+  endDate: string;
+  dueDate?: string;
   assignees: string[];
   projectId: string;
   createdAt: string;
   updatedAt: string;
-  completedAt?: string; // Date de complétion de la tâche
+  completedAt?: string;
   tags: string[];
   subTasks: SubTask[];
   notes?: string;
   estimatedHours?: number;
+}
+
+// Fonction utilitaire pour créer une tâche par défaut
+export function createDefaultTask(): Task {
+  return {
+    id: '',
+    title: '',
+    description: '',
+    status: 'todo',
+    priority: 'medium',
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0],
+    assignees: [],
+    projectId: '',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    tags: [],
+    subTasks: [],
+    notes: '',
+    estimatedHours: 0
+  };
 }
 
 export interface ProjectAISettings {
