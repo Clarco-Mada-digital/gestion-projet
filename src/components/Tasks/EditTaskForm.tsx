@@ -73,9 +73,12 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newTag, setNewTag] = useState('');
 
-  const handleAddTag = (e: React.FormEvent) => {
-    e.preventDefault();
-    e.stopPropagation(); // Empêche la propagation de l'événement au formulaire parent
+  const handleAddTag = (e?: React.FormEvent) => {
+    // Si c'est un événement de formulaire, on empêche le comportement par défaut
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     
     const tagToAdd = newTag.trim();
     if (tagToAdd && !editedTask.tags.includes(tagToAdd)) {
@@ -255,7 +258,7 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
           </div>
 
           {/* Tags */}
-          <div>
+          {/* <div>
             <label className="block text-sm font-medium mb-1">Tags</label>
             <div className="flex flex-wrap gap-2">
               {isAddingTag ? (
@@ -312,7 +315,7 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                 </span>
               ))}
             </div>
-          </div>
+          </div> */}
 
           {/* Sous-tâches */}
           <div>
@@ -478,16 +481,18 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
             <label className="block text-sm font-medium mb-1">Tags</label>
             <div className="flex flex-wrap gap-2">
               {isAddingTag ? (
-                <form onSubmit={handleAddTag} className="flex items-center">
+                <form className="flex items-center">
                   <input
                     type="text"
                     value={newTag}
                     onChange={(e) => setNewTag(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
                     className="flex-1 px-3 py-1.5 rounded-l-full border border-r-0 border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white bg-white dark:bg-gray-800"
                     placeholder="Nouveau tag"
                   />
                   <button
-                    type="submit"
+                    type="button"
+                    onClick={handleAddTag}
                     className="px-4 py-1.5 bg-blue-600 text-white rounded-r-full hover:bg-blue-700 transition-colors duration-200"
                   >
                     <Plus className="w-4 h-4" />
