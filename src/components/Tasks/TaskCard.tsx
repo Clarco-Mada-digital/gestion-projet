@@ -1,5 +1,5 @@
 import { useState, useCallback, memo, useContext } from 'react';
-import { Calendar, Clock, Users, MoreHorizontal, Edit, CheckCircle2 } from 'lucide-react';
+import { Clock, Users, MoreHorizontal, Edit, CheckCircle2 } from 'lucide-react';
 import { Task } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { useModal } from '../../context/ModalContext';
@@ -32,7 +32,7 @@ const areEqual = (prevProps: TaskCardProps, nextProps: TaskCardProps): boolean =
     prevProps.task.description === nextProps.task.description &&
     prevProps.task.priority === nextProps.task.priority &&
     prevProps.task.startDate === nextProps.task.startDate &&
-    prevProps.task.endDate === nextProps.task.endDate &&
+    prevProps.task.dueDate === nextProps.task.dueDate &&
     JSON.stringify(prevProps.task.assignees) === JSON.stringify(nextProps.task.assignees) &&
     JSON.stringify(prevProps.task.subTasks) === JSON.stringify(nextProps.task.subTasks) &&
     prevProps.className === nextProps.className
@@ -68,59 +68,46 @@ const TaskCardComponent = ({ task, className = '' }: TaskCardProps): JSX.Element
     return !isNaN(d.getTime());
   };
 
-  // Utiliser dueDate comme fallback pour la rétrocompatibilité
-  const startDate = task.startDate || new Date().toISOString();
-  const endDate = task.endDate || task.dueDate || startDate;
-
   const isOverdue = (() => {
-    if (!isValidDate(endDate) || task.status === 'done') return false;
+    if (!isValidDate(task.dueDate) || task.status === 'done') return false;
 
     const now = new Date();
-    const taskEndDate = endDate ? new Date(endDate) : now;
+    const taskDueDate = new Date(task.dueDate);
 
     // Réinitialiser les heures pour la comparaison
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const endDateOnly = new Date(taskEndDate.getFullYear(), taskEndDate.getMonth(), taskEndDate.getDate());
+    const dueDateOnly = new Date(taskDueDate.getFullYear(), taskDueDate.getMonth(), taskDueDate.getDate());
 
-    // La tâche est en retard si la date de fin est antérieure à aujourd'hui
-    return endDateOnly < today;
+    // La tâche est en retard si la date d'échéance est antérieure à aujourd'hui
+    return dueDateOnly < today;
   })();
 
-  const isToday = isValidDate(startDate) && isValidDate(endDate) &&
-    new Date(startDate).toDateString() <= new Date().toDateString() &&
-    new Date(endDate).toDateString() >= new Date().toDateString() &&
+  const isToday = isValidDate(task.startDate) && isValidDate(task.dueDate) &&
+    new Date(task.startDate).toDateString() <= new Date().toDateString() &&
+    new Date(task.dueDate).toDateString() >= new Date().toDateString() &&
     task.status !== 'done';
 
   const toggleStatus = useCallback(() => {
     const now = new Date().toISOString();
     let newStatus: 'todo' | 'in-progress' | 'done';
 
-    // Si la tâche a des sous-tâches non terminées
-    if (task.subTasks && task.subTasks.length > 0) {
-      const hasIncompleteSubTasks = task.subTasks.some(st => !st.completed);
-      newStatus = hasIncompleteSubTasks ? 'in-progress' : 'done';
+    // Basculer entre 'done' et 'in-progress' pour les clics simples
+    if (task.status === 'done') {
+      newStatus = 'in-progress';
     } else {
-      // Pour les tâches sans sous-tâches, baser le statut sur la date
-      if (isOverdue) {
-        newStatus = 'done';
-      } else if (isToday) {
-        newStatus = 'in-progress';
-      } else {
-        newStatus = task.status === 'todo' ? 'in-progress' : 'done';
-      }
+      newStatus = 'done';
     }
 
     dispatch({
       type: 'UPDATE_TASK',
       payload: {
         ...task,
+        status: newStatus,
         updatedAt: now,
-        completedAt: task.status === 'done' && task.status !== 'done' 
-          ? new Date().toISOString() 
-          : task.completedAt
+        completedAt: newStatus === 'done' ? now : null
       }
     });
-  }, [dispatch, task.projectId, task.id]);
+  }, [dispatch, task]);
 
   const handleEdit = useCallback(() => {
     try {
@@ -164,119 +151,163 @@ const TaskCardComponent = ({ task, className = '' }: TaskCardProps): JSX.Element
   }, [dispatch, task.id]);
 
   return (
-    <div className="relative">
+    <div className="relative group">
       <Card
-        className={`p-6 transition-all duration-200 ${isOverdue ? 'border-l-4 border-red-500 dark:border-red-700' : ''} ${isToday ? 'ring-2 ring-blue-500/20 dark:ring-blue-500' : ''} ${className}`}
+        className={`p-4 transition-all duration-200 ${
+          isOverdue ? 'border-l-4 border-red-500 dark:border-red-700' : ''
+        } ${
+          isToday ? 'ring-1 ring-blue-500/30 dark:ring-blue-500/50' : ''
+        } ${className} hover:shadow-md`}
         hover
         gradient
       >
-        {/* Bouton d'édition rapide */}
-        <button
-          onClick={handleEdit}
-          className="absolute top-3 right-10 p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors"
-          aria-label="Modifier la tâche"
-        >
-          <Edit className="w-4 h-4" />
-        </button>
+        {/* En-tête de la carte avec titre et actions */}
+        <div className="flex justify-between items-start gap-3 mb-3">
+          <h3 className="text-base font-medium text-gray-900 dark:text-gray-100 line-clamp-2 pr-8">
+            {task.title}
+          </h3>
+          
+          {/* Boutons d'action */}
+          <div className="flex items-center space-x-1">
+            {/* Bouton d'édition rapide */}
+            <button
+              onClick={handleEdit}
+              className="p-1.5 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+              aria-label="Modifier la tâche"
+            >
+              <Edit className="w-4 h-4" />
+            </button>
 
-        {/* Menu contextuel */}
-        <div className="absolute top-3 right-3 opacity-70 hover:opacity-100 transition-opacity duration-200">
-          <button
-            onClick={() => setShowMenu(!showMenu)}
-            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-          >
-            <MoreHorizontal className="w-5 h-5" />
-          </button>
-          {showMenu && (
-            <div className="absolute right-0 mt-2 w-48 origin-top-right rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none">
-              <div className="py-1">
-                <button
-                  onClick={handleEdit}
-                  className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 w-full text-left"
+            {/* Menu contextuel */}
+            <div className="relative">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowMenu(!showMenu);
+                }}
+                className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+                aria-label="Options"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
+              
+              {showMenu && (
+                <div 
+                  className="absolute right-0 z-10 mt-1 w-40 origin-top-right rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  Modifier
-                </button>
-                <button
-                  onClick={handleDelete}
-                  className="block px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-700 w-full text-left"
-                >
-                  Supprimer
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Contenu principal */}
-        <div className="flex flex-col space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <CheckCircle2 className={`w-5 h-5 ${
-                task.status === 'done' ? 'text-green-500' :
-                task.status === 'in-progress' ? 'text-yellow-500' :
-                'text-gray-400'
-              }`} />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {task.title}
-              </h3>
-            </div>
-            <div className="flex items-center space-x-2">
-              {task.priority && (
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  task.priority === 'low' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                  task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                  task.priority === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                  'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-                }`}>
-                  {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
-                </span>
-              )}
-              {task.assignees.length > 0 && (
-                <div className="flex items-center space-x-1">
-                  <Users className="w-4 h-4" />
-                  <span className="text-sm text-gray-600 dark:text-gray-300">
-                    {assignedUsers.length}
-                  </span>
+                  <div className="py-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEdit();
+                        setShowMenu(false);
+                      }}
+                      className="flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      <Edit className="mr-2 h-4 w-4" />
+                      <span>Modifier</span>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete();
+                        setShowMenu(false);
+                      }}
+                      className="flex w-full items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/50"
+                    >
+                      <span>Supprimer</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
           </div>
+        </div>
 
+        {/* Contenu principal */}
+        <div className="space-y-3">
+          {/* Description */}
           {task.description && (
-            <p className="text-gray-600 dark:text-gray-300">
+            <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 leading-relaxed">
               {task.description}
             </p>
           )}
+          {/* Métadonnées */}
+          <div className="space-y-2">
+            {/* Dates */}
+            <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+              <Clock className="w-3.5 h-3.5 mr-1.5 flex-shrink-0 opacity-75" />
+              <div className="flex flex-wrap items-center gap-x-1">
+                <span className="whitespace-nowrap">{formatDate(task.dueDate)}</span>
+              </div>
+            </div>
 
-          <div className="flex items-center space-x-4">
-            {task.startDate && (
-              <div className="flex items-center space-x-1">
-                <Calendar className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                <span className="text-sm text-gray-600 dark:text-gray-300">
-                  {formatDate(task.startDate)}
-                </span>
+            {/* Assignés */}
+            {assignedUsers.length > 0 && (
+              <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+                <Users className="w-3.5 h-3.5 mr-1.5 flex-shrink-0 opacity-75" />
+                <div className="flex items-center flex-wrap gap-1">
+                  {assignedUsers.map((user, index) => (
+                    <div
+                      key={user.id}
+                      className={`w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/80 flex items-center justify-center text-xs font-medium text-blue-700 dark:text-blue-200 border-2 border-white dark:border-gray-800 ${
+                        index > 0 ? '-ml-2' : ''
+                      }`}
+                      title={user.name || user.email}
+                    >
+                      {user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
-            {task.estimatedHours && (
-              <div className="flex items-center space-x-1">
-                <Clock className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                <span className="text-sm text-gray-600 dark:text-gray-300">
-                  {task.estimatedHours}h
-                </span>
-              </div>
-            )}
+
+            {/* Tags */}
             {task.tags && task.tags.length > 0 && (
-              <div className="flex flex-wrap items-center space-x-2">
+              <div className="flex flex-wrap gap-1 pt-1">
                 {task.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800"
+                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100/80 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border border-blue-200/50 dark:border-blue-800/50"
                   >
                     {tag}
                   </span>
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Pied de carte avec statut et actions */}
+          <div className="pt-2 flex items-center justify-between border-t border-gray-100 dark:border-gray-700/50">
+            <button
+              onClick={toggleStatus}
+              className={`flex items-center text-xs font-medium transition-colors ${
+                task.status === 'done'
+                  ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+              }`}
+            >
+              <CheckCircle2 
+                className={`w-3.5 h-3.5 mr-1.5 ${
+                  task.status === 'done' ? 'fill-current' : ''
+                }`} 
+              />
+              {task.status === 'done' ? 'Terminée' : 'Marquer comme terminée'}
+            </button>
+
+            <div className="flex space-x-2">
+              {isOverdue && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200">
+                  En retard
+                </span>
+              )}
+              {isToday && !isOverdue && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
+                  Aujourd'hui
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </Card>

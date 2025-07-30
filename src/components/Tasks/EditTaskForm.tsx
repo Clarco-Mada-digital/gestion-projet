@@ -7,13 +7,14 @@ import type { SubTasksListProps } from './SubTasksList';
 
 // Fonction de validation des données de la tâche
 const validateTaskData = (task: Task): Task => {
+  const dueDate = task.dueDate || new Date().toISOString().split('T')[0];
+  
   const validatedTask: Task = {
     ...task,
     title: task.title || '',
     description: task.description || '',
     startDate: task.startDate || new Date().toISOString().split('T')[0],
-    endDate: task.endDate || task.startDate || new Date().toISOString().split('T')[0],
-    dueDate: task.dueDate || task.endDate || new Date().toISOString().split('T')[0],
+    dueDate: dueDate,
     priority: task.priority || 'medium',
     estimatedHours: typeof task.estimatedHours === 'number' ? task.estimatedHours : 0,
     tags: Array.isArray(task.tags) ? task.tags : [],
@@ -42,13 +43,14 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
 
   // State initial avec validation
   const [editedTask, setEditedTask] = useState<Task>(() => {
+    const dueDate = task.dueDate || new Date().toISOString().split('T')[0];
+    
     return validateTaskData({
       ...task,
       tags: [...(task.tags || [])],
       assignees: [...(task.assignees || [])],
       startDate: task.startDate || new Date().toISOString().split('T')[0],
-      endDate: task.endDate || new Date().toISOString().split('T')[0],
-      dueDate: task.dueDate || task.endDate || new Date().toISOString().split('T')[0],
+      dueDate: dueDate,
       priority: task.priority || 'medium',
       estimatedHours: task.estimatedHours || 0,
       subTasks: [...(task.subTasks || [])],
@@ -73,14 +75,16 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
 
   const handleAddTag = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newTag.trim()) {
-      const updatedTags = [...editedTask.tags, newTag.trim()];
+    e.stopPropagation(); // Empêche la propagation de l'événement au formulaire parent
+    
+    const tagToAdd = newTag.trim();
+    if (tagToAdd && !editedTask.tags.includes(tagToAdd)) {
+      const updatedTags = [...editedTask.tags, tagToAdd];
       setEditedTask(prev => ({
         ...prev,
         tags: updatedTags,
         updatedAt: new Date().toISOString()
       }));
-      setIsAddingTag(false);
       setNewTag('');
     }
   };
@@ -96,18 +100,24 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
 
   // Gérer l'ajout d'un assigné
   const [isAddingAssignee, setIsAddingAssignee] = useState(false);
+  const [assigneeSearch, setAssigneeSearch] = useState('');
 
-  const handleAddAssignee = (userId: string) => {
-    const updatedAssignees = [...editedTask.assignees, userId];
-    setEditedTask(prev => ({
-      ...prev,
-      assignees: updatedAssignees,
-      updatedAt: new Date().toISOString()
-    }));
+  const handleAddAssignee = (e: React.MouseEvent, userId: string) => {
+    e.stopPropagation();
+    if (!editedTask.assignees.includes(userId)) {
+      const updatedAssignees = [...editedTask.assignees, userId];
+      setEditedTask(prev => ({
+        ...prev,
+        assignees: updatedAssignees,
+        updatedAt: new Date().toISOString()
+      }));
+    }
+    setAssigneeSearch('');
     setIsAddingAssignee(false);
   };
 
-  const handleRemoveAssignee = (userId: string) => {
+  const handleRemoveAssignee = (e: React.MouseEvent, userId: string) => {
+    e.stopPropagation();
     const updatedAssignees = editedTask.assignees.filter(id => id !== userId);
     setEditedTask(prev => ({
       ...prev,
@@ -131,26 +141,15 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
       
       // Vérifier que les dates sont valides
       const startDate = new Date(validatedTask.startDate);
-      const endDate = new Date(validatedTask.endDate);
-      const dueDate = validatedTask.dueDate ? new Date(validatedTask.dueDate) : endDate;
+      const dueDate = new Date(validatedTask.dueDate);
       
-      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      if (isNaN(startDate.getTime()) || isNaN(dueDate.getTime())) {
         throw new Error('Les dates doivent être valides');
-      }
-      
-      // Vérifier que la date de début est inférieure ou égale à la date de fin
-      if (startDate > endDate) {
-        throw new Error('La date de début doit être inférieure ou égale à la date de fin');
       }
       
       // Vérifier que la date de début est inférieure ou égale à la date d'échéance
       if (startDate > dueDate) {
-        throw new Error('La date de début doit être inférieure ou égale à la date d\'échéance');
-      }
-      
-      // Vérifier que la date de fin est inférieure ou égale à la date d'échéance
-      if (endDate > dueDate) {
-        throw new Error('La date de fin doit être inférieure ou égale à la date d\'échéance');
+        throw new Error('La date de début doit être antérieure ou égale à la date d\'échéance');
       }
       
       // Préparer les données mises à jour
@@ -222,34 +221,37 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
             />
           </div>
 
-          {/* Priorité */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Priorité</label>
-            <select
-              value={editedTask.priority}
-              onChange={(e) => setEditedTask({...editedTask, priority: e.target.value})}
-              className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
-            >
-              <option value="low">Faible</option>
-              <option value="medium">Moyenne</option>
-              <option value="high">Haute</option>
-              <option value="urgent">Urgente</option>
-            </select>
-          </div>
+          {/* Priorité et Statut sur la même ligne */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Priorité */}
+            <div>
+              <label className="block text-sm font-medium mb-1">Priorité</label>
+              <select
+                value={editedTask.priority}
+                onChange={(e) => setEditedTask({...editedTask, priority: e.target.value})}
+                className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
+              >
+                <option value="low">Faible</option>
+                <option value="medium">Moyenne</option>
+                <option value="high">Haute</option>
+                <option value="urgent">Urgente</option>
+              </select>
+            </div>
 
-          {/* Statut */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Statut</label>
-            <select
-              value={editedTask.status}
-              onChange={(e) => setEditedTask({...editedTask, status: e.target.value})}
-              className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
-            >
-              <option value="todo">À faire</option>
-              <option value="in-progress">En cours</option>
-              <option value="done">Terminé</option>
-              <option value="blocked">Bloqué</option>
-            </select>
+            {/* Statut */}
+            <div>
+              <label className="block text-sm font-medium mb-1">Statut</label>
+              <select
+                value={editedTask.status}
+                onChange={(e) => setEditedTask({...editedTask, status: e.target.value})}
+                className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
+              >
+                <option value="todo">À faire</option>
+                <option value="in-progress">En cours</option>
+                <option value="done">Terminé</option>
+                <option value="blocked">Bloqué</option>
+              </select>
+            </div>
           </div>
 
           {/* Tags */}
@@ -326,7 +328,7 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
           </div>
 
           {/* Dates et estimation */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Date de début */}
             <div>
               <label className="block text-sm font-medium mb-1">Date de début</label>
@@ -343,23 +345,6 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
               </div>
             </div>
 
-            {/* Date de fin */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Date de fin</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <CalendarIcon className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="date"
-                  value={editedTask.endDate ? editedTask.endDate.split('T')[0] : ''}
-                  min={editedTask.startDate || undefined}
-                  onChange={(e) => setEditedTask({...editedTask, endDate: e.target.value})}
-                  className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
-                />
-              </div>
-            </div>
-
             {/* Date d'échéance */}
             <div>
               <label className="block text-sm font-medium mb-1">Date d'échéance</label>
@@ -370,7 +355,7 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                 <input
                   type="date"
                   value={editedTask.dueDate ? editedTask.dueDate.split('T')[0] : ''}
-                  min={editedTask.endDate || undefined}
+                  min={editedTask.startDate || undefined}
                   onChange={(e) => setEditedTask({...editedTask, dueDate: e.target.value})}
                   className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
                 />
@@ -397,7 +382,7 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
           </div>
 
           {/* Assignés */}
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium mb-1">Assigné à</label>
             <div className="flex flex-wrap gap-2 mb-4">
               {/* Afficher tous les utilisateurs assignés */}
@@ -406,22 +391,85 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                 .map(user => (
                   <div 
                     key={user.id}
-                    className="flex items-center rounded-full px-3 py-1 text-xs font-medium cursor-pointer bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                    onClick={() => handleRemoveAssignee(user.id)}
+                    className="flex items-center rounded-full px-3 py-1.5 text-sm font-medium cursor-pointer bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800/70 transition-colors duration-200"
+                    onClick={(e) => handleRemoveAssignee(e, user.id)}
                   >
-                    <Users className="w-3.5 h-3.5 mr-1.5" />
-                    {user.name}
-                    <XIcon className="w-3 h-3 ml-1.5" />
+                    <div className="w-6 h-6 rounded-full bg-blue-200 dark:bg-blue-800 flex items-center justify-center text-xs font-medium text-blue-800 dark:text-blue-200 mr-2 shrink-0">
+                      {user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="whitespace-nowrap">{user.name || user.email}</span>
+                    <XIcon className="w-3.5 h-3.5 ml-1.5 opacity-70 hover:opacity-100" />
                   </div>
                 ))}
-              {/* Bouton pour ajouter un assigné */}
-              <button
-                onClick={() => setIsAddingAssignee(true)}
-                className="flex items-center px-3 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors duration-200"
-              >
-                <Plus className="w-3.5 h-3.5 mr-1.5" />
-                Ajouter
-              </button>
+              
+              {/* Menu déroulant pour ajouter un assigné */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsAddingAssignee(!isAddingAssignee);
+                  }}
+                  className="flex items-center px-3 py-1.5 text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors duration-200"
+                >
+                  <Plus className="w-4 h-4 mr-1.5" />
+                  Ajouter un membre
+                </button>
+                
+                {isAddingAssignee && (
+                  <div 
+                    className="absolute z-10 mt-1 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="p-2 border-b border-gray-100 dark:border-gray-700">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Rechercher un membre..."
+                          className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          value={assigneeSearch}
+                          onChange={(e) => setAssigneeSearch(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-60 overflow-y-auto">
+                      {state.users
+                        .filter(user => 
+                          !editedTask.assignees.includes(user.id) &&
+                          (assigneeSearch === '' || 
+                           user.name?.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
+                           user.email?.toLowerCase().includes(assigneeSearch.toLowerCase()))
+                        )
+                        .map(user => (
+                          <div
+                            key={user.id}
+                            onClick={(e) => handleAddAssignee(e, user.id)}
+                            className="px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center"
+                          >
+                            <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-sm font-medium text-blue-800 dark:text-blue-200 mr-3">
+                              {user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="font-medium">{user.name || 'Utilisateur sans nom'}</div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">{user.email}</div>
+                            </div>
+                          </div>
+                        ))}
+                      {state.users.filter(user => 
+                        !editedTask.assignees.includes(user.id) &&
+                        (assigneeSearch === '' || 
+                         user.name?.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
+                         user.email?.toLowerCase().includes(assigneeSearch.toLowerCase()))
+                      ).length === 0 && (
+                        <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-center">
+                          Aucun membre trouvé
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

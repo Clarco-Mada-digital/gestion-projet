@@ -14,8 +14,7 @@ export interface Task {
   status: 'todo' | 'in-progress' | 'done';
   priority: 'low' | 'medium' | 'high';
   startDate: string;
-  endDate: string;
-  dueDate?: string;
+  dueDate: string;
   assignees: string[];
   projectId: string;
   createdAt: string;
@@ -29,14 +28,15 @@ export interface Task {
 
 // Fonction utilitaire pour créer une tâche par défaut
 export function createDefaultTask(): Task {
+  const today = new Date().toISOString().split('T')[0];
   return {
     id: '',
     title: '',
     description: '',
     status: 'todo',
     priority: 'medium',
-    startDate: new Date().toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0],
+    startDate: today,
+    dueDate: today,
     assignees: [],
     projectId: '',
     createdAt: new Date().toISOString(),

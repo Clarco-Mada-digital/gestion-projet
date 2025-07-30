@@ -3,18 +3,18 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, X } from 'lucide-r
 import { useApp } from '../../context/AppContext';
 import { Card } from '../UI/Card';
 import { Button } from '../UI/Button';
-import { Task } from '../../types';
+import { Task, Project } from '../../types';
 import { EditTaskForm } from '../Tasks/EditTaskForm';
 
 export function CalendarView() {
   const { state } = useApp();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<{ task: Task; project: Project } | null>(null);
 
-  // Ne prendre que les tâches des projets actifs
-  const allTasks = state.projects
-    .filter(project => project.status === 'active')
-    .flatMap(p => p.tasks);
+  // Récupérer les tâches de tous les projets actifs
+  const allTasks = (state.projects as Project[])
+    .filter((project) => project.status === 'active')
+    .flatMap((p) => p.tasks) as Task[];
 
   // Obtenir le premier jour du mois
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
@@ -22,50 +22,56 @@ export function CalendarView() {
   const firstDayOfWeek = firstDayOfMonth.getDay();
 
   // Générer les jours du calendrier
-  const days = [];
+  interface DayInfo {
+    date: Date;
+    isCurrentMonth: boolean;
+  }
+
+  const days: DayInfo[] = [];
   
   // Jours du mois précédent
   for (let i = firstDayOfWeek - 1; i >= 0; i--) {
-    const date = new Date(firstDayOfMonth.getTime() - (i + 1) * 24 * 60 * 60 * 1000);
-    days.push({ date, isCurrentMonth: false });
+    const date = new Date(firstDayOfMonth);
+    date.setDate(date.getDate() - (i + 1));
+    days.push({ date: new Date(date), isCurrentMonth: false });
   }
 
   // Jours du mois actuel
   for (let day = 1; day <= lastDayOfMonth.getDate(); day++) {
     const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-    days.push({ date, isCurrentMonth: true });
+    days.push({ date: new Date(date), isCurrentMonth: true });
   }
 
   // Jours du mois suivant pour compléter la grille
   const remainingDays = 42 - days.length;
   for (let day = 1; day <= remainingDays; day++) {
     const date = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, day);
-    days.push({ date, isCurrentMonth: false });
+    days.push({ date: new Date(date), isCurrentMonth: false });
   }
 
-  const getTasksForDate = (date: Date) => {
-    return allTasks.filter(task => {
+  const getTasksForDate = (date: Date): Task[] => {
+    return allTasks.filter((task) => {
       // Vérifier que la tâche appartient à un projet actif
-      const project = state.projects.find(p => p.id === task.projectId);
+      const project = state.projects.find((p: Project) => p.id === task.projectId);
       if (!project || project.status !== 'active') return false;
       
       const taskStartDate = new Date(task.startDate || task.dueDate);
-      const taskEndDate = new Date(task.endDate || task.dueDate);
+      const taskDueDate = new Date(task.dueDate);
       
       // Réinitialiser les heures pour la comparaison
       const currentDate = new Date(date);
       currentDate.setHours(0, 0, 0, 0);
       
       taskStartDate.setHours(0, 0, 0, 0);
-      taskEndDate.setHours(0, 0, 0, 0);
+      taskDueDate.setHours(0, 0, 0, 0);
       
       // Vérifier si la date est dans la plage de la tâche
-      return currentDate >= taskStartDate && currentDate <= taskEndDate;
+      return currentDate >= taskStartDate && currentDate <= taskDueDate;
     });
   };
 
-  const navigateMonth = (direction: 'prev' | 'next') => {
-    setCurrentDate(prev => {
+  const navigateMonth = (direction: 'prev' | 'next'): void => {
+    setCurrentDate((prev) => {
       const newDate = new Date(prev);
       if (direction === 'prev') {
         newDate.setMonth(prev.getMonth() - 1);
@@ -76,11 +82,14 @@ export function CalendarView() {
     });
   };
 
-  const isToday = (date: Date) => {
-    return date.toDateString() === new Date().toDateString();
+  const isToday = (date: Date): boolean => {
+    const today = new Date();
+    return date.getDate() === today.getDate() && 
+           date.getMonth() === today.getMonth() && 
+           date.getFullYear() === today.getFullYear();
   };
 
-  const weekDays = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+  const weekDays: string[] = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 
   return (
     <div className="space-y-8">
@@ -116,8 +125,9 @@ export function CalendarView() {
               size="md"
               icon={ChevronLeft}
               onClick={() => navigateMonth('prev')}
-              iconPosition="left"
+              className="flex items-center gap-2"
             >
+              <ChevronLeft className="w-4 h-4" />
               Précédent
             </Button>
             <Button
@@ -130,11 +140,11 @@ export function CalendarView() {
             <Button
               variant="outline"
               size="md"
-              icon={ChevronRight}
               onClick={() => navigateMonth('next')}
-              iconPosition="right"
+              className="flex items-center gap-2"
             >
               Suivant
+              <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
         </div>
@@ -152,9 +162,11 @@ export function CalendarView() {
         <div className="grid grid-cols-7 gap-2">
           {days.map((day, index) => {
             const tasksForDay = getTasksForDate(day.date);
-            const overdueTasks = tasksForDay.filter(t => {
-              const taskEndDate = new Date(t.endDate || t.dueDate);
-              return taskEndDate < new Date() && t.status !== 'done';
+            const overdueTasks = tasksForDay.filter((task) => {
+              const taskDueDate = new Date(task.dueDate);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              return taskDueDate < today && task.status !== 'done';
             });
 
             return (
@@ -195,43 +207,48 @@ export function CalendarView() {
                 </div>
 
                 <div className="space-y-1">
-                  {tasksForDay.slice(0, 3).map(task => {
-                    const project = state.projects.find(p => p.id === task.projectId);
+                  {tasksForDay.slice(0, 3).map((task: Task) => {
+                    const project = state.projects.find((p: Project) => p.id === task.projectId);
                     return (
                       <div
                         key={task.id}
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSelectedTask(task);
+                          const project = state.projects.find((p: Project) => p.id === task.projectId);
+                          if (project) {
+                            setSelectedTask({ task, project });
+                          }
                         }}
                         className={`
                           text-xs p-2 rounded-lg truncate cursor-pointer transition-all duration-200 hover:scale-105 shadow-sm
-                          ${task.status === 'done' 
-                            ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 dark:from-green-900/30 dark:to-emerald-900/30 dark:text-green-300 border-l-4 border-green-500' 
-                            : overdueTasks.includes(task)
-                            ? 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 dark:from-red-900/30 dark:to-pink-900/30 dark:text-red-300 border-l-4 border-red-500'
-                            : 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 dark:from-blue-900/30 dark:to-cyan-900/30 dark:text-blue-300 hover:from-blue-200 hover:to-cyan-200 dark:hover:from-blue-800/40 dark:hover:to-cyan-800/40 border-l-4 border-blue-500'
-                          }
                           ${(() => {
+                            if (task.status === 'done') {
+                              return 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 dark:from-green-900/30 dark:to-emerald-900/30 dark:text-green-300 border-l-4 border-green-500';
+                            }
+                            
+                            if (overdueTasks.includes(task)) {
+                              return 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 dark:from-red-900/30 dark:to-pink-900/30 dark:text-red-300 border-l-4 border-red-500';
+                            }
+                            
                             const taskStartDate = new Date(task.startDate || task.dueDate);
-                            const taskEndDate = new Date(task.endDate || task.dueDate);
+                            const taskDueDate = new Date(task.dueDate);
                             const currentDate = new Date(day.date);
                             
                             // Vérifier si c'est le premier jour de la tâche
                             if (currentDate.toDateString() === taskStartDate.toDateString()) {
-                              return 'rounded-l-lg rounded-r-none';
+                              return 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 dark:from-blue-900/30 dark:to-cyan-900/30 dark:text-blue-300 border-l-4 border-blue-500 rounded-l-lg rounded-r-none';
                             }
                             // Vérifier si c'est le dernier jour de la tâche
-                            if (currentDate.toDateString() === taskEndDate.toDateString()) {
-                              return 'rounded-r-lg rounded-l-none';
+                            if (currentDate.toDateString() === taskDueDate.toDateString()) {
+                              return 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 dark:from-blue-900/30 dark:to-cyan-900/30 dark:text-blue-300 border-l-4 border-blue-500 rounded-r-lg rounded-l-none';
                             }
                             // Pour les jours intermédiaires
-                            if (currentDate > taskStartDate && currentDate < taskEndDate) {
-                              return 'rounded-none';
+                            if (currentDate > taskStartDate && currentDate < taskDueDate) {
+                              return 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 dark:from-blue-900/30 dark:to-cyan-900/30 dark:text-blue-300 border-l-4 border-blue-500 rounded-none';
                             }
-                            return '';
-                          })()}
-                        `}
+                            
+                            return 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 dark:from-blue-900/30 dark:to-cyan-900/30 dark:text-blue-300 border-l-4 border-blue-500';
+                          })()}`}
                         title={`${task.title} - ${project?.name}`}
                       >
                         {task.title}
@@ -286,8 +303,9 @@ export function CalendarView() {
             </button>
             <div className="overflow-y-auto max-h-[85vh]">
               <EditTaskForm 
-                task={selectedTask} 
-                onClose={() => setSelectedTask(null)} 
+                task={selectedTask.task} 
+                onClose={() => setSelectedTask(null)}
+                project={selectedTask.project}
               />
             </div>
           </div>

@@ -15,16 +15,14 @@ interface AddTaskFormProps {
 export function AddTaskForm({ projects, selectedProjectId, status, onAddTask, onCancel }: AddTaskFormProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [dueDate, setDueDate] = useState<string>('');
   const [projectId, setProjectId] = useState(selectedProjectId);
   const [isGenerating, setIsGenerating] = useState(false);
   
-  // Initialiser les dates au chargement du composant
+  // Initialiser la date d'échéance au chargement du composant
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
-    setStartDate(today);
-    setEndDate(today);
+    setDueDate(today);
   }, []);
   const inputRef = useRef<HTMLInputElement>(null);
   const { state } = useApp();
@@ -92,17 +90,14 @@ export function AddTaskForm({ projects, selectedProjectId, status, onAddTask, on
 
     const now = new Date().toISOString();
     const defaultDate = new Date().toISOString().split('T')[0];
-    const taskStartDate = startDate || defaultDate;
-    const taskEndDate = endDate || taskStartDate;
+    const taskDueDate = dueDate || defaultDate;
 
     const newTask: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> = {
       title: title.trim(),
       description: description.trim(),
       status,
       projectId,
-      startDate: taskStartDate,
-      endDate: taskEndDate,
-      dueDate: taskEndDate,
+      dueDate: taskDueDate,
       priority: 'medium',
       assignees: [],
       tags: [],
@@ -115,8 +110,7 @@ export function AddTaskForm({ projects, selectedProjectId, status, onAddTask, on
     onAddTask(newTask);
     setTitle('');
     setDescription('');
-    setStartDate(defaultDate);
-    setEndDate(defaultDate);
+    setDueDate(defaultDate);
   };
   
   const isFormValid = title.trim() !== '' && projectId !== '';
@@ -170,29 +164,24 @@ export function AddTaskForm({ projects, selectedProjectId, status, onAddTask, on
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
-                <Calendar className="w-4 h-4 text-gray-400" />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Date de début</span>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Date d'échéance
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        value={dueDate}
+                        onChange={(e) => setDueDate(e.target.value)}
+                        className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                        min={new Date().toISOString().split('T')[0]}
+                      />
+                      <Calendar className="absolute right-3 top-2.5 h-5 w-5 text-gray-400" />
+                    </div>
+                  </div>
+                </div>
               </div>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 text-sm text-gray-600 dark:text-gray-300 bg-transparent border border-gray-200 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <Calendar className="w-4 h-4 text-gray-400" />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Date de fin</span>
-              </div>
-              <input
-                type="date"
-                value={endDate}
-                min={startDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 text-sm text-gray-600 dark:text-gray-300 bg-transparent border border-gray-200 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
             </div>
           </div>
         </div>

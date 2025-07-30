@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, AlertTriangle, CheckCircle, Sparkles, Target, ChevronDown, ChevronRight } from 'lucide-react';
+import { Sparkles, Target, ChevronDown, ChevronRight, AlertTriangle, Calendar as CalendarIcon } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { TaskCard } from '../Tasks/TaskCard';
 import { Card } from '../UI/Card';
@@ -8,7 +8,6 @@ export function TodayView() {
   const { state } = useApp();
   const { appSettings } = state;
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
-  const today = new Date().toDateString();
   
   // Récupérer la taille de police depuis les paramètres
   const fontSize = appSettings?.fontSize || 'medium';
@@ -44,24 +43,24 @@ export function TodayView() {
   
   // Fonction utilitaire pour vérifier si une date est dans la plage de la tâche
   const isTaskInDateRange = (task: any, targetDate: Date) => {
-    // Si la tâche n'a pas de date de début ni de fin, on la considère comme non concernée
-    if (!task.startDate && !task.endDate && !task.dueDate) return false;
+    // Si la tâche n'a pas de date de début ni d'échéance, on la considère comme non concernée
+    if (!task.startDate && !task.dueDate) return false;
     
     // Exclure les tâches terminées de la liste des tâches d'aujourd'hui
     if (task.status === 'done') return false;
     
     const taskStartDate = new Date(task.startDate || task.dueDate);
-    const taskEndDate = new Date(task.endDate || task.dueDate);
+    const taskDueDate = new Date(task.dueDate);
     
     // Réinitialiser les heures pour la comparaison
     const currentDate = new Date(targetDate);
     currentDate.setHours(0, 0, 0, 0);
     
     taskStartDate.setHours(0, 0, 0, 0);
-    taskEndDate.setHours(0, 0, 0, 0);
+    taskDueDate.setHours(0, 0, 0, 0);
     
     // Vérifier si la date actuelle est dans la plage de la tâche
-    return currentDate >= taskStartDate && currentDate <= taskEndDate;
+    return currentDate >= taskStartDate && currentDate <= taskDueDate;
   };
 
   // Récupérer toutes les tâches des projets actifs groupées par projet
@@ -82,12 +81,12 @@ export function TodayView() {
   
   // Tâches en retard (uniquement des projets actifs)
   const overdueTasks = allTasks.filter(task => {
-    const taskEndDate = new Date(task.endDate || task.dueDate);
+    const taskDueDate = new Date(task.dueDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
     return (
-      taskEndDate < today && 
+      taskDueDate < today && 
       task.status !== 'done' &&
       !isTaskInDateRange(task, today)
     );
@@ -95,9 +94,6 @@ export function TodayView() {
 
   // Calcul des statistiques (uniquement pour les projets actifs)
   const todayTasks = allTasks.filter(task => isTaskInDateRange(task, new Date()));
-  const completedToday = todayTasks.filter(task => task.status === 'done').length;
-  const totalToday = todayTasks.length;
-  const progressPercentage = totalToday > 0 ? (completedToday / totalToday) * 100 : 0;
 
   return (
     <div className="space-y-8">
@@ -174,7 +170,7 @@ export function TodayView() {
       <Card className="p-6" gradient>
         <div className="flex items-center space-x-4 mb-6">
           <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg">
-            <Calendar className="w-6 h-6 text-white" />
+            <CalendarIcon className="w-6 h-6 text-white" />
           </div>
           <h2 className={`${headingSizeClasses[fontSize]} bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent`}>
             Tâches d'aujourd'hui ({todayTasks.length})
