@@ -45,6 +45,41 @@ Gestion de Projet est une application web moderne conçue pour vous aider à org
 - Export/import de données
 - Intégration avec d'autres outils
 
+## 🤖 Intelligence Artificielle
+
+L'application intègre une assistance IA pour vous aider dans la gestion de vos projets et tâches. Cette fonctionnalité utilise des modèles de langage avancés pour fournir des réponses contextuelles et des suggestions pertinentes.
+
+### Configuration de l'IA
+
+L'IA peut être configurée via les paramètres de l'application pour utiliser différents fournisseurs :
+- **OpenAI** : Nécessite une clé API valide
+- **OpenRouter** : Fonctionne en mode anonyme ou avec une clé API pour des fonctionnalités avancées
+
+### Contexte Fourni à l'IA
+
+Pour fournir des réponses pertinentes, l'IA a accès aux informations suivantes :
+- Liste des projets actifs et leur statut
+- Tâches en cours et leurs échéances
+- Informations sur les membres de l'équipe
+- Préférences utilisateur et paramètres de l'application
+
+### Exemples d'Utilisation
+
+L'IA peut vous aider à :
+- Générer des sous-tâches pour un projet
+- Donner des estimations de temps pour les tâches
+- Fournir des suggestions d'organisation
+- Répondre à des questions sur vos projets et tâches
+- Proposer des améliorations pour votre flux de travail
+
+### Bonnes Pratiques
+
+Pour des réponses optimales :
+- Soyez précis dans vos demandes
+- Mentionnez le contexte (projet, tâche spécifique)
+- Utilisez des mots-clés pertinents
+- N'hésitez pas à reformuler si la réponse ne correspond pas à vos attentes
+
 ## 🗂️ Structure du Projet
 
 ```

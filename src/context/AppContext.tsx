@@ -1,13 +1,16 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { Project, Task, User, UserSettings, ViewMode, Theme, EmailSettings, AppSettings, DEFAULT_AI_SETTINGS, FontSize } from '../types';
+import { Project, Task, User, UserSettings, ViewMode, Theme, EmailSettings, AppSettings, DEFAULT_AI_SETTINGS, FontSize, AISettings } from '../types';
 
-interface AppState {
+export interface AppState {
   projects: Project[];
+  tasks: Task[]; // Ajout des tâches au niveau racine
   users: User[];
   theme: 'light' | 'dark';
   currentView: string;
   emailSettings: EmailSettings;
-  appSettings: AppSettings;
+  appSettings: AppSettings & {
+    aiSettings: AISettings; // Assurez-vous que AISettings est importé
+  };
   notifications: any[];
   isLoading: boolean;
   error: string | null;
@@ -175,7 +178,6 @@ const exampleProjects: Project[] = [
         priority: 'high',
         dueDate: new Date('2023-02-15').toISOString(),
         startDate: new Date('2023-01-16').toISOString(),
-        endDate: new Date('2023-02-10').toISOString(),
         assignees: ['4'], // Paul Durand (Designer)
         projectId: 'p1',
         createdAt: new Date('2023-01-16').toISOString(),
@@ -201,7 +203,6 @@ const exampleProjects: Project[] = [
         priority: 'high',
         dueDate: new Date('2023-03-10').toISOString(),
         startDate: new Date('2023-02-15').toISOString(),
-        endDate: new Date('2023-03-10').toISOString(),
         assignees: ['3'], // Marie Martin
         projectId: 'p1',
         createdAt: new Date('2023-02-01').toISOString(),
@@ -245,7 +246,6 @@ const exampleProjects: Project[] = [
         priority: 'medium',
         dueDate: new Date('2023-07-15').toISOString(),
         startDate: new Date('2023-06-01').toISOString(),
-        endDate: new Date('2023-07-15').toISOString(),
         assignees: ['2'], // Jean Dupont
         projectId: 'p2',
         createdAt: new Date('2023-06-01').toISOString(),
@@ -281,9 +281,10 @@ export interface EmailJsSettings {
 }
 
 // Paramètres par défaut de l'application
-const initialAppSettings: AppSettings = {
+const initialAppSettings: AppSettings & { aiSettings: AISettings } = {
   theme: 'light',
   fontSize: 'medium',
+  contacts: [],
   defaultView: 'today',
   itemsPerPage: 10,
   enableAnalytics: false,
@@ -293,6 +294,7 @@ const initialAppSettings: AppSettings = {
 
 const initialState: AppState = {
   projects: [],
+  tasks: [],
   users: [{
     ...defaultUser,
     settings: {
@@ -323,73 +325,107 @@ const initialState: AppState = {
   selectedProject: null
 };
 
+// Fonction utilitaire pour extraire toutes les tâches des projets
+const extractAllTasks = (projects: Project[]): Task[] => {
+  return projects.flatMap(project => project.tasks || []);
+};
+
 const appReducer = (state: AppState, action: AppAction): AppState => {
   switch (action.type) {
     case 'SET_PROJECTS':
-      return { ...state, projects: action.payload };
+      return { 
+        ...state, 
+        projects: action.payload,
+        tasks: extractAllTasks(action.payload)
+      };
     case 'ADD_PROJECT':
-      return { ...state, projects: [...state.projects, action.payload] };
-    case 'UPDATE_PROJECT':
+      return { 
+        ...state, 
+        projects: [...state.projects, action.payload],
+        tasks: [...state.tasks, ...(action.payload.tasks || [])]
+      };
+    case 'UPDATE_PROJECT': {
+      const updatedProjects = state.projects.map(project =>
+        project.id === action.payload.id ? action.payload : project
+      );
       return {
         ...state,
-        projects: state.projects.map(project =>
-          project.id === action.payload.id ? action.payload : project
-        ),
+        projects: updatedProjects,
+        tasks: extractAllTasks(updatedProjects)
       };
-    case 'DELETE_PROJECT':
+    }
+    case 'DELETE_PROJECT': {
+      const remainingProjects = state.projects.filter(project => project.id !== action.payload);
       return {
         ...state,
-        projects: state.projects.filter(project => project.id !== action.payload),
+        projects: remainingProjects,
+        tasks: extractAllTasks(remainingProjects)
       };
-    case 'ADD_TASK':
+    }
+    case 'ADD_TASK': {
+      const updatedProjects = state.projects.map(project =>
+        project.id === action.payload.projectId
+          ? {
+              ...project,
+              tasks: [...(project.tasks || []), action.payload.task],
+            }
+          : project
+      );
       return {
         ...state,
-        projects: state.projects.map(project =>
-          project.id === action.payload.projectId
-            ? {
-                ...project,
-                tasks: [...(project.tasks || []), action.payload.task],
-              }
-            : project
-        ),
+        projects: updatedProjects,
+        tasks: [...state.tasks, action.payload.task]
       };
-    case 'UPDATE_TASK':
+    }
+    case 'UPDATE_TASK': {
+      const updatedProjects = state.projects.map(project => {
+        if (!project.tasks) return project;
+        return {
+          ...project,
+          tasks: project.tasks.map(task => {
+            if (task.id === action.payload.id) {
+              // Si la tâche passe à l'état 'done', on met à jour completedAt
+              const completedAt = action.payload.status === 'done' && task.status !== 'done' 
+                ? new Date().toISOString() 
+                : action.payload.completedAt || task.completedAt;
+              
+              return {
+                ...action.payload,
+                completedAt: action.payload.completedAt || completedAt
+              };
+            }
+            return task;
+          })
+        };
+      });
+      
+      const updatedTasks = state.tasks.map(task => 
+        task.id === action.payload.id ? action.payload : task
+      );
+      
       return {
         ...state,
-        projects: state.projects.map(project => {
-          if (!project.tasks) return project;
-          return {
-            ...project,
-            tasks: project.tasks.map(task => {
-              if (task.id === action.payload.id) {
-                // Si la tâche passe à l'état 'done', on met à jour completedAt
-                const completedAt = action.payload.status === 'done' && task.status !== 'done' 
-                  ? new Date().toISOString() 
-                  : action.payload.completedAt || task.completedAt;
-                
-                return {
-                  ...action.payload,
-                  completedAt: action.payload.completedAt || completedAt
-                };
-              }
-              return task;
-            }),
-          };
-        }),
+        projects: updatedProjects,
+        tasks: updatedTasks
       };
-    case 'DELETE_TASK':
+    }
+    case 'DELETE_TASK': {
+      const updatedProjects = state.projects.map(project => {
+        if (project.id !== action.payload.projectId) return project;
+        return {
+          ...project,
+          tasks: project.tasks?.filter(task => task.id !== action.payload.taskId) || [],
+        };
+      });
+      
       return {
         ...state,
-        projects: state.projects.map(project => {
-          if (project.id !== action.payload.projectId) return project;
-          return {
-            ...project,
-            tasks: (project.tasks || []).filter(
-              task => task.id !== action.payload.taskId
-            ),
-          };
-        }),
+        projects: updatedProjects,
+        tasks: state.tasks.filter(task => 
+          !(task.id === action.payload.taskId && task.projectId === action.payload.projectId)
+        )
       };
+    }
     case 'SET_VIEW':
       return { ...state, currentView: action.payload };
     case 'SET_THEME':

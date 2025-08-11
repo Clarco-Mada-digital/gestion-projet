@@ -1,11 +1,14 @@
 import { AISettings, Project, Task, SubTask } from '../types';
+import { loadDocumentation } from '../utils/documentationLoader';
+import { getAppDataSummary, formatAppDataForAI } from './appDataService';
+import { AppState } from '../store/types';
 
 export interface GeneratedSubTask {
   title: string;
   description?: string;
 }
 
-type AIMessage = {
+export type AIMessage = {
   role: 'user' | 'assistant' | 'system';
   content: string;
 };
@@ -19,6 +22,171 @@ type AIResponse = {
 };
 
 export class AIService {
+  /**
+   * Génère une réponse d'assistant IA en fonction du message de l'utilisateur
+   * @param message Message de l'utilisateur
+   * @param history Historique des messages (optionnel)
+   * @param aiSettings Configuration IA
+   * @param project Projet en cours (optionnel)
+   * @param task Tâche en cours (optionnel)
+   * @param appState État de l'application (optionnel)
+   * @returns Réponse générée par l'IA
+   */
+  /**
+   * Prépare le prompt système avec la documentation et le contexte utilisateur
+   */
+  private static async prepareSystemPrompt(_aiSettings: AISettings, appState?: AppState): Promise<string> {
+    let documentation = '';
+    try {
+      documentation = await loadDocumentation();
+      documentation = documentation
+        .replace(/```[\s\S]*?```/g, '')
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        .replace(/[#*_`~]+/g, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .substring(0, 3000);
+    } catch (error) {
+      console.error('Erreur lors du chargement de la documentation:', error);
+    }
+
+    let appDataInfo = '';
+    if (appState) {
+      try {
+        const appData = getAppDataSummary(appState);
+        appDataInfo = `\n\n## CONTEXTE UTILISATEUR ACTUEL\n${formatAppDataForAI(appData)}`;
+      } catch (error) {
+        console.error('Erreur lors du chargement des données utilisateur:', error);
+      }
+    }
+
+    return `Tu es un assistant expert pour l'application de Gestion de Projet. 
+    Tu as accès aux informations sur les projets et tâches de l'utilisateur pour fournir des réponses personnalisées.
+    
+    ## DOCUMENTATION DE L'APPLICATION
+    ${documentation}
+    
+    ${appDataInfo}
+    
+    ## INSTRUCTIONS POUR TES RÉPONSES :
+    - Sois concis et précis
+    - Fournis des étapes claires et numérotées quand c'est pertinent
+    - Utilise les informations du contexte utilisateur pour personnaliser tes réponses
+    - Si on te pose une question sur un projet ou une tâche spécifique, utilise les données fournies
+    - Si tu ne connais pas la réponse, dis-le simplement`;
+  }
+
+  /**
+   * Génère une réponse d'assistant IA en fonction du message de l'utilisateur
+   */
+  static async generateAIResponse(
+    message: string,
+    history: { role: 'user' | 'assistant', content: string }[],
+    aiSettings: AISettings,
+    _project?: Project | null,
+    _task?: Task | null,
+    appState?: AppState
+  ): Promise<{ content: string; error?: string }> {
+    try {
+      // Vérifier que les paramètres requis sont présents
+      if (!aiSettings) {
+        throw new Error('Paramètres IA non fournis');
+      }
+
+      const effectiveProvider = aiSettings.provider || 'openrouter';
+      const apiKey = effectiveProvider === 'openai' 
+        ? aiSettings.openaiApiKey 
+        : aiSettings.openrouterApiKey;
+
+      if (!apiKey) {
+        throw new Error(`Clé API ${effectiveProvider} manquante`);
+      }
+
+      // Utiliser un modèle adapté pour la conversation
+      const model = effectiveProvider === 'openai' 
+        ? aiSettings.openaiModel || 'gpt-3.5-turbo'
+        : aiSettings.openrouterModel || 'google/gemma-7b-it:free';
+
+      const endpoint = effectiveProvider === 'openai'
+        ? 'https://api.openai.com/v1/chat/completions'
+        : 'https://openrouter.ai/api/v1/chat/completions';
+
+      // Préparer le prompt système
+      const systemPrompt = await this.prepareSystemPrompt(aiSettings, appState);
+      
+      // Préparer les messages avec l'historique et le nouveau message
+      const messages: AIMessage[] = [
+        {
+          role: 'system',
+          content: systemPrompt
+        },
+        ...history,
+        { role: 'user', content: message }
+      ];
+
+      // Préparer les en-têtes
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        ...(effectiveProvider === 'openrouter' && {
+          'HTTP-Referer': window.location.href,
+          'X-Title': 'Gestion de Projet App'
+        })
+      };
+
+      // Ajouter l'authentification
+      if (apiKey && typeof apiKey === 'string' && apiKey.trim() !== '') {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // Timeout après 30 secondes
+
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model,
+            messages,
+            temperature: 0.7,
+            max_tokens: 1000,
+          }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Erreur API:', errorData);
+          throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+        }
+
+        const data: AIResponse = await response.json();
+        const content = data.choices[0].message.content;
+        
+        if (!content) {
+          throw new Error('Réponse de l\'IA invalide');
+        }
+
+        return { content };
+      } catch (error) {
+        clearTimeout(timeoutId);
+        if (error instanceof Error) {
+          if (error.name === 'AbortError') {
+            throw new Error('La requête a pris trop de temps. Veuillez réessayer.');
+          }
+          throw error;
+        }
+        throw new Error('Une erreur inconnue est survenue');
+      }
+    } catch (error) {
+      console.error('Erreur lors de la génération de la réponse IA:', error);
+      return { 
+        content: "Désolé, je n'ai pas pu traiter votre demande. Veuillez réessayer plus tard.",
+        error: error instanceof Error ? error.message : 'Erreur inconnue'
+      };
+    }
+  }
 
   
   static async generateSubTasksWithAI(

@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
-    "build": "astro check && astro build",
+    "build": "astro check && astro build && node scripts/copy-docs.js",
     "preview": "astro preview",
     "astro": "astro",
     "deploy": "npm run build && gh-pages -d dist"
@@ -15,13 +15,17 @@
     "@astrojs/react": "^3.0.9",
     "@astrojs/tailwind": "^5.1.0",
     "@emailjs/browser": "^4.4.1",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@heroicons/react": "^2.2.0",
+    "@mui/material": "^7.3.1",
     "@radix-ui/react-dialog": "^1.1.14",
     "@reduxjs/toolkit": "^2.8.2",
     "@sentry/react": "^9.37.0",
     "@types/react": "^18.3.23",
     "@types/react-beautiful-dnd": "^13.1.8",
     "@types/react-dom": "^18.3.7",
+    "@types/styled-components": "^5.1.34",
     "@types/uuid": "^10.0.0",
     "antd": "^5.26.1",
     "astro": "^5.10.0",
@@ -30,8 +34,11 @@
     "react": "^18.2.0",
     "react-beautiful-dnd": "^13.1.1",
     "react-dom": "^18.2.0",
+    "react-markdown": "^10.1.0",
     "react-redux": "^9.2.0",
     "react-router-dom": "^7.6.3",
+    "react-syntax-highlighter": "^15.5.0",
+    "styled-components": "^6.1.19",
     "tailwindcss": "^3.4.1",
     "tslib": "^2.8.1",
     "uuid": "^11.1.0"
@@ -39,6 +46,7 @@
   "devDependencies": {
     "@astrojs/check": "^0.4.1",
     "@types/antd": "^0.12.32",
+    "fs-extra": "^11.3.1",
     "gh-pages": "^6.3.0",
     "typescript": "^5.3.3"
   }

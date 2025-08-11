@@ -5,6 +5,7 @@ import { BrowserRouter as Router } from 'react-router-dom';
 import { ErrorBoundary } from './components/ErrorBoundary/ErrorBoundary';
 import { ToastProvider, useToast } from './components/UI/Toast/Toast';
 import { errorHandler } from './lib/error/errorHandler';
+import { ChatbotProvider } from './context/ChatbotContext';
 import App from './App';
 import { store } from './store/store';
 import AppInitializer from './components/AppInitializer';
@@ -30,28 +31,30 @@ function ErrorBoundaryWrapper({ children }: { children: React.ReactNode }) {
 function Root() {
   return (
     <StrictMode>
-      <Provider store={store}>
-        <Router>
-          <AppInitializer>
-            <ErrorBoundaryWrapper>
-              <App />
-            </ErrorBoundaryWrapper>
-          </AppInitializer>
-        </Router>
-      </Provider>
+      <ErrorBoundary>
+        <Provider store={store}>
+          <ChatbotProvider>
+            <ToastProvider>
+              <ErrorBoundaryWrapper>
+                <Router>
+                  <AppInitializer>
+                    <App />
+                  </AppInitializer>
+                </Router>
+              </ErrorBoundaryWrapper>
+            </ToastProvider>
+          </ChatbotProvider>
+        </Provider>
+      </ErrorBoundary>
     </StrictMode>
   );
 }
 
-// Rendu de l'application avec le fournisseur de toasts
+// Rendu de l'application
 const rootElement = document.getElementById('root');
 if (rootElement) {
   const root = createRoot(rootElement);
-  root.render(
-    <ToastProvider>
-      <Root />
-    </ToastProvider>
-  );
+  root.render(<Root />);
 } else {
   console.error('Failed to find the root element');
 }

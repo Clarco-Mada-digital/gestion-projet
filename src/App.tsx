@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { ModalProvider } from './context/ModalContext';
+import { ChatbotProvider } from './context/ChatbotContext';
 import { MainLayout } from './components/Layout/MainLayout';
 import { TodayView } from './components/Views/TodayView';
 import { ProjectsView } from './components/Views/ProjectsView';
@@ -9,6 +10,7 @@ import { CalendarView } from './components/Views/CalendarView';
 import { SettingsView } from './components/Views/SettingsView';
 import { ReportView } from './components/Views/ReportView';
 import { AboutView } from './components/Views/AboutView';
+import Chatbot from './components/Chatbot';
 
 // Fonction utilitaire pour charger l'état depuis le localStorage
 const loadStateFromLocalStorage = () => {
@@ -112,16 +114,33 @@ function AppContent() {
     );
   }
 
+  // Fonction pour afficher la vue active
+  const renderView = () => {
+    switch (currentView) {
+      case 'today':
+        return <TodayView />;
+      case 'projects':
+        return <ProjectsView />;
+      case 'kanban':
+        return <KanbanView />;
+      case 'calendar':
+        return <CalendarView />;
+      case 'reports':
+        return <ReportView />;
+      case 'settings':
+        return <SettingsView />;
+      case 'about':
+        return <AboutView />;
+      default:
+        return <TodayView />;
+    }
+  };
+
   return (
     <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200`}>
       <MainLayout currentView={currentView}>
-        {currentView === 'today' && <TodayView />}
-        {currentView === 'projects' && <ProjectsView />}
-        {currentView === 'kanban' && <KanbanView />}
-        {currentView === 'calendar' && <CalendarView />}
-        {currentView === 'reports' && <ReportView />}
-        {currentView === 'settings' && <SettingsView />}
-        {currentView === 'about' && <AboutView />}
+        {renderView()}
+        <Chatbot />
       </MainLayout>
     </div>
   );
@@ -141,8 +160,10 @@ function AppProviders({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <AppProviders>
-      <AppContent />
-      {/* <DebugPanel /> */}
+      <ChatbotProvider>
+        <AppContent />
+        {/* <DebugPanel /> */}
+      </ChatbotProvider>
     </AppProviders>
   );
 }

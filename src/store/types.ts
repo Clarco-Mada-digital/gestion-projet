@@ -1,4 +1,4 @@
-import { Project } from '../types';
+import { Project, Task, AISettings } from '../types';
 import { AnyAction, ThunkAction, ThunkDispatch } from '@reduxjs/toolkit';
 
 // État des projets
@@ -23,12 +23,30 @@ export interface SettingsState {
   theme: 'light' | 'dark';
   language: string;
   isInitialized: boolean;
+  aiSettings: AISettings;
 }
 
 // État global de l'application
+export interface TasksState {
+  tasks: Task[];
+  status: 'idle' | 'loading' | 'succeeded' | 'failed';
+  error: string | null;
+}
+
+export interface AppState {
+  projects: Project[];
+  tasks: Task[];
+  appSettings: {
+    aiSettings: AISettings;
+    // Ajoutez d'autres paramètres ici si nécessaire
+  };
+}
+
 export interface RootState {
   projects: ProjectsState;
   settings: SettingsState;
+  tasks: TasksState;
+  // Ajoutez d'autres états ici si nécessaire
 }
 
 // Type pour le dispatch avec support des thunks

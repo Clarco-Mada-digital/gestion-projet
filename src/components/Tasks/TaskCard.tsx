@@ -58,7 +58,11 @@ const TaskCardComponent = ({ task, className = '' }: TaskCardProps): JSX.Element
     return null;
   }
 
-  // Projet associé à la tâche (pour une utilisation future si nécessaire)
+  // Récupérer le projet associé à la tâche
+  const project = state.projects.find(p => p.id === task.projectId);
+  const projectName = project?.name || 'Projet inconnu';
+  
+  // Récupérer les utilisateurs assignés
   const assignedUsers = state.users.filter(u => task.assignees.includes(u.id));
 
   // Fonction utilitaire pour vérifier si une date est valide
@@ -163,9 +167,14 @@ const TaskCardComponent = ({ task, className = '' }: TaskCardProps): JSX.Element
       >
         {/* En-tête de la carte avec titre et actions */}
         <div className="flex justify-between items-start gap-3 mb-3">
-          <h3 className="text-base font-medium text-gray-900 dark:text-gray-100 line-clamp-2 pr-8">
-            {task.title}
-          </h3>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-base font-medium text-gray-900 dark:text-gray-100 line-clamp-1">
+              {task.title}
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate" title={projectName}>
+              {projectName}
+            </p>
+          </div>
           
           {/* Boutons d'action */}
           <div className="flex items-center space-x-1">

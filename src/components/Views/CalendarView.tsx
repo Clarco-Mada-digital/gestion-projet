@@ -123,7 +123,6 @@ export function CalendarView() {
             <Button
               variant="outline"
               size="md"
-              icon={ChevronLeft}
               onClick={() => navigateMonth('prev')}
               className="flex items-center gap-2"
             >
