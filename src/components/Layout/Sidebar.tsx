@@ -37,7 +37,7 @@ export function Sidebar() {
               ProjectFlow
             </h1>
             <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-              Powered by Astro.js
+              Powered by Bryan Clark
             </p>
           </div>
         </div>

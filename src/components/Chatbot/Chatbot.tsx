@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { MessageOutlined, RobotOutlined, SendOutlined, CloseOutlined, SettingOutlined } from '@ant-design/icons';
-import { Avatar, Button, Tooltip, message, Input, theme } from 'antd';
+import { Avatar, Button, Tooltip, message, Input, theme, Modal } from 'antd';
+import ChatbotSettings from './ChatbotSettings';
 import type { InputRef } from 'antd';
 import { motion, AnimatePresence } from 'framer-motion';
 import styled from '@emotion/styled';
@@ -115,60 +116,74 @@ const MarkdownRenderer = ({ content, isDark }: { content: string; isDark: boolea
 const ChatWindow = styled(motion.div)<{ $isDark: boolean }>`
   width: 380px;
   height: 600px;
-  background: ${({ $isDark, theme }) => $isDark ? theme.token?.colorBgContainer : '#fff'};
+  background: ${({ $isDark, theme }) => $isDark ? theme.token?.colorBgContainer : '#f2f2f'};
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  border: 1px solid ${({ $isDark, theme }) => $isDark ? theme.token?.colorBorder : '#f0f0f0'};
+  border: 1px solid ${({ $isDark, theme }) => $isDark ? theme.token?.colorBorder : '#6e45e2'};
   color: ${({ $isDark, theme }) => $isDark ? theme.token?.colorText : 'inherit'};
 `;
 
 const ChatHeader = styled.div`
-  background: linear-gradient(135deg, #1890ff, #096dd9);
-  color: white;
+  background: linear-gradient(135deg, #5f6f8f, #374151);
+  background-blend-mode: multiply;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
   padding: 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 `;
 
 const ChatBody = styled.div<{ $isDark: boolean }>`
   flex: 1;
   padding: 16px;
   overflow-y: auto;
-  background: ${({ $isDark, theme }) => $isDark ? theme.token?.colorBgLayout : '#f9f9f9'};
+  background: ${({ $isDark }) =>
+    $isDark
+      ? 'rgba(255, 255, 255, 0.05)'
+      : 'rgba(0, 0, 0, 0.03)'};
+  backdrop-filter: ${({ $isDark }) =>
+    $isDark ? 'blur(5px) brightness(0.8)' : 'blur(5px)'};
+  border-radius: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  
+  @keyframes gradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
   color: ${({ $isDark, theme }) => $isDark ? theme.token?.colorText : 'inherit'};
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.4;
 `;
 
 const MessageBubble = styled(motion.div)<{ $isUser: boolean }>`
   max-width: 80%;
   padding: 12px 16px;
-  border-radius: 18px;
   line-height: 1.4;
   position: relative;
   word-wrap: break-word;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  
-  ${({ $isUser }) => $isUser 
-    ? `
-      background: #1890ff;
-      color: white;
-      align-self: flex-end;
-      border-bottom-right-radius: 4px;
-    ` 
-    : `
-      background: white;
-      color: #333;
-      border: 1px solid #f0f0f0;
-      align-self: flex-start;
-      border-bottom-left-radius: 4px;
-    `}
+  backdrop-filter: ${({ $isUser }) => ($isUser ? 'blur(5px) brightness(0.8)' : 'blur(5px)')};
+  background: ${({ $isUser, theme }) => $isUser ? '#6e45e240' : 'rgba(255, 255, 255, 0.05)'};
+  color: ${({ $isUser, theme }) => $isUser ? theme.token?.colorTextInverse : theme.token?.colorText};
+  border: ${({ $isUser, theme }) => $isUser ? 'none' : `1px solid ${theme.token?.colorBorder}`};
+  border-radius: 12px;
+  border-image: linear-gradient(135deg, #5f6f8f, #374151) 1;
+  border-image-slice: 1;
+  align-self: ${({ $isUser }) => ($isUser ? 'flex-end' : 'flex-start')};
 `;
 
 const MessageTime = styled.span`
@@ -178,16 +193,38 @@ const MessageTime = styled.span`
   margin-top: 4px;
 `;
 
-const InputContainer = styled.div`
+const InputContainer = styled.div<{ $isDark: boolean }>`
   display: flex;
   padding: 12px;
   border-top: 1px solid #f0f0f0;
-  background: #fff;
+  background: ${({ $isDark }) => $isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)'};
+  backdrop-filter: ${({ $isDark }) => $isDark ? 'blur(5px) brightness(0.8)' : 'blur(5px)'};
+  border-radius: 12px;
   position: relative;
   z-index: 1002;
   display: flex;
   gap: 8px;
-  align-items: flex-end;
+  align-items: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s;
+  
+  &:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: -1;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(0, 0, 0, 0.1));
+    opacity: 0.7;
+    backdrop-filter: blur(5px);
+    border-radius: 12px;
+  }
+  
+  &:hover {
+    background: ${({ $isDark }) => $isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'};
+  }
 `;
 
 const StyledInput = styled(Input.TextArea)`
@@ -195,7 +232,9 @@ const StyledInput = styled(Input.TextArea)`
   resize: none;
   padding: 12px 16px;
   border: 1px solid #d9d9d9;
+  background: rgba(255, 255, 255, 0.95);
   transition: all 0.3s;
+  backdrop-filter: blur(5px);
   
   &:focus, &:hover {
     border-color: #1890ff;
@@ -210,19 +249,21 @@ const SendButton = styled(Button)`
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #1890ff;
+  background: radial-gradient(ellipse at center, #1890ff 0%, #1890ff20 100%);
   color: white;
   border: none;
   transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   
   &:hover {
-    background: #096dd9;
     transform: scale(1.05);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
   }
   
   &:disabled {
     background: #d9d9d9;
     color: rgba(0, 0, 0, 0.25);
+    box-shadow: none;
   }
 `;
 
@@ -239,14 +280,14 @@ const ChatButton = styled(Button)<ChatButtonProps>`
   min-width: 60px !important;
   padding: 0;
   border-radius: 50% !important;
-  background: linear-gradient(135deg, #1890ff, #096dd9);
+  background: radial-gradient(ellipse at center, #1890ff 0%, #1890ff 99%, #096dd9 100%);
   color: white;
   font-size: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1001;
+  backdrop-filter: blur(5px) brightness(0.7);
   border: none;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -256,6 +297,7 @@ const ChatButton = styled(Button)<ChatButtonProps>`
   &:hover {
     transform: scale(1.1);
     box-shadow: 0 6px 16px rgba(24, 144, 255, 0.4);
+    backdrop-filter: blur(10px) brightness(0.8);
   }
   
   .anticon {
@@ -283,13 +325,14 @@ const Chatbot: React.FC = () => {
   const isDark = token.colorBgLayout === '#141414' || 
                 token.colorBgContainer === '#1f1f1f' ||
                 document.body.getAttribute('data-theme') === 'dark';
-  const { isOpen, setIsOpen, settings: chatbotSettings } = useChatbot();
+  const { isOpen, setIsOpen, settings: chatbotSettings, updateSettings } = useChatbot();
   const { state } = useApp();
   // Utilisation explicite des propriétés nécessaires
   const { aiSettings } = state.appSettings;
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [settingsVisible, setSettingsVisible] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<InputRef>(null);
   
@@ -448,6 +491,18 @@ const Chatbot: React.FC = () => {
   }, [isOpen]);
 
   // Effacer l'historique de la conversation
+  // Gérer l'ouverture/fermeture des paramètres
+  const handleSettingsClick = useCallback(() => {
+    setSettingsVisible(true);
+  }, []);
+
+  const handleSettingsClose = useCallback((newSettings?: any) => {
+    if (newSettings) {
+      updateSettings(newSettings);
+    }
+    setSettingsVisible(false);
+  }, [updateSettings]);
+
   const clearChat = useCallback(() => {
     if (window.confirm('Voulez-vous vraiment effacer l\'historique de la conversation ?')) {
       setMessages([
@@ -476,10 +531,23 @@ const Chatbot: React.FC = () => {
             <ChatHeader>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <Avatar 
-                  icon={<RobotOutlined />} 
-                  style={{ backgroundColor: '#fff', color: '#1890ff' }} 
+                  icon={<RobotOutlined style={{ transform: 'scale(1.2)' }} />} 
+                  style={{ 
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    color: '#6e45e2',
+                    border: '2px solid rgba(110, 69, 226, 0.5)',
+                    boxShadow: '0 0 10px rgba(110, 69, 226, 0.3)'
+                  }} 
                 />
-                <span style={{ fontWeight: 500 }}>Assistant IA</span>
+                <span style={{ 
+                  fontWeight: 600, 
+                  fontSize: '16px',
+                  background: 'linear-gradient(135deg, #6e45e2, #89d4cf, #f77062)', 
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundSize: '200% 200%',
+                  animation: 'gradient 8s ease infinite',
+                }}>Nexus IA</span>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <Tooltip title="Paramètres">
@@ -488,7 +556,7 @@ const Chatbot: React.FC = () => {
                     icon={<SettingOutlined style={{ color: 'white' }} />} 
                     onClick={(e) => {
                       e.stopPropagation();
-                      onSettingsClick();
+                      handleSettingsClick();
                     }}
                   />
                 </Tooltip>
@@ -514,9 +582,32 @@ const Chatbot: React.FC = () => {
                   color: '#888',
                   padding: '20px'
                 }}>
-                  <RobotOutlined style={{ fontSize: '48px', marginBottom: '16px' }} />
-                  <h3 style={{ marginBottom: '8px', color: '#333' }}>Comment puis-je vous aider ?</h3>
-                  <p>Posez-moi des questions sur vos projets ou tâches.</p>
+                  <div style={{
+                    width: '80px',
+                    height: '80px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'linear-gradient(135deg, #6e45e2, #89d4cf, #f77062)',
+                    marginBottom: '16px',
+                    boxShadow: '0 4px 15px rgba(110, 69, 226, 0.3)'
+                  }}>
+                    <RobotOutlined style={{ 
+                      fontSize: '40px', 
+                      color: 'white',
+                      filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
+                    }} />
+                  </div>
+                  <h3 style={{ 
+                    marginBottom: '8px', 
+                    background: 'linear-gradient(135deg, #6e45e2, #89d4cf, #f77062)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundSize: '200% 200%',
+                    animation: 'gradient 8s ease infinite',
+                  }}>Comment puis-je vous aider ?</h3>
+                  <p style={{ color: isDark ? '#ccc' : '#666' }}>Posez-moi des questions sur vos projets ou tâches.</p>
                 </div>
               ) : (
                 messages.map((msg) => (
