@@ -35,14 +35,14 @@ export class AIService {
   /**
    * Prépare le prompt système avec la documentation et le contexte utilisateur
    */
-  private static async prepareSystemPrompt(_aiSettings: AISettings, appState?: AppState): Promise<string> {
+  private static async prepareSystemPrompt(aiSettings: AISettings, appState?: AppState): Promise<string> {
     let documentation = '';
     try {
       documentation = await loadDocumentation();
       documentation = documentation
         .replace(/```[\s\S]*?```/g, '')
         .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-        .replace(/[#*_`~]+/g, '')
+        .replace(/[\#*_`~]+/g, '')
         .replace(/\n{3,}/g, '\n\n')
         .substring(0, 3000);
     } catch (error) {
@@ -59,20 +59,7 @@ export class AIService {
       }
     }
 
-    return `Tu es un assistant expert pour l'application de Gestion de Projet. 
-    Tu as accès aux informations sur les projets et tâches de l'utilisateur pour fournir des réponses personnalisées.
-    
-    ## DOCUMENTATION DE L'APPLICATION
-    ${documentation}
-    
-    ${appDataInfo}
-    
-    ## INSTRUCTIONS POUR TES RÉPONSES :
-    - Sois concis et précis
-    - Fournis des étapes claires et numérotées quand c'est pertinent
-    - Utilise les informations du contexte utilisateur pour personnaliser tes réponses
-    - Si on te pose une question sur un projet ou une tâche spécifique, utilise les données fournies
-    - Si tu ne connais pas la réponse, dis-le simplement`;
+    return `Tu es un assistant expert pour l'application de Gestion de Projet. \nTu as accès aux informations sur les projets et tâches de l'utilisateur pour fournir des réponses personnalisées.\n\n## DOCUMENTATION DE L'APPLICATION\n${documentation}\n\n${appDataInfo}\n\n## INSTRUCTIONS POUR TES RÉPONSES :\n- Sois concis et précis\n- Fournis des étapes claires et numérotées quand c'est pertinent\n- Utilise les informations du contexte utilisateur pour personnaliser tes réponses\n- Si on te pose une question sur un projet ou une tâche spécifique, utilise les données fournies\n- Si tu ne connais pas la réponse, dis-le simplement`;
   }
 
   /**
@@ -94,11 +81,11 @@ export class AIService {
 
       const effectiveProvider = aiSettings.provider || 'openrouter';
       const apiKey = effectiveProvider === 'openai' 
-        ? aiSettings.openaiApiKey 
-        : aiSettings.openrouterApiKey;
-
+        ? aiSettings.openaiApiKey?.trim() 
+        : aiSettings.openrouterApiKey?.trim();
+      
       if (!apiKey) {
-        throw new Error(`Clé API ${effectiveProvider} manquante`);
+        throw new Error(`Clé API ${effectiveProvider} manquante ou invalide`);
       }
 
       // Utiliser un modèle adapté pour la conversation
@@ -198,8 +185,8 @@ export class AIService {
     try {
       const effectiveProvider = settings.provider || 'openrouter';
       const apiKey = effectiveProvider === 'openai' 
-        ? settings.openaiApiKey 
-        : settings.openrouterApiKey;
+        ? settings.openaiApiKey?.trim() 
+        : settings.openrouterApiKey?.trim();
 
       // Utiliser un modèle plus léger pour OpenRouter
       const model = effectiveProvider === 'openai' 
@@ -333,11 +320,11 @@ export class AIService {
     try {
       const { provider } = settings;
       const apiKey = provider === 'openai' 
-        ? settings.openaiApiKey 
-        : settings.openrouterApiKey;
+        ? settings.openaiApiKey?.trim() 
+        : settings.openrouterApiKey?.trim();
       
       if (!apiKey) {
-        throw new Error(`Clé API ${provider} manquante`);
+        throw new Error(`Clé API ${provider} manquante ou invalide`);
       }
 
       const endpoint = provider === 'openai'
@@ -365,8 +352,8 @@ export class AIService {
         body: JSON.stringify({
           model,
           messages: [
-            { 
-              role: 'system', 
+            {
+              role: 'system',
               content: 'Tu es un assistant qui aide à rédiger des titres et descriptions de tâches clairs et précis.'
             },
             { role: 'user', content: prompt }
@@ -416,8 +403,8 @@ export class AIService {
       
       // Pour les modèles gratuits, ne pas exiger de clé API
       const apiKey = effectiveProvider === 'openai' 
-        ? settings.openaiApiKey 
-        : settings.openrouterApiKey;
+        ? settings.openaiApiKey?.trim() 
+        : settings.openrouterApiKey?.trim();
       
       // Utiliser des modèles gratuits par défaut
       const model = effectiveProvider === 'openai' 
@@ -468,7 +455,10 @@ export class AIService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(`Erreur API: ${JSON.stringify(errorData)}`);
+        throw new Error(
+          errorData.error?.message || 
+          `Erreur HTTP: ${response.status} ${response.statusText}`
+        );
       }
 
       const data = await response.json();
@@ -497,8 +487,8 @@ export class AIService {
       
       // Récupérer la clé API appropriée
       const apiKey = effectiveProvider === 'openai' 
-        ? settings.openaiApiKey 
-        : settings.openrouterApiKey;
+        ? settings.openaiApiKey?.trim() 
+        : settings.openrouterApiKey?.trim();
       
       // Définir le modèle en fonction du fournisseur
       const model = (effectiveProvider === 'openai' 

@@ -1,5 +1,6 @@
 import { AppError, ErrorType } from './AppError';
-import { captureException } from '@sentry/react';
+import * as Sentry from '@sentry/react';
+const { captureException } = Sentry;
 
 type ErrorHandlerOptions = {
   showToast?: boolean;

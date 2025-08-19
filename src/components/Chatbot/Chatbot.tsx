@@ -451,8 +451,8 @@ const Chatbot: React.FC = () => {
       
       setMessages((prev) => [...prev, botResponse]);
 
-      // Afficher une notification si activé dans les paramètres
-      if (chatbotSettings.showNotifications) {
+      // Afficher une notification si activé dans les paramètres et si IA non configurée
+      if (chatbotSettings.showNotifications && !isAIConfigured) {
         message.warning('Configuration IA requise pour utiliser le chatbot');
       }
     } catch (error) {
