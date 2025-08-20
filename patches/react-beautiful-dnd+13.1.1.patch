@@ -1,0 +1,39 @@
+diff --git a/node_modules/react-beautiful-dnd/dist/react-beautiful-dnd.cjs.js b/node_modules/react-beautiful-dnd/dist/react-beautiful-dnd.cjs.js
+index 5f9b8d7..a1b2c3d 100644
+--- a/node_modules/react-beautiful-dnd/dist/react-beautiful-dnd.cjs.js
++++ b/node_modules/react-beautiful-dnd/dist/react-beautiful-dnd.cjs.js
+@@ -1414,10 +1414,10 @@ var Provider = /*#__PURE__*/(0, _react.memo)(function Provider(_ref) {
+   var appContext = _ref.appContext,
+       children = _ref.children,
+       _ref$dragDropContext = _ref.dragDropContext,
+-      dragDropContext = _ref$dragDropContext === void 0 ? {} : _ref$dragDropContext,
++      dragDropContext = _ref$dragDropContext || {},
+       _ref$enableDefaultSen = _ref.enableDefaultSensors,
+-      enableDefaultSensors = _ref$enableDefaultSen === void 0 ? true : _ref$enableDefaultSen,
+-      sensors = _ref.sensors;
++      enableDefaultSensors = _ref$enableDefaultSen !== false,
++      sensors = _ref.sensors || null;
+   var didWarn = (0, _react.useRef)(false);
+   var store = (0, _react.useMemo)(function () {
+     return createStore({
+@@ -1449,7 +1449,7 @@ var Provider = /*#__PURE__*/(0, _react.memo)(function Provider(_ref) {
+     return _this2.sensorAPI.tryGetLock;
+   };
+   return /*#__PURE__*/_react.default.createElement(_AppContext.Provider, {
+-    value: appContext
++    value: appContext || {}
+   }, /*#__PURE__*/_react.default.createElement(_StoreContext.Provider, {
+     value: store
+   }, /*#__PURE__*/(0, _react.useMemo)(function () {
+@@ -1468,10 +1468,7 @@ var Provider = /*#__PURE__*/(0, _react.memo)(function Provider(_ref) {
+     return children;
+   }, [children])));
+ });
+-Provider.defaultProps = {
+-  dragDropContext: {},
+-  enableDefaultSensors: true
+-};
++
+ if (process.env.NODE_ENV !== 'production') {
+   Provider.displayName = 'Droppable(Connect(Droppable))';
+ }

@@ -1,5 +1,5 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
-import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
+import { DragDropContext, RBDDroppable as Droppable, RBDDraggable as Draggable, RBDDropResult as DropResult } from '../DnDWrapper';
 import { Plus, BarChart3, GripVertical, ChevronDown, ChevronUp, X, Trash2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { TaskCard } from '../Tasks/TaskCard';

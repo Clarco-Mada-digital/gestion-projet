@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Check, Plus, Trash2, GripVertical } from 'lucide-react';
 import { SubTask, Project, Task } from '../../types';
-import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
+import { DragDropContext, RBDDroppable as Droppable, RBDDraggable as Draggable, RBDDropResult as DropResult } from '../DnDWrapper';
 import { AIService } from '../../services/aiService';
 import { useApp } from '../../context/AppContext';
 

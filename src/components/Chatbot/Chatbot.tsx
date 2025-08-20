@@ -204,6 +204,12 @@ const ChatBody = styled.div<{ $isDark: boolean }>`
     50% { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
   }
+  
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-4px); }
+  }
+  
   color: ${({ $isDark, theme }) => $isDark ? theme.token?.colorText : 'inherit'};
   font-family: 'Inter', sans-serif;
   font-weight: 400;
@@ -309,11 +315,11 @@ const SendButton = styled(Button)`
   }
 `;
 
-interface ChatButtonProps {
-  $isOpen: boolean;
-}
-
-const ChatButton = styled(Button)<ChatButtonProps>`
+const ChatButton = styled(Button)`
+  &.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
   position: fixed;
   bottom: 30px;
   right: 30px;
@@ -333,8 +339,8 @@ const ChatButton = styled(Button)<ChatButtonProps>`
   border: none;
   cursor: pointer;
   transition: all 0.3s ease;
-  opacity: ${({ $isOpen }) => ($isOpen ? 0 : 1)};
-  pointer-events: ${({ $isOpen }) => ($isOpen ? 'none' : 'auto')};
+  opacity: 1;
+  pointer-events: auto;
   
   &:hover {
     transform: scale(1.1);
@@ -440,17 +446,48 @@ const Chatbot: React.FC = () => {
     }
   }, [messages]);
 
-  // Effet pour faire défiler vers le bas quand de nouveaux messages arrivent
+  // Effet pour gérer le défilement automatique
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  // Effet pour se concentrer sur le champ de saisie quand le chat s'ouvre
-  useEffect(() => {
-    if (isOpen) {
-      inputRef.current?.focus({
-        cursor: 'end',
+    if (isOpen && messagesEndRef.current) {
+      // Créer un nouvel observer pour détecter les changements dans le contenu
+      const observer = new MutationObserver(() => {
+        if (messagesEndRef.current) {
+          messagesEndRef.current.scrollIntoView({
+            behavior: 'smooth',
+            block: 'end',
+            inline: 'nearest'
+          });
+        }
       });
+
+      // Observer les changements dans le contenu du chat
+      const chatBody = messagesEndRef.current.parentElement;
+      if (chatBody) {
+        observer.observe(chatBody, {
+          childList: true,
+          subtree: true,
+          characterData: true
+        });
+      }
+
+      // Premier défilement immédiat
+      setTimeout(() => {
+        if (messagesEndRef.current) {
+          messagesEndRef.current.scrollIntoView({
+            behavior: 'auto',
+            block: 'end',
+            inline: 'nearest'
+          });
+        }
+      }, 0);
+
+      // Focus sur le champ de saisie
+      inputRef.current?.focus({ cursor: 'end' });
+
+      // Nettoyer l'observer lors du démontage
+      return () => {
+        observer.disconnect();
+      };
     }
   }, [isOpen]);
 
@@ -699,7 +736,15 @@ const Chatbot: React.FC = () => {
                   </div>
                 </MessageBubble>
               )}
-              <div ref={messagesEndRef} />
+              <div 
+                ref={messagesEndRef} 
+                style={{ 
+                  float: 'left',
+                  clear: 'both',
+                  width: '100%',
+                  paddingBottom: '10px' 
+                }} 
+              />
             </ChatBody>
 
             <InputContainer>
@@ -735,7 +780,7 @@ const Chatbot: React.FC = () => {
           type="primary"
           shape="circle"
           onClick={toggleChat}
-          $isOpen={isOpen}
+          className={isOpen ? 'hidden' : ''}
           style={{
             transform: isOpen ? 'rotate(180deg) scale(0)' : 'none',
             transition: 'all 0.3s ease-in-out',
@@ -748,12 +793,6 @@ const Chatbot: React.FC = () => {
         </ChatButton>
       </Tooltip>
 
-      <style jsx global>{`
-        @keyframes bounce {
-          0%, 60%, 100% { transform: translateY(0); }
-          30% { transform: translateY(-4px); }
-        }
-      `}</style>
     </div>
   );
 };
