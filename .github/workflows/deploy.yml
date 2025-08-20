@@ -66,12 +66,13 @@ jobs:
           echo "=== Contenu du dossier dist ==="
           ls -la dist/
           echo "=============================="
-
-      - name: Copy favicon and assets
-        run: |
-          echo "=== Copie du favicon et des assets ==="
-          cp -r public/* dist/ || echo "Aucun fichier à copier dans public/"
           
+          # Copier le favicon dans le dossier de build
+          echo "=== Copie du favicon ==="
+          cp public/favicon.svg dist/ 2>/dev/null || echo "Le favicon n'a pas pu être copié"
+          echo "Contenu du dossier dist après copie du favicon:"
+          ls -la dist/
+
       - name: Create .nojekyll
         run: touch ./dist/.nojekyll
 
