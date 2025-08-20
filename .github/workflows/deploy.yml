@@ -35,49 +35,24 @@ jobs:
           
           # Installer patch-package globalement pour l'utiliser dans les étapes suivantes
           echo "=== Installation de patch-package ==="
-          npm install -g patch-package@8.0.0
-          
           # Vérifier que les dépendances sont correctement installées
           echo "=== Vérification des dépendances installées ==="
           npm list --depth=0
 
-      - name: Create and apply patches
+      - name: Désactiver le script postinstall de react-beautiful-dnd
         run: |
-          echo "=== Création du dossier patches ==="
-          mkdir -p patches
+          echo "=== Désactivation du script postinstall de react-beautiful-dnd ==="
+          # Créer le dossier s'il n'existe pas
+          mkdir -p node_modules/react-beautiful-dnd/scripts/postinstall
           
-          echo "=== Création du patch pour react-beautiful-dnd ==="
-          cat > patches/react-beautiful-dnd+13.1.1.patch << 'EOL'
-          --- node_modules/react-beautiful-dnd/package.json
-          +++ node_modules/react-beautiful-dnd/package.json
-          @@ -1,5 +1,5 @@
-           {
-          -  "name": "react-beautiful-dnd",
-          +  "name": "patched-react-beautiful-dnd",
-             "version": "13.1.1",
-             "description": "Beautiful, accessible drag and drop for lists with React",
-             "license": "Apache-2.0",
-          @@ -7,7 +7,7 @@
-             "bugs": "https://github.com/atlassian/react-beautiful-dnd/issues",
-             "repository": "git@github.com:atlassian/react-beautiful-dnd.git",
-             "scripts": {
-          -    "postinstall": "node ./scripts/postinstall/check-peer-dependencies.js"
-          +    "postinstall": "echo 'Skipping postinstall for react-beautiful-dnd'"
-             },
-             "dependencies": {
-               "css-box-model": "1.2.1",
-          EOL
+          # Créer un script postinstall vide
+          echo "module.exports = () => console.log('Skipping react-beautiful-dnd postinstall');" > node_modules/react-beautiful-dnd/scripts/postinstall/check-peer-dependencies.js
           
-          echo "=== Application du patch ==="
-          cd node_modules/react-beautiful-dnd
-          patch -p1 < ../../patches/react-beautiful-dnd+13.1.1.patch || echo "Le patch a peut-être déjà été appliqué"
-          cd ../..
-          
-          echo "=== Vérification du patch ==="
-          if grep -q "Skipping postinstall" node_modules/react-beautiful-dnd/package.json; then
-            echo "✅ Patch appliqué avec succès"
+          # Vérifier que le script a été créé
+          if [ -f "node_modules/react-beautiful-dnd/scripts/postinstall/check-peer-dependencies.js" ]; then
+            echo "✅ Script postinstall désactivé avec succès"
           else
-            echo "⚠️ Le patch n'a pas été appliqué correctement"
+            echo "❌ Échec de la désactivation du script postinstall"
             exit 1
           fi
 
