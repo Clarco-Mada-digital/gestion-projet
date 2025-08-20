@@ -1,6 +1,48 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { MessageOutlined, RobotOutlined, SendOutlined, CloseOutlined, SettingOutlined } from '@ant-design/icons';
-import { Avatar, Button, Tooltip, message, Input, theme, Modal } from 'antd';
+import { MessageOutlined, RobotOutlined, SendOutlined, CloseOutlined, SettingOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Avatar, Button, Tooltip, message, Input, theme, Modal, Typography } from 'antd';
+
+// Fonction utilitaire pour formater la date de manière plus lisible
+export const formatMessageDate = (date: Date): string => {
+  const now = new Date();
+  const messageDate = new Date(date);
+  const timeString = messageDate.toLocaleTimeString('fr-FR', { 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  });
+  
+  // Vérifier si c'est aujourd'hui
+  if (now.toDateString() === messageDate.toDateString()) {
+    return `Aujourd'hui, ${timeString}`;
+  }
+  
+  // Vérifier si c'était hier
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (yesterday.toDateString() === messageDate.toDateString()) {
+    return `Hier, ${timeString}`;
+  }
+  
+  // Vérifier si c'était dans les 6 derniers jours
+  const lastWeek = new Date(now);
+  lastWeek.setDate(now.getDate() - 6);
+  if (messageDate > lastWeek) {
+    const days = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+    const dayName = days[messageDate.getDay()];
+    return `${dayName}, ${timeString}`;
+  }
+  
+  // Pour les dates plus anciennes, afficher la date complète
+  const dateOptions: Intl.DateTimeFormatOptions = {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  };
+  
+  const fullDate = messageDate.toLocaleDateString('fr-FR', dateOptions);
+  return `${fullDate} à ${timeString}`;
+};
 import ChatbotSettings from './ChatbotSettings';
 import type { InputRef } from 'antd';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -550,7 +592,15 @@ const Chatbot: React.FC = () => {
                 }}>Nexus IA</span>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <Tooltip title="Paramètres">
+                <Tooltip title="Effacer la conversation">
+                  <Button 
+                    type="text" 
+                    icon={<DeleteOutlined style={{ color: 'red' }} />} 
+                    onClick={clearChat}
+                    disabled={messages.length <= 1} // Disable if only welcome message or empty
+                  />
+                </Tooltip>
+                {/* <Tooltip title="Paramètres">
                   <Button 
                     type="text" 
                     icon={<SettingOutlined style={{ color: 'white' }} />} 
@@ -559,7 +609,7 @@ const Chatbot: React.FC = () => {
                       handleSettingsClick();
                     }}
                   />
-                </Tooltip>
+                </Tooltip> */}
                 <Tooltip title="Fermer">
                   <Button 
                     type="text" 
@@ -620,7 +670,7 @@ const Chatbot: React.FC = () => {
                   >
                     <MarkdownRenderer content={msg.content} isDark={isDark} />
                     <MessageTime>
-                      {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {formatMessageDate(msg.timestamp)}
                     </MessageTime>
                   </MessageBubble>
                 ))
