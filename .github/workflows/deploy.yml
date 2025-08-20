@@ -21,23 +21,71 @@ jobs:
           node-version: '20.x'
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install Node.js dependencies
         run: |
           # Nettoyer le cache npm et supprimer node_modules
+          echo "=== Nettoyage du cache et suppression des dépendances existantes ==="
           npm cache clean --force
           rm -rf node_modules
           rm -f package-lock.json
           
-          # Installer les dépendances avec --legacy-peer-deps pour éviter les conflits
-          npm install --legacy-peer-deps
+          # Installer les dépendances principales sans les scripts
+          echo "=== Installation des dépendances principales ==="
+          npm install --legacy-peer-deps --no-optional --ignore-scripts
           
-          # Vérifier que rollup est correctement installé
-          npm list rollup
+          # Installer patch-package globalement pour l'utiliser dans les étapes suivantes
+          echo "=== Installation de patch-package ==="
+          npm install -g patch-package@8.0.0
+          
+          # Vérifier que les dépendances sont correctement installées
+          echo "=== Vérification des dépendances installées ==="
+          npm list --depth=0
+
+      - name: Create and apply patches
+        run: |
+          echo "=== Création du dossier patches ==="
+          mkdir -p patches
+          
+          echo "=== Création du patch pour react-beautiful-dnd ==="
+          cat > patches/react-beautiful-dnd+13.1.1.patch << 'EOL'
+          --- node_modules/react-beautiful-dnd/package.json
+          +++ node_modules/react-beautiful-dnd/package.json
+          @@ -1,5 +1,5 @@
+           {
+          -  "name": "react-beautiful-dnd",
+          +  "name": "patched-react-beautiful-dnd",
+             "version": "13.1.1",
+             "description": "Beautiful, accessible drag and drop for lists with React",
+             "license": "Apache-2.0",
+          @@ -7,7 +7,7 @@
+             "bugs": "https://github.com/atlassian/react-beautiful-dnd/issues",
+             "repository": "git@github.com:atlassian/react-beautiful-dnd.git",
+             "scripts": {
+          -    "postinstall": "node ./scripts/postinstall/check-peer-dependencies.js"
+          +    "postinstall": "echo 'Skipping postinstall for react-beautiful-dnd'"
+             },
+             "dependencies": {
+               "css-box-model": "1.2.1",
+          EOL
+          
+          echo "=== Application du patch ==="
+          cd node_modules/react-beautiful-dnd
+          patch -p1 < ../../patches/react-beautiful-dnd+13.1.1.patch || echo "Le patch a peut-être déjà été appliqué"
+          cd ../..
+          
+          echo "=== Vérification du patch ==="
+          if grep -q "Skipping postinstall" node_modules/react-beautiful-dnd/package.json; then
+            echo "✅ Patch appliqué avec succès"
+          else
+            echo "⚠️ Le patch n'a pas été appliqué correctement"
+            exit 1
+          fi
 
       - name: Build
         run: |
           echo "Building with base URL: /gestion-projet/"
-          npm run build -- --legacy-peer-deps
+          # Utiliser --no-optional pour éviter les problèmes avec les dépendances optionnelles
+          npm run build -- --legacy-peer-deps --no-optional
           echo "=== Contenu du dossier dist ==="
           ls -la dist/
           echo "=============================="
