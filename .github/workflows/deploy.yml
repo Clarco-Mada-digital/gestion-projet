@@ -31,10 +31,12 @@ jobs:
           
           # Installer les dépendances principales sans les scripts
           echo "=== Installation des dépendances principales ==="
-          npm install --legacy-peer-deps --no-optional --ignore-scripts
+          npm install --legacy-peer-deps --ignore-scripts
           
-          # Installer patch-package globalement pour l'utiliser dans les étapes suivantes
-          echo "=== Installation de patch-package ==="
+          # Installer les dépendances optionnelles nécessaires pour Rollup
+          echo "=== Installation des dépendances optionnelles pour Rollup ==="
+          npm install @rollup/rollup-linux-x64-gnu --no-save
+          
           # Vérifier que les dépendances sont correctement installées
           echo "=== Vérification des dépendances installées ==="
           npm list --depth=0
@@ -59,8 +61,8 @@ jobs:
       - name: Build
         run: |
           echo "Building with base URL: /gestion-projet/"
-          # Utiliser --no-optional pour éviter les problèmes avec les dépendances optionnelles
-          npm run build -- --legacy-peer-deps --no-optional
+          # Exécuter la construction sans options supplémentaires pour permettre l'utilisation des dépendances optionnelles
+          npm run build
           echo "=== Contenu du dossier dist ==="
           ls -la dist/
           echo "=============================="
