@@ -4,6 +4,9 @@ import { SubTask, Project, Task } from '../../types';
 import { DragDropContext, RBDDroppable as Droppable, RBDDraggable as Draggable, RBDDropResult as DropResult } from '../DnDWrapper';
 import { AIService } from '../../services/aiService';
 import { useApp } from '../../context/AppContext';
+import { Modal } from '../UI/Modal';
+import { Button } from '../UI/Button';
+
 
 interface SubTasksListProps {
   subTasks: SubTask[];
@@ -15,13 +18,16 @@ interface SubTasksListProps {
 export function SubTasksList({ subTasks = [], onSubTasksChange, project, task }: SubTasksListProps) {
   const [newTask, setNewTask] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [pasteLines, setPasteLines] = useState<string[]>([]);
+  const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
   const { state } = useApp();
+
   const aiSettings = state.appSettings?.aiSettings;
 
   const addTask = (e: React.FormEvent) => {
     e.preventDefault();
     e.stopPropagation(); // Empêche la propagation de l'événement
-    
+
     if (newTask.trim()) {
       const task: SubTask = {
         id: Date.now().toString(),
@@ -33,15 +39,15 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task }:
       onSubTasksChange([...subTasks, task]);
       setNewTask('');
     }
-    
+
     return false; // Empêche le comportement par défaut du formulaire
   };
 
   const toggleTask = (id: string) => {
     const now = new Date().toISOString();
-    const updated = subTasks.map(task => 
-      task.id === id ? { 
-        ...task, 
+    const updated = subTasks.map(task =>
+      task.id === id ? {
+        ...task,
         completed: !task.completed,
         updatedAt: now,
         completedAt: !task.completed ? now : task.completedAt // Mettre à jour completedAt uniquement si la tâche est marquée comme complétée
@@ -59,7 +65,7 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task }:
   const generateWithAI = useCallback(async () => {
     console.log('Bouton Générer avec IA cliqué');
     console.log('Paramètres IA:', aiSettings);
-    
+
     if (!aiSettings?.isConfigured) {
       const errorMsg = 'La fonctionnalité IA n\'est pas configurée dans les paramètres';
       console.error(errorMsg);
@@ -68,10 +74,10 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task }:
     }
 
     // Vérifier que la clé API est disponible
-    const apiKey = aiSettings.provider === 'openai' 
-      ? aiSettings.openaiApiKey 
+    const apiKey = aiSettings.provider === 'openai'
+      ? aiSettings.openaiApiKey
       : aiSettings.openrouterApiKey;
-    
+
     if (!apiKey) {
       const errorMsg = `Clé API ${aiSettings.provider} manquante. Veuillez configurer les paramètres IA.`;
       console.error(errorMsg);
@@ -81,21 +87,21 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task }:
 
     setIsGenerating(true);
     console.log('Début de la génération des sous-tâches avec IA...');
-    
+
     try {
       console.log('Appel à AIService.generateSubTasksWithAI avec les paramètres:', {
         project: { name: project.name, id: project.id },
         task: { title: task.title, id: task.id },
         existingSubTasksCount: subTasks.length
       });
-      
+
       const generatedSubTasks = await AIService.generateSubTasksWithAI(
         aiSettings,
         project,
         task,
         subTasks
       );
-      
+
       console.log('Sous-tâches générées avec succès:', generatedSubTasks);
 
       if (!generatedSubTasks || generatedSubTasks.length === 0) {
@@ -113,7 +119,7 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task }:
 
       console.log('Nouvelles sous-tâches à ajouter:', newSubTasks);
       onSubTasksChange([...subTasks, ...newSubTasks]);
-      
+
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue';
       console.error('Erreur lors de la génération des sous-tâches:', error);
@@ -129,23 +135,61 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task }:
 
   const onDragEnd = (result: DropResult) => {
     if (!result.destination) return;
-    
+
     const items = Array.from(subTasks);
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
-    
+
     onSubTasksChange(items);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData('text');
+    if (text.includes('\n')) {
+      const lines = text.split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+
+      if (lines.length > 1) {
+        e.preventDefault();
+        setPasteLines(lines);
+        setIsPasteModalOpen(true);
+      }
+    }
+  };
+
+  const confirmPasteLines = () => {
+    const now = new Date().toISOString();
+    const newSubTasks: SubTask[] = pasteLines.map((line, index) => ({
+      id: `paste-${Date.now()}-${index}`,
+      title: line,
+      completed: false,
+      createdAt: now,
+      updatedAt: now
+    }));
+
+    onSubTasksChange([...subTasks, ...newSubTasks]);
+    setIsPasteModalOpen(false);
+    setPasteLines([]);
+  };
+
+  const cancelPasteLines = () => {
+    // Si l'utilisateur refuse, on laisse le texte se coller normalement dans l'input (en une seule ligne)
+    setIsPasteModalOpen(false);
+    const singleLineText = pasteLines.join(' ');
+    setNewTask(prev => prev + singleLineText);
+    setPasteLines([]);
   };
 
   return (
     <div className="mt-2">
-      <h3 className="text-sm font-medium mb-2">Sous-tâches</h3> 
+      <h3 className="text-sm font-medium mb-2">Sous-tâches</h3>
 
       <DragDropContext onDragEnd={onDragEnd}>
         <Droppable droppableId="subtasks">
           {(provided) => (
-            <div 
-              {...provided.droppableProps} 
+            <div
+              {...provided.droppableProps}
               ref={provided.innerRef}
               className="space-y-2"
             >
@@ -158,15 +202,14 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task }:
                       className="flex items-center p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg group"
                       onClick={() => toggleTask(task.id)}
                     >
-                      <div 
+                      <div
                         {...provided.dragHandleProps}
                         className="p-1 mr-2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 cursor-move"
                       >
                         <GripVertical className="w-4 h-4" />
                       </div>
-                      <div className={`w-5 h-5 rounded border flex items-center justify-center mr-3 ${
-                        task.completed ? 'bg-blue-500 border-blue-500' : 'border-gray-300'
-                      }`}>
+                      <div className={`w-5 h-5 rounded border flex items-center justify-center mr-3 ${task.completed ? 'bg-blue-500 border-blue-500' : 'border-gray-300'
+                        }`}>
                         {task.completed && <Check className="w-3 h-3 text-white" />}
                       </div>
                       <span className={`text-sm flex-1 ${task.completed ? 'line-through text-gray-400' : ''}`}>
@@ -196,8 +239,9 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task }:
             type="text"
             value={newTask}
             onChange={(e) => setNewTask(e.target.value)}
+            onPaste={handlePaste}
             placeholder="Ajouter une sous-tâche..."
-            className="flex-1 px-3 py-2 border border-gray-300 bg-transparent rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="flex-1 px-3 py-2 border border-blue-200 dark:border-blue-900/50 bg-white/50 dark:bg-gray-800/50 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all backdrop-blur-sm"
           />
           <button
             onClick={addTask}
@@ -211,11 +255,10 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task }:
             type="button"
             onClick={generateWithAI}
             disabled={isGenerating || !isAIAvailable}
-            className={`p-2 rounded-md focus:outline-none ${
-              isAIAvailable
+            className={`p-2 rounded-md focus:outline-none ${isAIAvailable
                 ? 'text-blue-500 hover:text-blue-700 hover:bg-blue-50'
                 : 'text-gray-300 cursor-not-allowed'
-            }`}
+              }`}
             title={
               isAIAvailable
                 ? "Générer des sous-tâches avec l'IA"
@@ -247,6 +290,43 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task }:
           </button>
         </form>
       </div>
+
+      <Modal
+        isOpen={isPasteModalOpen}
+        onClose={() => setIsPasteModalOpen(false)}
+        title="Créer plusieurs sous-tâches ?"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-600 dark:text-gray-400">
+            Vous avez collé un texte contenant <span className="font-bold text-blue-600">{pasteLines.length}</span> lignes.
+            Voulez-vous créer une sous-tâche pour chaque ligne ?
+          </p>
+
+          <div className="max-h-40 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-800 space-y-1">
+            {pasteLines.map((line, i) => (
+              <div key={i} className="text-xs text-gray-500 flex gap-2">
+                <span className="text-blue-400 font-mono">{i + 1}.</span>
+                <span className="truncate">{line}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-end gap-3 mt-6">
+            <Button
+              variant="outline"
+              onClick={cancelPasteLines}
+            >
+              Coller en une seule ligne
+            </Button>
+            <Button
+              variant="gradient"
+              onClick={confirmPasteLines}
+            >
+              Créer {pasteLines.length} sous-tâches
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
