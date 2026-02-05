@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { 
-  Card, 
-  Input, 
-  Button, 
-  Select, 
-  Alert, 
-  message, 
-  InputNumber, 
-  theme, 
+import {
+  Card,
+  Input,
+  Button,
+  Select,
+  Alert,
+  message,
+  InputNumber,
+  theme,
   Form
 } from 'antd';
 import type { FormInstance } from 'antd/es/form';
@@ -52,14 +52,19 @@ const MODELS: Record<ProviderType, ModelOption[]> = {
     { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
   ],
   openrouter: [
-    { value: 'openrouter/auto', label: 'Auto (sélection automatique gratuite)' },
-    { value: 'google/gemma-7b-it:free', label: 'Google: Gemma 7B (gratuit)' },
-    { value: 'mistralai/mistral-7b-instruct:free', label: 'Mistral 7B (gratuit)' },
-    { value: 'huggingfaceh4/zephyr-7b-beta:free', label: 'Zephyr 7B (gratuit)' },    
+    { value: 'openrouter/auto', label: 'Auto (Meilleur rapport qualité/prix)' },
+    { value: 'google/gemma-7b-it:free', label: 'Google: Gemma 7B (Gratuit)' },
+    { value: 'mistralai/mistral-7b-instruct:free', label: 'Mistral 7B (Gratuit)' },
+    { value: 'huggingfaceh4/zephyr-7b-beta:free', label: 'Zephyr 7B (Gratuit)' },
     { value: 'openai/gpt-3.5-turbo', label: 'OpenAI: GPT-3.5 Turbo' },
-    { value: 'openai/gpt-4', label: 'OpenAI: GPT-4' },
-    { value: 'anthropic/claude-2', label: 'Anthropic: Claude 2' },
-    { value: 'google/gemini-pro', label: 'Google: Gemini Pro' },
+    { value: 'openai/gpt-4-turbo', label: 'OpenAI: GPT-4 Turbo' },
+    { value: 'openai/gpt-4o', label: 'OpenAI: GPT-4o' },
+    { value: 'anthropic/claude-3-opus', label: 'Anthropic: Claude 3 Opus' },
+    { value: 'anthropic/claude-3-sonnet', label: 'Anthropic: Claude 3 Sonnet' },
+    { value: 'anthropic/claude-3-haiku', label: 'Anthropic: Claude 3 Haiku' },
+    { value: 'google/gemini-pro-1.5', label: 'Google: Gemini Pro 1.5' },
+    { value: 'mistralai/mistral-large', label: 'Mistral: Large' },
+    { value: 'meta-llama/llama-3-70b-instruct', label: 'Meta: Llama 3 70B' },
   ]
 };
 
@@ -68,10 +73,10 @@ interface TestResult {
   message: string;
 }
 
-export const AISettings: React.FC<AISettingsProps> = ({ 
-  value: externalValue, 
+export const AISettings: React.FC<AISettingsProps> = ({
+  value: externalValue,
   onChange,
-  showTitle = true 
+  showTitle = true
 }) => {
   const [form] = Form.useForm<FormValues>();
   const { token } = theme.useToken();
@@ -162,9 +167,9 @@ export const AISettings: React.FC<AISettingsProps> = ({
         } else {
           dispatch({
             type: 'UPDATE_APP_SETTINGS',
-            payload: { 
+            payload: {
               ...state.appSettings,
-              aiSettings: settings 
+              aiSettings: settings
             },
           });
         }
@@ -174,8 +179,8 @@ export const AISettings: React.FC<AISettingsProps> = ({
     } catch (error: unknown) {
       console.error('Erreur lors du test de connexion:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors du test de connexion';
-      setTestResult({ 
-        status: 'error', 
+      setTestResult({
+        status: 'error',
         message: errorMessage
       });
     } finally {
@@ -199,9 +204,9 @@ export const AISettings: React.FC<AISettingsProps> = ({
       } else {
         dispatch({
           type: 'UPDATE_APP_SETTINGS',
-          payload: { 
+          payload: {
             ...state.appSettings,
-            aiSettings: settings 
+            aiSettings: settings
           },
         });
       }
@@ -229,7 +234,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
           message={testResult.message}
           type={isSuccess ? 'success' : 'error'}
           showIcon
-          style={{ 
+          style={{
             borderRadius: 8,
             border: 'none',
             backgroundColor: isSuccess ? '#f6ffed' : '#fff2f0',
@@ -248,68 +253,77 @@ export const AISettings: React.FC<AISettingsProps> = ({
     const provider = (Form.useWatch('provider', form) as ProviderType) || 'openai';
     const modelName = provider === 'openai' ? 'openaiModel' : 'openrouterModel';
     const { token } = theme.useToken();
-    
+
     // S'assurer que le provider est valide
     const models = MODELS[provider] || MODELS.openai;
-    
+
+    // Récupérer la valeur actuelle une seule fois en dehors de la boucle
+    const currentModelValue = Form.useWatch(modelName, form);
+
     return (
-      <div className="grid grid-cols-1 gap-6">
+      <div>
         <Form.Item
-          label={<span className={labelStyle}>Modèle IA</span>}
           name={modelName}
           rules={[{ required: true, message: 'Veuillez sélectionner un modèle' }]}
-          className="mb-4"
+          className="hidden" // Masquer le champ de formulaire réel
         >
-          <Select
-            showSearch
-            placeholder="Sélectionnez un modèle"
-            optionFilterProp="label"
-            className={selectClassName}
-            popupClassName={`dark:bg-gray-800 dark:border-gray-700 ${isDarkMode ? 'dark' : ''}`}
-            dropdownStyle={{
-              backgroundColor: isDarkMode ? '#1f2937' : token.colorBgElevated,
-              borderColor: isDarkMode ? '#374151' : token.colorBorder,
-              color: isDarkMode ? token.colorText : undefined,
-            }}
-            variant={isDarkMode ? 'filled' : undefined}
-            filterOption={(input, option) => {
-              if (!option || !option.label) return false;
-              const label = typeof option.label === 'string' ? option.label : 
-                         typeof option.label === 'object' && 'props' in option.label ? 
-                         String(option.label.props.children) : '';
-              return label.toLowerCase().includes(input.toLowerCase());
-            }}
-            options={models.map(model => ({
-              value: model.value,
-              label: (
-                <div className="flex items-center">
-                  <span className="truncate dark:text-white">{model.label}</span>
-                </div>
-              )
-            }))}
-            optionRender={(option) => {
-              const label = option.label as React.ReactNode;
-              return (
-                <div className="flex items-center hover:bg-gray-100 dark:hover:bg-gray-700 px-4 py-2">
-                  <span className="truncate dark:text-white">{label}</span>
-                </div>
-              );
-            }}
-            menuItemSelectedIcon={null}
-            dropdownRender={(menu) => (
-              <div className="dark:bg-gray-800 dark:border-gray-700 rounded-md shadow-lg">
-                {menu}
-              </div>
-            )}
-            style={{
-              color: isDarkMode ? token.colorText : undefined,
-            }}
-          />
+          <Input type="hidden" />
         </Form.Item>
-        
-        <div className="text-xs text-gray-500 dark:text-gray-400 -mt-3">
-          <p>Le choix du modèle affecte la qualité et la vitesse des réponses de l'IA.</p>
-          <p>Les modèles plus avancés offrent de meilleurs résultats mais peuvent être plus lents et plus coûteux.</p>
+
+        <label className={labelStyle}>Modèle IA</label>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+          {models.map((model) => {
+            const isSelected = currentModelValue === model.value;
+
+            return (
+              <div
+                key={model.value}
+                onClick={() => form.setFieldValue(modelName, model.value)}
+                className={`
+                  relative flex flex-col p-4 cursor-pointer rounded-xl border-2 transition-all duration-200
+                  ${isSelected
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 bg-white dark:bg-gray-800'
+                  }
+                `}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`font-semibold text-sm ${isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-white'}`}>
+                    {model.label.split(':')[0]}
+                  </span>
+                  {isSelected && (
+                    <div className="h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center">
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+
+                <span className={`text-xs ${isSelected ? 'text-blue-600 dark:text-blue-200' : 'text-gray-500 dark:text-gray-400'}`}>
+                  {model.label.split(':')[1] || model.label}
+                </span>
+
+                {/* Badge pour Gratuit ou Auto */}
+                {(model.label.toLowerCase().includes('gratuit') || model.label.toLowerCase().includes('auto')) && (
+                  <span className="absolute top-2 right-2 px-2 py-0.5 text-[10px] font-bold uppercase rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                    {model.label.toLowerCase().includes('auto') ? 'Recommandé' : 'Gratuit'}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 flex items-start space-x-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-md">
+          <svg className="w-4 h-4 mt-0.5 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div className="flex-1">
+            <p className="font-medium text-gray-700 dark:text-gray-300">Note sur les modèles</p>
+            <p>Plus le modèle est puissant, plus il sera capable de comprendre des tâches complexes, mais il pourra être plus lent et coûteux.</p>
+          </div>
         </div>
       </div>
     );
@@ -363,7 +377,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
             initialValues={initialValues}
             layout="vertical"
             className="space-y-6"
-            >
+          >
             {/* Section Fournisseur */}
             <div className={sectionStyle}>
               <h3 className={sectionTitleStyle}>
@@ -372,7 +386,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
                 </svg>
                 Fournisseur d'IA
               </h3>
-              
+
               <div className="grid grid-cols-1 gap-6">
                 <Form.Item
                   name="provider"
@@ -380,7 +394,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
                   rules={[{ required: true, message: 'Veuillez sélectionner un fournisseur' }]}
                   className="mb-4"
                 >
-                  <Select 
+                  <Select
                     placeholder="Sélectionnez un fournisseur"
                     className={selectClassName}
                     popupClassName="dark:bg-gray-800 dark:border-gray-700 dark:text-white"
@@ -398,7 +412,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
                     const isOpenAI = provider === 'openai';
                     const apiKeyName = isOpenAI ? 'openaiApiKey' : 'openrouterApiKey';
                     const apiKeyLabel = isOpenAI ? 'Clé API OpenAI' : 'Clé API OpenRouter';
-                    
+
                     return (
                       <Form.Item
                         name={apiKeyName}
@@ -406,12 +420,17 @@ export const AISettings: React.FC<AISettingsProps> = ({
                         rules={[{ required: true, message: `Veuillez entrer votre ${apiKeyLabel}` }]}
                         className="mb-4"
                       >
-                        <Input.Password 
-                    placeholder={isOpenAI ? 'sk-...' : 'sk-or-...'}
-                    className={inputClassName}
-                    visibilityToggle={true}
-                    variant={isDarkMode ? 'filled' : undefined}
-                  />
+                        <Input.Password
+                          placeholder={isOpenAI ? 'sk-...' : 'sk-or-...'}
+                          className={`${inputClassName} dark:bg-gray-700 dark:text-white dark:border-gray-600`}
+                          style={{
+                            backgroundColor: isDarkMode ? '#374151' : '#ffffff',
+                            color: isDarkMode ? '#ffffff' : '#1f2937',
+                            borderColor: isDarkMode ? '#4b5563' : '#d1d5db',
+                          }}
+                          visibilityToggle={true}
+                          autoComplete="off"
+                        />
                       </Form.Item>
                     );
                   }}
@@ -447,16 +466,16 @@ export const AISettings: React.FC<AISettingsProps> = ({
                   tooltip="Nombre maximum de tokens à générer (1-4000)"
                   className="mb-4"
                 >
-                  <InputNumber 
-                    min={1} 
+                  <InputNumber
+                    min={1}
                     max={4000}
                     className={inputNumberClassName}
                     controls={false}
                     variant={isDarkMode ? 'filled' : undefined}
-                    formatter={(value: number | string | undefined) => 
+                    formatter={(value: number | string | undefined) =>
                       `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
                     }
-                    parser={(value: string | undefined) => 
+                    parser={(value: string | undefined) =>
                       value ? parseInt(value.replace(/\s?|(,*)/g, ''), 10) : 0
                     }
                   />
@@ -468,14 +487,14 @@ export const AISettings: React.FC<AISettingsProps> = ({
                   tooltip="Contrôle le niveau d'aléatoire (0 = déterministe, 2 = très aléatoire)"
                   className="mb-4"
                 >
-                  <InputNumber 
-                    min={0} 
-                    max={2} 
+                  <InputNumber
+                    min={0}
+                    max={2}
                     step={0.1}
                     className={inputNumberClassName}
                     variant={isDarkMode ? 'filled' : undefined}
                     formatter={(value: number | string | undefined) => `${value}`}
-                    parser={(value: string | undefined) => 
+                    parser={(value: string | undefined) =>
                       value ? parseFloat(value.replace(/[^0-9.]/g, '')) : 0
                     }
                   />
@@ -495,7 +514,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
                 />
               </div>
             )}
-            
+
             {/* Boutons d'action */}
             <div className="flex flex-wrap justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
               <button
@@ -503,7 +522,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
                 onClick={handleTestConnection}
                 disabled={isTesting}
                 className={`${secondaryButtonStyle} ${isTesting ? 'opacity-75 cursor-not-allowed' : ''}`}
-                >
+              >
                 {isTesting ? (
                   <>
                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-700 dark:text-gray-200" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -521,12 +540,12 @@ export const AISettings: React.FC<AISettingsProps> = ({
                   </>
                 )}
               </button>
-              
+
               <button
                 type="submit"
                 disabled={isSaving}
                 className={`${primaryButtonStyle} ${isSaving ? 'opacity-75 cursor-not-allowed' : ''}`}
-                >
+              >
                 {isSaving ? (
                   <>
                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

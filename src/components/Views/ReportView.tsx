@@ -52,12 +52,12 @@ export function ReportView() {
   const [emailStatus, setEmailStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
   const [emailForm, setEmailForm] = useState<EmailFormData>({
     to: '',
-    subject: 'Rapport d\'activité',
+    subject: 'Delivery',
     message: 'Veuvez trouver ci-joint le rapport d\'activité demandé.'
   });
   const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
-  
+
   const [report, setReport] = useState<{
     startDate: Date;
     endDate: Date;
@@ -69,10 +69,10 @@ export function ReportView() {
   const [includeSubTasks, setIncludeSubTasks] = useState<boolean>(true);
   // Référence pour le textarea d'édition
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  
+
   // Récupérer le profil utilisateur actuel (non utilisé pour le moment)
   // const currentUser = state.users[0];
-  
+
   // Fonction utilitaire pour obtenir toutes les tâches de tous les projets
   const getAllTasks = (): Array<{
     id: string;
@@ -90,12 +90,12 @@ export function ReportView() {
   const hasProperty = <T extends object>(obj: T, key: PropertyKey): key is keyof T => {
     return key in obj;
   };
-  
+
   // Déclaration des fonctions de gestion du rapport
   const generateSignature = (): string => {
     const user = state.users[0];
     if (!user) return '';
-    
+
     const signatureParts = [
       user.name,
       user.position,
@@ -103,10 +103,10 @@ export function ReportView() {
       user.email,
       user.phone
     ].filter(Boolean);
-    
+
     return signatureParts.join(' | ');
   };
-  
+
   const handleEditReport = () => {
     setEditedReport(aiReport);
     setIsEditing(true);
@@ -116,12 +116,12 @@ export function ReportView() {
       }
     }, 0);
   };
-  
+
   const handleSaveReport = () => {
     setAiReport(editedReport);
     setIsEditing(false);
   };
-  
+
   const handleCancelEdit = () => {
     setEditedReport(aiReport);
     setIsEditing(false);
@@ -150,25 +150,25 @@ export function ReportView() {
   // Ajouter les contacts sélectionnés au champ email
   const addSelectedContacts = () => {
     if (selectedContacts.size === 0) return;
-    
+
     const selectedEmails = Array.from(selectedContacts)
       .map(id => state.appSettings.contacts?.find(c => c.id === id)?.email)
       .filter(Boolean) as string[];
-    
+
     // Ajouter les nouveaux emails à la liste existante
     const currentEmails = emailForm.to ? emailForm.to.split(',').map(e => e.trim()) : [];
     const allEmails = [...new Set([...currentEmails, ...selectedEmails])];
-    
+
     setEmailForm(prev => ({
       ...prev,
       to: allEmails.join(', ')
     }));
-    
+
     // Fermer la boîte de dialogue et réinitialiser la sélection
     setIsContactDialogOpen(false);
     setSelectedContacts(new Set());
   };
-  
+
   // Fonction pour ajouter un email manuellement
   const handleEmailInput = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -177,12 +177,12 @@ export function ReportView() {
       [name]: value
     }));
   };
-  
+
   // Ouvrir la boîte de dialogue d'envoi d'email
   const handleOpenEmailDialog = () => {
     // Pré-remplir le sujet avec la période du rapport
     if (report) {
-      const period = `Rapport d'activité du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}`;
+      const period = `Delivery du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}`;
       setEmailForm(prev => ({
         ...prev,
         subject: period,
@@ -193,31 +193,31 @@ export function ReportView() {
     // Réinitialiser la sélection des contacts
     setSelectedContacts(new Set());
   };
-  
+
   // Envoyer l'email
   const handleSendEmail = async () => {
     if (!report || !state.emailSettings) return;
-    
+
     setIsSendingEmail(true);
     setEmailStatus({ type: null, message: '' });
-    
+
     try {
       // Utiliser le rapport édité s'il est disponible, sinon le rapport AI
       const reportContent = editedReport || aiReport;
-      
+
       // Si le message est vide, utiliser le rapport généré
       const messageContent = emailForm.message.trim() || reportContent;
-      
+
       // Préparer la liste des destinataires
       const toEmails = emailForm.to
         .split(',')
         .map(email => email.trim())
         .filter(email => email.length > 0);
-      
+
       if (toEmails.length === 0) {
         throw new Error('Veuillez spécifier au moins un destinataire');
       }
-      
+
       // Générer le contenu HTML du rapport
       const emailContent = EmailService.generateReportEmail(
         {
@@ -227,7 +227,7 @@ export function ReportView() {
         },
         state.users[0] // Utiliser l'utilisateur actuel pour la signature
       );
-      
+
       // Créer un objet d'options d'email étendu avec les paramètres du template
       const emailOptions: any = {
         to: toEmails, // Envoyer à tous les destinataires
@@ -247,13 +247,13 @@ export function ReportView() {
           user_name: state.users[0]?.name || 'Utilisateur'
         }
       };
-      
+
       // Ajouter la version texte pour la compatibilité
       emailOptions.text = `Bonjour,\n\nVeuvez trouver ci-joint le rapport d'activité demandé.\n\n${messageContent.replace(/<[^>]*>?/gm, '')}\n\nCordialement,\n${generateSignature()}`;
-      
+
       // Envoyer l'email
       const result = await EmailService.sendEmail(emailOptions, state.emailSettings);
-      
+
       if (result.success) {
         setEmailStatus({ type: 'success', message: `Email envoyé avec succès à ${toEmails.length} destinataire(s) !` });
         // Fermer la boîte de dialogue après 2 secondes
@@ -279,7 +279,7 @@ export function ReportView() {
   const getDateRange = (range: 'day' | 'week' | 'month') => {
     const now = new Date();
     const start = new Date(now);
-    
+
     switch (range) {
       case 'day':
         start.setHours(0, 0, 0, 0);
@@ -306,10 +306,10 @@ export function ReportView() {
   const generateReport = () => {
 
 
-    
+
     const { start, end } = getDateRange(dateRange);
 
-    
+
     // Filtrer les tâches par période, par projet et par statut (uniquement actif)
     const projectsData = (state.projects || [])
       .filter(project => {
@@ -321,9 +321,9 @@ export function ReportView() {
       .map(project => {
 
         // Toutes les tâches du projet
-        const allTasks = project.tasks || [];       
-        
-        
+        const allTasks = project.tasks || [];
+
+
         // Tâches principales complétées dans la période
         const completedMainTasks = allTasks.filter((task): task is Task & { completedAt: string } => {
           if (task.status !== 'done' || !task.completedAt) return false;
@@ -332,12 +332,12 @@ export function ReportView() {
 
           return inRange;
         });
-        
+
         // Sous-tâches complétées dans la période (toutes tâches confondues)
         const allCompletedSubTasks = allTasks.flatMap(task => {
           const subTasks = task.subTasks || [];
 
-          
+
           return subTasks
             .filter((subTask): subTask is SubTask & { completedAt: string } => {
               const isCompleted = !!subTask.completed && !!subTask.completedAt;
@@ -348,7 +348,7 @@ export function ReportView() {
               const subTaskCompletedDate = new Date(subTask.completedAt);
               const inRange = isDateInRange(subTaskCompletedDate, start, end);
 
-              
+
               return {
                 ...subTask,
                 parentTaskId: task.id,
@@ -357,37 +357,37 @@ export function ReportView() {
               };
             });
         }).filter(subTask => subTask._inRange);
-        
+
         // Tâches avec sous-tâches complétées dans la période
-        const tasksWithCompletedSubTasks = includeSubTasks 
+        const tasksWithCompletedSubTasks = includeSubTasks
           ? allTasks
-              .map(task => {
-                const subTasks = task.subTasks || [];
-                const completedSubTasks = subTasks.filter((subTask): subTask is SubTask & { completedAt: string } => {
-                  if (!subTask.completed || !subTask.completedAt) return false;
-                  const inRange = isDateInRange(new Date(subTask.completedAt), start, end);
+            .map(task => {
+              const subTasks = task.subTasks || [];
+              const completedSubTasks = subTasks.filter((subTask): subTask is SubTask & { completedAt: string } => {
+                if (!subTask.completed || !subTask.completedAt) return false;
+                const inRange = isDateInRange(new Date(subTask.completedAt), start, end);
 
-                  return inRange;
-                });
-                
-                if (completedSubTasks.length > 0) {
+                return inRange;
+              });
 
-                  return {
-                    ...task,
-                    completedSubTasks
-                  };
-                }
-                return null;
-              })
-              .filter((task): task is Task & { completedSubTasks: (SubTask & { completedAt: string })[] } => task !== null)
+              if (completedSubTasks.length > 0) {
+
+                return {
+                  ...task,
+                  completedSubTasks
+                };
+              }
+              return null;
+            })
+            .filter((task): task is Task & { completedSubTasks: (SubTask & { completedAt: string })[] } => task !== null)
           : [];
-          
 
-        
+
+
         const totalTasks = allTasks.length;
         const totalCompletedTasks = completedMainTasks.length;
         const totalCompletedSubTasks = allCompletedSubTasks.length;
-        
+
         // Créer un type pour les tâches du rapport
         type ReportTask = {
           id: string;
@@ -405,7 +405,7 @@ export function ReportView() {
             completedAt?: string;
           }>;
         };
-        
+
         // Préparer les tâches pour le rapport
         const reportTasks: ReportTask[] = [
           // Tâches principales complétées dans la période
@@ -435,7 +435,7 @@ export function ReportView() {
             }))
           }))
         ];
-        
+
         return {
           projectId: project.id,
           projectName: project.name,
@@ -445,7 +445,7 @@ export function ReportView() {
           tasks: reportTasks
         };
       });
-    
+
     setReport({
       startDate: start,
       endDate: end,
@@ -456,15 +456,15 @@ export function ReportView() {
   // Générer le rapport avec IA
   const generateAIReport = async (): Promise<void> => {
 
-    
+
     if (!report || report.projects.length === 0) {
       console.warn('Aucun rapport ou projet disponible pour générer le rapport IA');
       return;
     }
-    
+
     setIsGenerating(true);
-    
-    try {      
+
+    try {
       // Interface pour le résumé des tâches
       interface TaskSummary {
         project: string;
@@ -481,28 +481,28 @@ export function ReportView() {
       const project = state.projects[0];
       const projectAiSettings = project?.aiSettings;
       const appAiSettings = state.appSettings?.aiSettings;
-      
+
       // Fusionner les paramètres IA (les paramètres du projet écrasent ceux de l'application)
       const aiSettings = {
         ...appAiSettings,
         ...projectAiSettings,
         isConfigured: appAiSettings?.isConfigured || false,
       } as const;
-      
+
       // Vérifier la configuration de l'IA
       if (!aiSettings || !aiSettings.isConfigured) {
         throw new Error('Veuillez configurer les paramètres IA avant de générer un rapport.');
       }
-      
+
       // Vérifier la présence de la clé API
-      const apiKey = aiSettings.provider === 'openai' 
-        ? aiSettings.openaiApiKey 
+      const apiKey = aiSettings.provider === 'openai'
+        ? aiSettings.openaiApiKey
         : aiSettings.openrouterApiKey;
-        
+
       if (!apiKey) {
         throw new Error(`Clé API ${aiSettings.provider} manquante. Veuillez vérifier vos paramètres.`);
       }
-      
+
       // Préparer un résumé structuré des tâches pour l'IA
       const tasksSummary = report.projects.flatMap(project => {
         return project.tasks.flatMap(task => {
@@ -510,16 +510,16 @@ export function ReportView() {
           const completedAt = task.completedAt ? new Date(task.completedAt).toLocaleDateString('fr-FR') : 'Date inconnue';
           const notes = 'notes' in task ? (task.notes || '') : '';
           const taskEntries = [];
-          
+
           // Vérifier si la tâche est active dans la période
           const taskStartDate = task.startDate ? new Date(task.startDate) : null;
           const taskEndDate = task.endDate ? new Date(task.endDate) : null;
-          const isTaskActiveInPeriod = 
-            (!taskStartDate || taskStartDate <= report.endDate) && 
+          const isTaskActiveInPeriod =
+            (!taskStartDate || taskStartDate <= report.endDate) &&
             (!taskEndDate || taskEndDate >= report.startDate);
-          
+
           const isTaskCompleted = task.status === 'done' && task.completedAt;
-          
+
           // Ajouter la tâche principale si pertinente
           if (isTaskCompleted || (isTaskActiveInPeriod && task.subTasks && task.subTasks.some(st => st.completed))) {
             taskEntries.push({
@@ -533,7 +533,7 @@ export function ReportView() {
               isActive: isTaskActiveInPeriod
             });
           }
-          
+
           // Ajouter les sous-tâches si nécessaire
           if (includeSubTasks && task.subTasks?.length > 0) {
             task.subTasks.forEach(subTask => {
@@ -555,11 +555,11 @@ export function ReportView() {
               }
             });
           }
-          
+
           return taskEntries;
         });
       });
-      
+
       // Préparer le prompt pour l'IA
       const prompt = `
       Tu es un assistant qui aide à générer des rapports professionnels pour la gestion de projet.
@@ -575,18 +575,18 @@ export function ReportView() {
       4. Des recommandations pour la période suivante
       
       Le rapport doit être en français, clair et structuré avec des titres et sous-titres.`;
-      
 
-      
+
+
       // Appeler le service IA
       const aiResponse = await AIService.generateAiText(aiSettings, prompt);
-      
+
       if (!aiResponse) {
         throw new Error('Aucune réponse reçue du service IA');
       }
-      
 
-      
+
+
       // Formater la réponse de l'IA
       const reportContent = `
       ===========================================
@@ -605,7 +605,7 @@ export function ReportView() {
       Nombre total de tâches analysées : ${tasksSummary.length}
       Nombre de projets concernés : ${report.projects.length}
       `;
-      
+
       // Vérifier s'il y a des tâches à inclure
       if (tasksSummary.length === 0) {
         const noTasksMessage = `Période du rapport : du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}
@@ -707,18 +707,18 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
   useEffect(() => {
     generateReport();
   }, [dateRange, selectedProjectId, state.projects]);
-  
+
   // Suppression des déclarations en double - les fonctions sont déjà définies plus haut dans le composant
-  
+
   // Vérification de l'existence des propriétés optionnelles dans les tâches
   const safeGetTaskNotes = (task: any): string => {
     return hasProperty(task, 'notes') ? task.notes : '';
   };
-  
+
   // Gestion de la génération du rapport IA avec gestion d'erreur améliorée et feedback utilisateur
   const handleGenerateAIReport = async () => {
 
-    
+
     if (!report || report.projects.length === 0) {
       const errorMsg = 'Aucune donnée de rapport disponible. Veuillez d\'abord générer un rapport standard.';
       console.error(errorMsg);
@@ -730,29 +730,29 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
       setTimeout(() => setEmailStatus({ type: null, message: '' }), 5000);
       return;
     }
-    
+
     try {
       setIsGenerating(true);
 
-      
+
       // Ajouter un indicateur visuel de chargement
       setAiReport('Génération du rapport en cours... Veuillez patienter.');
-      
+
       // Générer le rapport
       await generateAIReport();
-      
+
       // Afficher un message de succès
       setEmailStatus({
         type: 'success',
         message: 'Le rapport a été généré avec succès !'
       });
-      
 
-      
+
+
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue';
       console.error('Erreur lors de la génération du rapport IA:', error);
-      
+
       // Message d'erreur plus détaillé
       const userFriendlyError = `DÉTAIL DE L'ERREUR\n${'='.repeat(60)}\n\n` +
         `Impossible de générer le rapport IA.\n\n` +
@@ -762,17 +762,17 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
         `2. Votre clé API est valide et configurée dans les paramètres\n` +
         `3. Votre quota d'API n'est pas dépassé\n\n` +
         `Si le problème persiste, contactez le support technique.`;
-      
+
       // Mettre à jour l'état avec le message d'erreur formaté
       setAiReport(userFriendlyError);
       setEditedReport(userFriendlyError);
-      
+
       // Afficher une notification d'erreur
       setEmailStatus({
         type: 'error',
         message: 'Erreur lors de la génération du rapport'
       });
-      
+
     } finally {
 
       // Laisser un court délai pour que l'utilisateur puisse voir le message de statut
@@ -804,7 +804,7 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
             <option value="week">Cette semaine</option>
             <option value="month">Ce mois</option>
           </select>
-          
+
           <select
             value={selectedProjectId}
             onChange={(e) => setSelectedProjectId(e.target.value)}
@@ -819,7 +819,7 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
                 </option>
               ))}
           </select>
-          
+
           <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-md p-1 border border-gray-300 dark:border-gray-600">
             <span className="px-3 py-1 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
               Sous-tâches :
@@ -828,11 +828,10 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
               variant={includeSubTasks ? 'primary' : 'ghost'}
               size="sm"
               onClick={toggleIncludeSubTasks}
-              className={`transition-all duration-200 whitespace-nowrap ${
-                includeSubTasks 
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm' 
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
+              className={`transition-all duration-200 whitespace-nowrap ${includeSubTasks
+                ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
               title={includeSubTasks ? 'Masquer les sous-tâches' : 'Afficher les sous-tâches'}
             >
               {includeSubTasks ? 'Activées' : 'Désactivées'}
@@ -843,9 +842,9 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
               )}
             </Button>
           </div>
-            
-          <Button 
-            onClick={handleGenerateAIReport} 
+
+          <Button
+            onClick={handleGenerateAIReport}
             disabled={isGenerating || !report?.projects?.length}
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
@@ -860,7 +859,7 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
           </Button>
         </div>
       </div>
-      
+
       {/* Affichage du rapport généré */}
       {report && report.projects.length > 0 && (
         <Card className="p-6">
@@ -869,7 +868,7 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
               Rapport du {report.startDate.toLocaleDateString('fr-FR')} au {report.endDate.toLocaleDateString('fr-FR')}
             </h2>
           </div>
-          
+
           <div className="space-y-6">
             {report.projects.map(project => (
               <div key={project.projectId} className="border rounded-lg p-4">
@@ -890,20 +889,20 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
                       </div>
                     </div>
                   </div>
-                  
+
                   {/* Barre de progression */}
                   {project.totalTasks > 0 && (
                     <div className="mt-2 w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                      <div 
-                        className="bg-blue-600 h-2.5 rounded-full" 
-                        style={{ 
+                      <div
+                        className="bg-blue-600 h-2.5 rounded-full"
+                        style={{
                           width: `${Math.min(100, (project.completedTasks / project.totalTasks) * 100)}%`
                         }}
                       ></div>
                     </div>
                   )}
                 </div>
-                
+
                 {project.tasks.length > 0 ? (
                   <div className="space-y-3">
                     {project.tasks.map(task => (
@@ -942,19 +941,18 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
                               )}
                             </div>
                           </div>
-                          
+
                           {/* Badge de priorité */}
                           {task.priority && (
-                            <span className={`px-2 py-1 text-xs rounded-full whitespace-nowrap ${
-                              task.priority === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
+                            <span className={`px-2 py-1 text-xs rounded-full whitespace-nowrap ${task.priority === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
                               task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
-                              'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                            }`}>
+                                'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                              }`}>
                               {task.priority === 'high' ? 'Haute' : task.priority === 'medium' ? 'Moyenne' : 'Basse'}
                             </span>
                           )}
                         </div>
-                        
+
                         {/* Liste des sous-tâches */}
                         {task.isParentOfSubTasks && task.subTasks && task.subTasks.length > 0 && (
                           <div className="mt-3 pl-8 space-y-2">
@@ -976,11 +974,10 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
                             </ul>
                           </div>
                         )}
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          task.priority === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
+                        <span className={`px-2 py-1 text-xs rounded-full ${task.priority === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
                           task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
-                          'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                        }`}>
+                            'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                          }`}>
                           {task.priority === 'high' ? 'Haute' : task.priority === 'medium' ? 'Moyenne' : 'Basse'}
                         </span>
                       </div>
@@ -992,10 +989,10 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
               </div>
             ))}
           </div>
-          
+
           <div className="mt-6 flex justify-end">
-            <Button 
-              onClick={handleGenerateAIReport} 
+            <Button
+              onClick={handleGenerateAIReport}
               disabled={isGenerating}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
@@ -1011,7 +1008,7 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
           </div>
         </Card>
       )}
-      
+
       {/* Section du rapport IA */}
       {(aiReport || isEditing) && (
         <Card className="p-6">
@@ -1029,27 +1026,27 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
                     <Edit className="w-4 h-4 mr-2" />
                     Modifier
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => navigator.clipboard.writeText(aiReport)}
                     disabled={isSendingEmail}
                   >
                     <FileText className="w-4 h-4 mr-2" />
                     Copier
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => window.print()}
                     disabled={isSendingEmail}
                   >
                     <FileText className="w-4 h-4 mr-2" />
                     Télécharger
                   </Button>
-                  <Button 
-                    variant="primary" 
-                    size="sm" 
+                  <Button
+                    variant="primary"
+                    size="sm"
                     onClick={handleOpenEmailDialog}
                     disabled={isSendingEmail}
                     className="bg-blue-600 hover:bg-blue-700 text-white"
@@ -1064,18 +1061,18 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
                 </>
               ) : (
                 <>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={handleCancelEdit}
                     className="text-red-600 border-red-300 hover:bg-red-50"
                   >
                     <X className="w-4 h-4 mr-2" />
                     Annuler
                   </Button>
-                  <Button 
-                    variant="primary" 
-                    size="sm" 
+                  <Button
+                    variant="primary"
+                    size="sm"
                     onClick={handleSaveReport}
                     className="bg-green-600 hover:bg-green-700 text-white"
                   >
@@ -1086,14 +1083,14 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
               )}
             </div>
           </div>
-          
+
           <div className="prose dark:prose-invert max-w-none">
             {isEditing ? (
               <Textarea
                 ref={textareaRef}
                 value={editedReport}
                 onChange={(e) => setEditedReport(e.target.value)}
-                rows={40}                
+                rows={40}
                 className="min-h-[300px] font-mono dark:bg-gray-700 text-sm"
               />
             ) : (
@@ -1111,7 +1108,7 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
           </div>
         </Card>
       )}
-      
+
       {/* Boîte de dialogue d'envoi d'email */}
       <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
@@ -1121,7 +1118,7 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
               Remplissez les champs ci-dessous pour envoyer ce rapport par email.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -1150,7 +1147,7 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
               </div>
               <p className="text-xs text-gray-500">Séparez les adresses par des virgules pour plusieurs destinataires.</p>
             </div>
-            
+
             <div className="space-y-2">
               <label htmlFor="subject" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Objet
@@ -1164,7 +1161,7 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
                 required
               />
             </div>
-            
+
             <div className="space-y-2">
               <label htmlFor="message" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Message
@@ -1179,23 +1176,23 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
                 required
               />
             </div>
-            
+
             {emailStatus.type && (
               <div className={`p-3 rounded-md ${emailStatus.type === 'success' ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-200'}`}>
                 {emailStatus.message}
               </div>
             )}
           </div>
-          
+
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setEmailDialogOpen(false)}
               disabled={isSendingEmail}
             >
               Annuler
             </Button>
-            <Button 
+            <Button
               onClick={handleSendEmail}
               disabled={isSendingEmail || !emailForm.to || !emailForm.subject}
               className="bg-blue-600 hover:bg-blue-700 text-white"
@@ -1225,17 +1222,16 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
               Cochez les contacts à ajouter comme destinataires
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="flex-1 overflow-y-auto space-y-2 py-4">
             {state.appSettings?.contacts?.length > 0 ? (
               state.appSettings.contacts.map((contact) => (
-                <label 
+                <label
                   key={contact.id}
-                  className={`flex items-start p-3 rounded-lg border ${
-                    selectedContacts.has(contact.id)
-                      ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-800'
-                      : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                  }`}
+                  className={`flex items-start p-3 rounded-lg border ${selectedContacts.has(contact.id)
+                    ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-800'
+                    : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                    }`}
                 >
                   <input
                     type="checkbox"
@@ -1262,15 +1258,15 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
               </div>
             )}
           </div>
-          
+
           <DialogFooter className="mt-4">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setIsContactDialogOpen(false)}
             >
               Annuler
             </Button>
-            <Button 
+            <Button
               onClick={addSelectedContacts}
               disabled={selectedContacts.size === 0}
               className="bg-blue-600 hover:bg-blue-700 text-white"
@@ -1279,7 +1275,7 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>      
+      </Dialog>
     </div>
   );
 }

@@ -7,7 +7,7 @@ import AIService from '../../services/aiService';
 interface AddTaskFormProps {
   projects: Project[];
   selectedProjectId: string;
-  status: 'todo' | 'in-progress' | 'done';
+  status: string;
   onAddTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onCancel: () => void;
 }

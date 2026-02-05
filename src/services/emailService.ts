@@ -66,7 +66,7 @@ export class EmailService {
    */
   private static async initialize(): Promise<void> {
     if (this.isInitialized) return;
-    
+
     try {
       // Vérifier que la configuration est valide
       if (!this.isValidConfig()) {
@@ -77,7 +77,7 @@ export class EmailService {
       if (typeof window.emailjs === 'undefined') {
         await this.loadEmailJs();
       }
-      
+
       // Vérifier que emailjs est bien disponible
       if (!window.emailjs) {
         throw new Error(EMAIL_ERRORS.LOAD_FAILED);
@@ -86,13 +86,13 @@ export class EmailService {
       // Initialiser EmailJS avec la configuration
       window.emailjs.init(this.config!.userId);
       this.isInitialized = true;
-      
+
     } catch (error) {
       const appError = new Error(
         error instanceof Error ? error.message : EMAIL_ERRORS.INIT_FAILED,
         { cause: error }
       );
-      
+
       errorHandler.handleError(appError, {
         type: 'API_ERROR',
         context: {
@@ -100,7 +100,7 @@ export class EmailService {
           config: this.config ? 'configured' : 'not configured',
         },
       });
-      
+
       throw appError;
     }
   }
@@ -129,7 +129,7 @@ export class EmailService {
           subject: options.subject,
         },
       };
-      
+
       if (error instanceof Error) {
         errorHandler.handleError(error, context);
       } else {
@@ -144,19 +144,42 @@ export class EmailService {
    */
   private static async sendEmailInternal(options: EmailOptions): Promise<void> {
     await this.initialize();
-    
+
     if (!this.config) {
       throw new Error(EMAIL_ERRORS.INVALID_CONFIG);
     }
 
+    // Préparation des paramètres du template avec plusieurs alias pour le sujet
+    // pour maximiser la compatibilité avec les différents templates EmailJS
     const templateParams = {
+      // Destinataire
       to_email: Array.isArray(options.to) ? options.to.join(', ') : options.to,
-      to_name: '',
+      to_name: '', // Sera rempli par EmailJS si disponible
+
+      // Expéditeur
       from_name: options.fromName || this.config.fromName,
       from_email: options.from || this.config.fromEmail,
+
+      // Sujet (plusieurs variantes pour être sûr que l'une d'elles matche le template)
       subject: options.subject,
-      message: options.html,
+      email_subject: options.subject,
+      object: options.subject, // "Objet" en français
+      title: options.subject,
+      delivery_title: options.subject,
+
+      // Contenu
+      message: options.html, // Contenu HTML complet
+      content: options.html, // Alias courant
+      html_content: options.html, // Autre alias courant
+
+      // Version texte
       text: options.text || '',
+      text_content: options.text || '',
+
+      // Métadonnées
+      reply_to: options.from || this.config.fromEmail,
+
+      // Paramètres personnalisés (prennent le pas sur les défauts)
       ...options.templateParams,
     };
 
@@ -175,7 +198,7 @@ export class EmailService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : EMAIL_ERRORS.SEND_FAILED;
       const emailError = new Error(errorMessage, { cause: error });
-      
+
       errorHandler.handleError(emailError, {
         type: 'API_ERROR',
         context: {
@@ -184,7 +207,7 @@ export class EmailService {
           serviceId: this.config.serviceId,
         },
       });
-      
+
       throw emailError;
     }
   }
@@ -192,7 +215,7 @@ export class EmailService {
   // Méthode utilitaire pour obtenir un message d'erreur convivial
   private static getErrorMessage(error: any): string {
     if (!error) return 'Erreur inconnue';
-    
+
     // Gestion des erreurs spécifiques d'EmailJS
     if (error.status) {
       switch (error.status) {
@@ -203,18 +226,18 @@ export class EmailService {
         case 500: return 'Erreur interne du serveur EmailJS.';
       }
     }
-    
+
     // Messages d'erreur courants
     const errorMessage = error.text || error.message || String(error);
-    
+
     if (errorMessage.includes('public key')) {
       return 'Clé publique (User ID) invalide. Vérifiez votre configuration.';
     }
-    
+
     if (errorMessage.includes('template') || errorMessage.includes('service')) {
       return 'Service ou modèle introuvable. Vérifiez vos IDs de service et de modèle.';
     }
-    
+
     return `Erreur lors de l'envoi de l'email: ${errorMessage}`;
   }
 
@@ -232,7 +255,7 @@ export class EmailService {
       // Utiliser la dernière version stable d'EmailJS
       script.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js';
       script.async = true;
-      
+
       script.onload = () => {
         // Laisser un peu de temps pour l'initialisation
         setTimeout(() => {
@@ -247,12 +270,12 @@ export class EmailService {
           }
         }, 100);
       };
-      
+
       script.onerror = (error) => {
         console.error('Erreur de chargement du script EmailJS:', error);
         reject(new Error('Impossible de charger le script EmailJS. Vérifiez votre connexion internet.'));
       };
-      
+
       document.head.appendChild(script);
     });
   }
@@ -260,11 +283,11 @@ export class EmailService {
   // Méthode utilitaire pour formater une date au format français
   private static formatDate(dateString: string): string {
     if (!dateString) return 'Date non spécifiée';
-    
+
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return 'Date invalide';
-      
+
       return date.toLocaleDateString('fr-FR', {
         year: 'numeric',
         month: 'long',
@@ -285,20 +308,14 @@ export class EmailService {
     const userPosition = userProfile?.position || '';
     const userEmail = userProfile?.email || '';
     const userPhone = userProfile?.phone || '';
-    
+
     // Date de génération du rapport
     const now = new Date();
     const generatedDate = this.formatDate(now.toISOString());
-    
+
     // Extraire la période du rapport si disponible
     const startDate = report.startDate ? this.formatDate(report.startDate) : 'Non spécifiée';
     const endDate = report.endDate ? this.formatDate(report.endDate) : 'Maintenant';
-    
-    // Nettoyer le contenu HTML pour la version texte
-    const textContent = (report.content || '')
-      .replace(/<[^>]*>?/gm, '') // Supprimer les balises HTML
-      .replace(/\s+/g, ' ') // Remplacer les espaces multiples par un seul
-      .trim();
 
     return `
       <!DOCTYPE html>
@@ -306,122 +323,149 @@ export class EmailService {
       <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${report.title || 'Rapport'}</title>
+        <title>${report.title || 'Delivery'}</title>
         <style type="text/css">
           /* Styles de base pour la compatibilité email */
-          body, #bodyTable, #bodyCell { height: 100% !important; margin: 0; padding: 0; width: 100% !important; }
+          body, #bodyTable, #bodyCell { height: 100% !important; margin: 0; padding: 0; width: 100% !important; background-color: #f3f4f6; }
           table { border-collapse: collapse; }
-          img, a img { border: 0; outline: none; text-decoration: none; }
-          h1, h2, h3, h4, h5, h6 { margin: 0; padding: 0; }
-          p { margin: 1em 0; }
           
-          /* Styles spécifiques */
-          .email-container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          /* Styles du conteneur optimisés */
+          .email-container { 
+            max-width: 600px; 
+            margin: 20px auto; 
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+          }
           
           .header { 
-            background-color: #4f46e5; 
-            color: #ffffff; 
-            padding: 25px 20px; 
+            background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%); 
+            padding: 40px 30px; 
             text-align: center; 
-            border-radius: 8px 8px 0 0; 
           }
           
-          .header h1 { 
+          .header-title { 
             margin: 0; 
-            font-size: 24px; 
-            line-height: 1.3; 
+            font-size: 28px; 
+            font-weight: 700;
             color: #ffffff;
+            letter-spacing: -0.5px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
           }
           
-          .header p { 
+          .header-period { 
             margin: 10px 0 0; 
-            font-size: 16px; 
-            opacity: 0.9; 
-            color: #e0e7ff;
+            font-size: 14px; 
+            color: rgba(255, 255, 255, 0.9);
+            background-color: rgba(255, 255, 255, 0.2);
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
           }
           
           .content { 
-            padding: 25px 20px; 
-            background-color: #ffffff; 
-            border: 1px solid #e5e7eb; 
-            border-top: none;
+            padding: 40px 30px; 
+            color: #1f2937;
             line-height: 1.6;
+          }
+          
+          .content h2 {
+            color: #111827;
+            font-size: 20px;
+            margin-top: 0;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 10px;
+          }
+          
+          .report-body {
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            font-size: 15px;
             color: #374151;
           }
           
-          .footer { 
-            margin-top: 20px; 
-            padding-top: 20px; 
-            border-top: 1px solid #e5e7eb; 
-            font-size: 12px; 
-            color: #6b7280;
-            line-height: 1.5;
-          }
-          
-          .signature { 
-            margin-top: 30px; 
+          .signature-box { 
+            margin-top: 40px; 
             padding-top: 20px; 
             border-top: 1px solid #e5e7eb;
-            color: #4b5563;
           }
           
-          .signature p { 
-            margin: 5px 0; 
-            line-height: 1.5;
+          .signature-name {
+            font-weight: 700;
+            color: #111827;
+            font-size: 16px;
+            margin-bottom: 4px;
           }
           
-          .signature .name {
-            font-weight: 600;
-            color: #1f2937;
+          .signature-role {
+            color: #4f46e5;
+            font-weight: 500;
+            font-size: 14px;
+            margin-bottom: 12px;
           }
           
-          .signature .position {
-            font-style: italic;
-            color: #4b5563;
-          }
-          
-          .signature .contact {
-            color: #6b7280;
+          .contact-info {
             font-size: 13px;
+            color: #6b7280;
+            margin: 2px 0;
+          }
+          
+          .footer { 
+            background-color: #f9fafb;
+            padding: 20px; 
+            text-align: center;
+            border-top: 1px solid #e5e7eb;
+          }
+          
+          .footer-text {
+            margin: 0; 
+            font-size: 12px; 
+            color: #9ca3af;
           }
           
           @media only screen and (max-width: 600px) {
-            .email-container {
-              width: 100% !important;
-            }
-            .content, .header {
-              padding: 15px !important;
-            }
+            .email-container { width: 100% !important; margin: 0 !important; border-radius: 0; }
+            .header, .content { padding: 25px 20px !important; }
+            .header-title { font-size: 24px !important; }
           }
         </style>
       </head>
-      <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
-        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+      <body>
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" height="100%">
           <tr>
-            <td align="center" valign="top">
-              <table class="email-container" border="0" cellpadding="0" cellspacing="0" width="600">
-                <!-- En-tête -->
+            <td align="center" valign="top" style="padding: 20px 0;">
+              <!-- Container Principal -->
+              <table class="email-container" border="0" cellpadding="0" cellspacing="0">
+                <!-- En-tête avec Gradient -->
                 <tr>
                   <td class="header">
-                    <h1>${report.title || 'Rapport d\'activité'}</h1>
-                    <p>Période du ${startDate} au ${endDate}</p>
+                    <h1 class="header-title">${report.title || 'Delivery de Projet'}</h1>
+                    <p class="header-period">📅 Du ${startDate} au ${endDate}</p>
                   </td>
                 </tr>
                 
-                <!-- Contenu principal -->
+                <!-- Contenu Principal -->
                 <tr>
                   <td class="content">
-                    <!-- Contenu du rapport -->
-                    <div style="margin-bottom: 20px;">
-                      ${report.content || '<p>Aucun contenu disponible.</p>'}
+                    <h2>Rapport d'Exécution</h2>
+                    
+                    <!-- Corps du Rapport -->
+                    <div class="report-body">
+                      ${report.content || '<p>Contenu non disponible.</p>'}
                     </div>
                     
-                    <!-- Signature -->
-                    <div class="signature">
-                      <p class="name">${userName}</p>
-                      ${userPosition ? `<p class="position">${userPosition}</p>` : ''}
-                      ${userEmail ? `<p class="contact">${userEmail}</p>` : ''}
-                      ${userPhone ? `<p class="contact">${userPhone}</p>` : ''}
+                    <!-- Signature Professionnelle -->
+                    <div class="signature-box">
+                      <p style="margin-bottom: 15px;">Cordialement,</p>
+                      <div class="signature-name">${userName}</div>
+                      ${userPosition ? `<div class="signature-role">${userPosition}</div>` : ''}
+                      ${userEmail ? `<div class="contact-info">📧 ${userEmail}</div>` : ''}
+                      ${userPhone ? `<div class="contact-info">📱 ${userPhone}</div>` : ''}
                     </div>
                   </td>
                 </tr>
@@ -429,14 +473,11 @@ export class EmailService {
                 <!-- Pied de page -->
                 <tr>
                   <td class="footer">
-                    <p style="margin: 0 0 5px 0;">
-                      Cet email a été généré automatiquement par l'application Gestion de Projet.
+                    <p class="footer-text">
+                      Ce delivery a été généré automatiquement via <strong>Gestion de Projet</strong>.
                     </p>
-                    <p style="margin: 0 0 5px 0; font-size: 11px; color: #9ca3af;">
-                      Généré le ${generatedDate}
-                    </p>
-                    <p style="margin: 0; font-size: 11px; color: #9ca3af;">
-                      © ${now.getFullYear()} Gestion de Projet. Tous droits réservés.
+                    <p class="footer-text" style="margin-top: 5px;">
+                      Document généré le ${generatedDate}
                     </p>
                   </td>
                 </tr>

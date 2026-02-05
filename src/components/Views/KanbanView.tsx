@@ -2,6 +2,7 @@ import { useCallback, useState, useEffect, useRef } from 'react';
 import { DragDropContext, RBDDroppable as Droppable, RBDDraggable as Draggable, RBDDropResult as DropResult } from '../DnDWrapper';
 import { Plus, BarChart3, GripVertical, ChevronDown, ChevronUp, X, Trash2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { Task } from '../../types';
 import { TaskCard } from '../Tasks/TaskCard';
 import { AddTaskForm } from '../Tasks/AddTaskForm';
 import { Card } from '../UI/Card';
@@ -18,21 +19,21 @@ interface Column {
 
 // Colonnes par défaut
 const defaultColumns: Omit<Column, 'tasks'>[] = [
-  { 
-    id: 'todo', 
-    title: 'À faire', 
+  {
+    id: 'todo',
+    title: 'À faire',
     gradient: 'from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700',
     iconColor: 'from-gray-500 to-gray-600'
   },
-  { 
-    id: 'in-progress', 
-    title: 'En cours', 
+  {
+    id: 'in-progress',
+    title: 'En cours',
     gradient: 'from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20',
     iconColor: 'from-blue-500 to-cyan-500'
   },
-  { 
-    id: 'done', 
-    title: 'Terminé', 
+  {
+    id: 'done',
+    title: 'Terminé',
     gradient: 'from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20',
     iconColor: 'from-green-500 to-emerald-500'
   }
@@ -68,11 +69,11 @@ export function KanbanView() {
   useEffect(() => {
     const savedColumns = localStorage.getItem('customKanbanColumns');
     const savedOrder = localStorage.getItem('kanbanColumnOrder');
-    
+
     if (savedColumns) {
       setCustomColumns(JSON.parse(savedColumns));
     }
-    
+
     if (savedOrder) {
       setColumnOrder(JSON.parse(savedOrder));
     }
@@ -81,7 +82,7 @@ export function KanbanView() {
   // Mettre à jour les colonnes quand les tâches, le projet sélectionné, les colonnes personnalisées ou l'ordre changent
   useEffect(() => {
     let tasksToDisplay = [];
-    
+
     if (selectedProjectId === 'all') {
       // Ne prendre que les tâches des projets actifs
       tasksToDisplay = state.projects
@@ -90,8 +91,8 @@ export function KanbanView() {
     } else {
       // Vérifier que le projet sélectionné est actif
       const selectedProject = state.projects.find(p => p.id === selectedProjectId);
-      tasksToDisplay = (selectedProject && selectedProject.status === 'active') 
-        ? selectedProject.tasks 
+      tasksToDisplay = (selectedProject && selectedProject.status === 'active')
+        ? selectedProject.tasks
         : [];
     }
 
@@ -107,36 +108,36 @@ export function KanbanView() {
       tasks: tasksToDisplay.filter(t => t.status === col.id),
       isCustom: true
     }));
-    
+
     // Fusionner les colonnes
     const allColumns = [...defaultCols, ...customCols];
-    
+
     // Si on a un ordre défini, on l'applique
     if (columnOrder.length > 0) {
       // Vérifier que toutes les colonnes sont dans l'ordre
       const allColumnIds = allColumns.map(col => col.id);
       const validOrder = columnOrder.filter(id => allColumnIds.includes(id));
-      
+
       // Ajouter les colonnes manquantes à la fin
       const missingColumns = allColumns.filter(col => !validOrder.includes(col.id));
       const finalOrder = [...validOrder, ...missingColumns.map(col => col.id)];
-      
+
       // Trier les colonnes selon l'ordre défini
       allColumns.sort((a, b) => {
         return finalOrder.indexOf(a.id) - finalOrder.indexOf(b.id);
       });
     }
-    
+
     setColumns(allColumns);
   }, [state.projects, selectedProjectId, customColumns, columnOrder]);
 
   // Ajouter une nouvelle colonne personnalisée
   const handleAddColumn = () => {
     if (!newColumnTitle.trim()) return;
-    
+
     const newColumnId = `custom-${Date.now()}`;
     const selectedColor = availableColors[selectedColorIndex];
-    
+
     const newColumn = {
       id: newColumnId,
       title: newColumnTitle.trim(),
@@ -144,13 +145,13 @@ export function KanbanView() {
       iconColor: selectedColor.icon,
       isCustom: true
     };
-    
+
     const updatedCustomColumns = [...customColumns, newColumn];
     setCustomColumns(updatedCustomColumns);
-    
+
     // Sauvegarder dans le stockage local
     localStorage.setItem('customKanbanColumns', JSON.stringify(updatedCustomColumns));
-    
+
     // Réinitialiser le formulaire
     setNewColumnTitle('');
     setIsAddingColumn(false);
@@ -160,21 +161,21 @@ export function KanbanView() {
   // Supprimer une colonne personnalisée avec confirmation
   const handleDeleteColumn = (columnId: string) => {
     console.log('handleDeleteColumn appelée avec ID:', columnId);
-    
+
     // Vérifier si la colonne est une colonne personnalisée
     const isCustomColumn = customColumns.some(col => col.id === columnId);
     console.log('Est une colonne personnalisée:', isCustomColumn);
-    
+
     if (!isCustomColumn) {
       console.log('La colonne ne peut pas être supprimée car elle n\'est pas personnalisée');
       return;
     }
-    
+
     // Demander confirmation avant de supprimer
     const confirmDelete = window.confirm(
       'Êtes-vous sûr de vouloir supprimer cette colonne ? Toutes les tâches qu\'elle contient seront déplacées dans "À faire".'
     );
-    
+
     if (confirmDelete) {
       // Mettre à jour les tâches des projets
       const updatedProjects = state.projects.map(project => {
@@ -188,29 +189,29 @@ export function KanbanView() {
           }
           return task;
         });
-        
+
         return {
           ...project,
           tasks: updatedTasks
         };
       });
-      
+
       // Mettre à jour les projets avec les tâches mises à jour
       dispatch({
         type: 'SET_PROJECTS',
         payload: updatedProjects
       });
-      
+
       // Mettre à jour l'état local des colonnes personnalisées
       const updatedCustomColumns = customColumns.filter(col => col.id !== columnId);
       setCustomColumns(updatedCustomColumns);
       localStorage.setItem('customKanbanColumns', JSON.stringify(updatedCustomColumns));
-      
+
       // Mettre à jour l'ordre des colonnes
       const updatedOrder = columnOrder.filter(id => id !== columnId);
       setColumnOrder(updatedOrder);
       localStorage.setItem('kanbanColumnOrder', JSON.stringify(updatedOrder));
-      
+
       // Forcer la mise à jour des colonnes
       setColumns(prevColumns => prevColumns.filter(col => col.id !== columnId));
     }
@@ -260,20 +261,20 @@ export function KanbanView() {
       if (newColumnOrder.length === 0) {
         newColumnOrder.push(...columns.map(col => col.id));
       }
-      
+
       const [movedColumnId] = newColumnOrder.splice(source.index, 1);
       newColumnOrder.splice(destination.index, 0, movedColumnId);
-      
+
       // Mettre à jour l'ordre des colonnes
       setColumnOrder(newColumnOrder);
       localStorage.setItem('kanbanColumnOrder', JSON.stringify(newColumnOrder));
-      
+
       // Mettre à jour l'ordre des colonnes dans l'état
       const newColumns = [...columns];
       const movedColumnIndex = newColumns.findIndex(col => col.id === movedColumnId);
       const [movedColumn] = newColumns.splice(movedColumnIndex, 1);
       newColumns.splice(destination.index, 0, movedColumn);
-      
+
       setColumns(newColumns);
       return;
     }
@@ -290,25 +291,25 @@ export function KanbanView() {
     // Trouver la colonne source
     const sourceColIndex = columns.findIndex(col => col.id === source.droppableId);
     const destColIndex = columns.findIndex(col => col.id === destination.droppableId);
-    
+
     if (sourceColIndex === -1 || destColIndex === -1) return;
 
     // Créer une copie des colonnes
     const newColumns = [...columns];
-    
+
     // Retirer la tâche de la colonne source
     const [movedTask] = newColumns[sourceColIndex].tasks.splice(source.index, 1);
-    
+
     // Mettre à jour le statut de la tâche
     movedTask.status = destination.droppableId as 'todo' | 'in-progress' | 'done';
     movedTask.updatedAt = new Date().toISOString();
-    
+
     // Ajouter la tâche à la colonne de destination
     newColumns[destColIndex].tasks.splice(destination.index, 0, movedTask);
-    
+
     // Mettre à jour l'état local immédiatement pour un meilleur ressenti
     setColumns(newColumns);
-    
+
     // Mettre à jour l'état global
     dispatch({
       type: 'UPDATE_TASK',
@@ -317,7 +318,7 @@ export function KanbanView() {
   }, [dispatch, columns]);
 
   return (
-    <div className="space-y-8 max-h-[95vh] overflow-y-hidden">
+    <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden space-y-4">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-4">
@@ -341,16 +342,16 @@ export function KanbanView() {
             Ajouter une colonne
           </button>
         </div>
-        
+
         {/* Sélecteur de projet */}
         <div className="relative">
-          <button 
+          <button
             onClick={() => setIsProjectSelectOpen(!isProjectSelectOpen)}
             className="flex items-center justify-between w-full md:w-64 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             <span className="truncate">
-              {selectedProjectId === 'all' 
-                ? 'Tous les projets' 
+              {selectedProjectId === 'all'
+                ? 'Tous les projets'
                 : state.projects.find(p => p.id === selectedProjectId)?.name || 'Sélectionner un projet'}
             </span>
             {isProjectSelectOpen ? (
@@ -359,11 +360,11 @@ export function KanbanView() {
               <ChevronDown className="w-5 h-5 text-gray-400 ml-2" />
             )}
           </button>
-          
+
           {isProjectSelectOpen && (
             <>
-              <div 
-                className="fixed inset-0 z-40" 
+              <div
+                className="fixed inset-0 z-40"
                 onClick={() => setIsProjectSelectOpen(false)}
               />
               <div className="absolute z-50 mt-1 w-full md:w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden">
@@ -373,32 +374,30 @@ export function KanbanView() {
                       setSelectedProjectId('all');
                       setIsProjectSelectOpen(false);
                     }}
-                    className={`w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
-                      selectedProjectId === 'all' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : ''
-                    }`}
+                    className={`w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${selectedProjectId === 'all' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : ''
+                      }`}
                   >
                     Tous les projets
                   </button>
                   {state.projects
                     .filter(project => project.status === 'active')
                     .map(project => (
-                    <button
-                      key={project.id}
-                      onClick={() => {
-                        setSelectedProjectId(project.id);
-                        setIsProjectSelectOpen(false);
-                      }}
-                      className={`w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center ${
-                        selectedProjectId === project.id ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : ''
-                      }`}
-                    >
-                      <div 
-                        className="w-2 h-2 rounded-full mr-3 flex-shrink-0" 
-                        style={{ backgroundColor: project.color }}
-                      />
-                      <span className="truncate">{project.name}</span>
-                    </button>
-                  ))}
+                      <button
+                        key={project.id}
+                        onClick={() => {
+                          setSelectedProjectId(project.id);
+                          setIsProjectSelectOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center ${selectedProjectId === project.id ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : ''
+                          }`}
+                      >
+                        <div
+                          className="w-2 h-2 rounded-full mr-3 flex-shrink-0"
+                          style={{ backgroundColor: project.color }}
+                        />
+                        <span className="truncate">{project.name}</span>
+                      </button>
+                    ))}
                 </div>
               </div>
             </>
@@ -455,176 +454,171 @@ export function KanbanView() {
         <DragDropContext onDragEnd={onDragEnd}>
           <Droppable droppableId="all-columns" direction="horizontal" type="COLUMN">
             {(provided) => (
-              <div 
+              <div
                 ref={provided.innerRef}
                 {...provided.droppableProps}
-                className="flex space-x-6 pb-4 px-4" 
+                className="flex space-x-6 pb-4 px-4"
                 style={{ minWidth: 'max-content' }}
               >
-              {columns.map((column, index) => (
-                <Draggable 
-                  key={column.id} 
-                  draggableId={column.id} 
-                  index={index}
-                >
-                {(provided, snapshot) => (
-                  <div 
-                    ref={provided.innerRef}
-                    {...provided.draggableProps}
-                    className={`flex-shrink-0 w-[450px] min-h-[80vh] space-y-6 transition-all duration-200 ${
-                      snapshot.isDragging ? 'shadow-2xl scale-105 z-10' : 'shadow-md hover:shadow-lg'
-                    }`}
-                    style={{
-                      ...provided.draggableProps.style,
-                      opacity: snapshot.isDragging ? 0.9 : 1,
-                      transform: `${provided.draggableProps.style?.transform || ''} ${
-                        snapshot.isDragging ? 'rotate(1deg)' : ''
-                      }`,
-                    }}
+                {columns.map((column, index) => (
+                  <Draggable
+                    key={column.id}
+                    draggableId={column.id}
+                    index={index}
                   >
-                    <Card 
-                      className={`bg-gradient-to-br ${column.gradient} p-6`} 
-                      gradient
-                      onClick={(e) => {
-                        // Empêcher la propagation des événements de clic sur la carte
-                        e.stopPropagation();
-                      }}
-                    >
-                      <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center group">
-                          <div 
-                            className="p-1 -ml-2 mr-1 rounded-md hover:bg-white/20 transition-colors cursor-grab active:cursor-grabbing"
-                            {...provided.dragHandleProps}
-                            title="Déplacer la colonne"
-                          >
-                            <GripVertical 
-                              className="w-5 h-5 text-gray-100 dark:text-gray-300 opacity-70 group-hover:opacity-100 transition-opacity" 
-                            />
-                          </div>
-                          <h2 className="font-bold text-gray-900 dark:text-white text-xl">
-                            {column.title}
-                          </h2>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <div className={`bg-gradient-to-r ${column.iconColor} text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg`}>
-                            {column.tasks.length}
-                          </div>
-                          {column.isCustom && (
-                            <div 
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                console.log('Bouton de suppression cliqué pour la colonne:', column.id);
-                                handleDeleteColumn(column.id);
-                              }}
-                              className="p-1.5 rounded-lg transition-all duration-200 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 cursor-pointer"
-                              title="Supprimer la colonne"
-                              data-column-id={column.id}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </div>
-                          )}
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setAddingTaskColumnId(column.id);
-                            }}
-                            className={`p-2 rounded-xl transition-all duration-200 transform hover:scale-110 ${
-                              addingTaskColumnId === column.id 
-                                ? 'bg-white/20 text-white' 
-                                : 'hover:bg-white/50 dark:hover:bg-gray-700/50 text-gray-500'
-                            }`}
-                            title="Ajouter une tâche"
-                          >
-                            <Plus className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
-
-                  <Droppable droppableId={column.id} type="task">
                     {(provided, snapshot) => (
-                      <div 
+                      <div
                         ref={provided.innerRef}
-                        {...provided.droppableProps}
-                        className={`space-y-3 max-h-[75vh] overflow-y-auto scrollbar-thin p-2 rounded-lg transition-all duration-200 ${
-                          snapshot.isDraggingOver 
-                            ? 'bg-black/5 dark:bg-white/5 ring-2 ring-blue-400/50' 
-                            : 'bg-transparent'
-                        }`}
+                        {...provided.draggableProps}
+                        className={`flex-shrink-0 w-[450px] h-full transition-all duration-200 ${snapshot.isDragging ? 'shadow-2xl scale-105 z-10' : 'shadow-md hover:shadow-lg'
+                          }`}
+                        style={{
+                          ...provided.draggableProps.style,
+                          opacity: snapshot.isDragging ? 0.9 : 1,
+                          transform: `${provided.draggableProps.style?.transform || ''} ${snapshot.isDragging ? 'rotate(1deg)' : ''
+                            }`,
+                        }}
                       >
-                        {column.tasks.length > 0 ? (
-                          column.tasks.map((task, index) => (
-                            <Draggable 
-                              key={task.id} 
-                              draggableId={task.id} 
-                              index={index}
-                            >
-                              {(provided, snapshot) => (
+                        <Card
+                          className={`bg-gradient-to-br ${column.gradient} p-4 h-full flex flex-col`}
+                          gradient
+                          onClick={(e) => {
+                            // Empêcher la propagation des événements de clic sur la carte
+                            e.stopPropagation();
+                          }}
+                        >
+                          <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center group">
+                              <div
+                                className="p-1 -ml-2 mr-1 rounded-md hover:bg-white/20 transition-colors cursor-grab active:cursor-grabbing"
+                                {...provided.dragHandleProps}
+                                title="Déplacer la colonne"
+                              >
+                                <GripVertical
+                                  className="w-5 h-5 text-gray-100 dark:text-gray-300 opacity-70 group-hover:opacity-100 transition-opacity"
+                                />
+                              </div>
+                              <h2 className="font-bold text-gray-900 dark:text-white text-xl">
+                                {column.title}
+                              </h2>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <div className={`bg-gradient-to-r ${column.iconColor} text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg`}>
+                                {column.tasks.length}
+                              </div>
+                              {column.isCustom && (
                                 <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  className={`mb-2 group ${snapshot.isDragging ? 'opacity-80' : 'opacity-100'}`}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    console.log('Bouton de suppression cliqué pour la colonne:', column.id);
+                                    handleDeleteColumn(column.id);
+                                  }}
+                                  className="p-1.5 rounded-lg transition-all duration-200 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 cursor-pointer"
+                                  title="Supprimer la colonne"
+                                  data-column-id={column.id}
                                 >
-                                  <div className="flex items-start">
-                                    <div 
-                                      className="p-1 -ml-1 mr-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                      {...provided.dragHandleProps}
-                                    >
-                                      <GripVertical 
-                                        size={16} 
-                                        className="text-gray-400 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300 transition-colors" 
-                                      />
-                                    </div>
-                                    <div className="flex-1">
-                                      <TaskCard 
-                                        task={task} 
-                                        showProject 
-                                        className={`transition-transform duration-200 ${
-                                          snapshot.isDragging 
-                                            ? 'shadow-lg scale-[1.02] rotate-1' 
-                                            : 'shadow-sm hover:shadow-md hover:-translate-y-0.5'
-                                        }`} 
-                                      />
-                                    </div>
-                                  </div>
+                                  <Trash2 className="w-4 h-4" />
                                 </div>
                               )}
-                            </Draggable>
-                          ))
-                        ) : (
-                          <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-8 text-center bg-white/30 dark:bg-gray-800/30 backdrop-blur-sm h-[150px] flex flex-col items-center justify-center">
-                            <div className={`w-12 h-12 bg-gradient-to-r ${column.iconColor} rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg opacity-50`}>
-                              <Plus className="w-6 h-6 text-white" />
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setAddingTaskColumnId(column.id);
+                                }}
+                                className={`p-2 rounded-xl transition-all duration-200 transform hover:scale-110 ${addingTaskColumnId === column.id
+                                  ? 'bg-white/20 text-white'
+                                  : 'hover:bg-white/50 dark:hover:bg-gray-700/50 text-gray-500'
+                                  }`}
+                                title="Ajouter une tâche"
+                              >
+                                <Plus className="w-5 h-5" />
+                              </button>
                             </div>
-                            <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">
-                              Aucune tâche {column.title.toLowerCase()}
-                            </p>
-                            <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">
-                              Glissez une tâche ici
-                            </p>
                           </div>
-                        )}
-                        {provided.placeholder}
-                        
-                        {/* Formulaire d'ajout de tâche */}
-                        {addingTaskColumnId === column.id && (
-                          <div className="mt-3">
-                            <AddTaskForm
-                              projects={state.projects}
-                              selectedProjectId={selectedProjectId === 'all' ? state.projects[0]?.id || '' : selectedProjectId}
-                              status={column.id}
-                              onAddTask={handleAddTask}
-                              onCancel={handleCancelAddTask}
-                            />
-                          </div>
-                        )}
+
+                          <Droppable droppableId={column.id} type="task">
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.droppableProps}
+                                className={`flex-1 overflow-y-auto scrollbar-thin p-2 rounded-lg transition-all duration-200 custom-scrollbar ${snapshot.isDraggingOver
+                                  ? 'bg-black/5 dark:bg-white/5 ring-2 ring-blue-400/50'
+                                  : 'bg-transparent'
+                                  }`}
+                              >
+                                {column.tasks.length > 0 ? (
+                                  column.tasks.map((task, index) => (
+                                    <Draggable
+                                      key={task.id}
+                                      draggableId={task.id}
+                                      index={index}
+                                    >
+                                      {(provided, snapshot) => (
+                                        <div
+                                          ref={provided.innerRef}
+                                          {...provided.draggableProps}
+                                          className={`mb-2 group ${snapshot.isDragging ? 'opacity-80' : 'opacity-100'}`}
+                                        >
+                                          <div className="flex items-start">
+                                            <div
+                                              className="p-1 -ml-1 mr-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                              {...provided.dragHandleProps}
+                                            >
+                                              <GripVertical
+                                                size={16}
+                                                className="text-gray-400 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300 transition-colors"
+                                              />
+                                            </div>
+                                            <div className="flex-1">
+                                              <TaskCard
+                                                task={task}
+                                                showProject
+                                                className={`transition-transform duration-200 ${snapshot.isDragging
+                                                  ? 'shadow-lg scale-[1.02] rotate-1'
+                                                  : 'shadow-sm hover:shadow-md hover:-translate-y-0.5'
+                                                  }`}
+                                              />
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </Draggable>
+                                  ))
+                                ) : (
+                                  <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-8 text-center bg-white/30 dark:bg-gray-800/30 backdrop-blur-sm h-[150px] flex flex-col items-center justify-center">
+                                    <div className={`w-12 h-12 bg-gradient-to-r ${column.iconColor} rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg opacity-50`}>
+                                      <Plus className="w-6 h-6 text-white" />
+                                    </div>
+                                    <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">
+                                      Aucune tâche {column.title.toLowerCase()}
+                                    </p>
+                                    <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">
+                                      Glissez une tâche ici
+                                    </p>
+                                  </div>
+                                )}
+                                {provided.placeholder}
+
+                                {/* Formulaire d'ajout de tâche */}
+                                {addingTaskColumnId === column.id && (
+                                  <div className="mt-3">
+                                    <AddTaskForm
+                                      projects={state.projects}
+                                      selectedProjectId={selectedProjectId === 'all' ? state.projects[0]?.id || '' : selectedProjectId}
+                                      status={column.id}
+                                      onAddTask={handleAddTask}
+                                      onCancel={handleCancelAddTask}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </Droppable>
+                        </Card>
                       </div>
                     )}
-                      </Droppable>
-                    </Card>
-                  </div>
-                )}
-              </Draggable>
+                  </Draggable>
                 ))}
                 {provided.placeholder}
               </div>

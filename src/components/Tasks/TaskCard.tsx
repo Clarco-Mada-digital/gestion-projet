@@ -37,7 +37,7 @@ const areEqual = (prevProps: TaskCardProps, nextProps: TaskCardProps): boolean =
     JSON.stringify(prevProps.task.subTasks) === JSON.stringify(nextProps.task.subTasks) &&
     prevProps.className === nextProps.className
   );
-  
+
   return taskPropsEqual;
 };
 
@@ -61,7 +61,7 @@ const TaskCardComponent = ({ task, className = '' }: TaskCardProps): JSX.Element
   // Récupérer le projet associé à la tâche
   const project = state.projects.find(p => p.id === task.projectId);
   const projectName = project?.name || 'Projet inconnu';
-  
+
   // Récupérer les utilisateurs assignés
   const assignedUsers = state.users.filter(u => task.assignees.includes(u.id));
 
@@ -119,7 +119,7 @@ const TaskCardComponent = ({ task, className = '' }: TaskCardProps): JSX.Element
       if (!task || typeof task !== 'object') {
         throw new Error('Tâche invalide');
       }
-      
+
       // Vérifier les propriétés essentielles
       if (!task.id || !task.title || !task.projectId) {
         throw new Error('Tâche manquante des propriétés requises');
@@ -157,30 +157,32 @@ const TaskCardComponent = ({ task, className = '' }: TaskCardProps): JSX.Element
   return (
     <div className="relative group">
       <Card
-        className={`p-4 transition-all duration-200 ${
-          isOverdue ? 'border-l-4 border-red-500 dark:border-red-700' : ''
-        } ${
-          isToday ? 'ring-1 ring-blue-500/30 dark:ring-blue-500/50' : ''
-        } ${className} hover:shadow-md`}
+        className={`p-4 transition-all duration-200 cursor-pointer ${isOverdue ? 'border-l-4 border-red-500 dark:border-red-700' : ''
+          } ${isToday ? 'ring-1 ring-blue-500/30 dark:ring-blue-500/50' : ''
+          } ${className} hover:shadow-md`}
         hover
         gradient
+        onClick={handleEdit}
       >
         {/* En-tête de la carte avec titre et actions */}
         <div className="flex justify-between items-start gap-3 mb-3">
           <div className="flex-1 min-w-0">
-            <h3 className="text-base font-medium text-gray-900 dark:text-gray-100 line-clamp-1">
+            <h3 className="text-base font-medium text-gray-900 dark:text-gray-100 line-clamp-1 break-words">
               {task.title}
             </h3>
             <p className="text-xs text-gray-500 dark:text-gray-400 truncate" title={projectName}>
               {projectName}
             </p>
           </div>
-          
+
           {/* Boutons d'action */}
           <div className="flex items-center space-x-1">
             {/* Bouton d'édition rapide */}
             <button
-              onClick={handleEdit}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEdit();
+              }}
               className="p-1.5 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
               aria-label="Modifier la tâche"
             >
@@ -199,9 +201,9 @@ const TaskCardComponent = ({ task, className = '' }: TaskCardProps): JSX.Element
               >
                 <MoreHorizontal className="w-4 h-4" />
               </button>
-              
+
               {showMenu && (
-                <div 
+                <div
                   className="absolute right-0 z-10 mt-1 w-40 origin-top-right rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -238,7 +240,7 @@ const TaskCardComponent = ({ task, className = '' }: TaskCardProps): JSX.Element
         <div className="space-y-3">
           {/* Description */}
           {task.description && (
-            <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 leading-relaxed">
+            <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 leading-relaxed break-all">
               {task.description}
             </p>
           )}
@@ -260,9 +262,8 @@ const TaskCardComponent = ({ task, className = '' }: TaskCardProps): JSX.Element
                   {assignedUsers.map((user, index) => (
                     <div
                       key={user.id}
-                      className={`w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/80 flex items-center justify-center text-xs font-medium text-blue-700 dark:text-blue-200 border-2 border-white dark:border-gray-800 ${
-                        index > 0 ? '-ml-2' : ''
-                      }`}
+                      className={`w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/80 flex items-center justify-center text-xs font-medium text-blue-700 dark:text-blue-200 border-2 border-white dark:border-gray-800 ${index > 0 ? '-ml-2' : ''
+                        }`}
                       title={user.name || user.email}
                     >
                       {user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
@@ -291,16 +292,14 @@ const TaskCardComponent = ({ task, className = '' }: TaskCardProps): JSX.Element
           <div className="pt-2 flex items-center justify-between border-t border-gray-100 dark:border-gray-700/50">
             <button
               onClick={toggleStatus}
-              className={`flex items-center text-xs font-medium transition-colors ${
-                task.status === 'done'
-                  ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300'
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-              }`}
+              className={`flex items-center text-xs font-medium transition-colors ${task.status === 'done'
+                ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300'
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
             >
-              <CheckCircle2 
-                className={`w-3.5 h-3.5 mr-1.5 ${
-                  task.status === 'done' ? 'fill-current' : ''
-                }`} 
+              <CheckCircle2
+                className={`w-3.5 h-3.5 mr-1.5 ${task.status === 'done' ? 'fill-current' : ''
+                  }`}
               />
               {task.status === 'done' ? 'Terminée' : 'Marquer comme terminée'}
             </button>

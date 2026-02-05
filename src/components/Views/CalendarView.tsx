@@ -458,7 +458,7 @@ export function CalendarView() {
                     >
                       <div className="flex items-center justify-between">
                         <div className="space-y-1">
-                          <h4 className={`font-bold transition-colors ${isDone ? 'text-green-800 dark:text-green-400 line-through' : 'text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400'}`}>
+                          <h4 className={`font-bold transition-colors break-words ${isDone ? 'text-green-800 dark:text-green-400 line-through' : 'text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400'}`}>
                             {task.title}
                           </h4>
                           <span className="text-xs font-semibold px-2 py-0.5 bg-white/50 dark:bg-black/20 rounded-full text-gray-600 dark:text-gray-400">
