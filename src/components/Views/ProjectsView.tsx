@@ -131,7 +131,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
   getProjectStats,
   children
 }) => {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const stats = getProjectStats(project);
@@ -152,7 +152,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
 
   return (
     <Card
-      className="p-6 group cursor-pointer relative overflow-hidden"
+      className="p-6 group cursor-pointer relative"
       hover
       gradient
       onClick={() => onEdit(project)}
@@ -192,7 +192,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
           </button>
 
           {showMenu && (
-            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg py-1 z-50 border border-gray-200 dark:border-gray-700">
+            <div className="absolute right-0 top-10 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl py-1 z-[100] border border-gray-200 dark:border-gray-700 animate-in fade-in zoom-in duration-200">
               {/* Option de Sync / Partage */}
               <button
                 onClick={async (e) => {
