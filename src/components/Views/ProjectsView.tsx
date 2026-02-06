@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Archive, AlertTriangle, Calendar, Cpu, ChevronDown, Loader2 } from 'lucide-react';
+import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Archive, AlertTriangle, Calendar, Cpu, ChevronDown, Loader2, LogOut } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { firebaseService } from '../../services/collaboration/firebaseService';
 import { Card } from '../UI/Card';
@@ -152,22 +152,31 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
 
   return (
     <Card
-      className="p-6 group cursor-pointer"
+      className="p-6 group cursor-pointer relative overflow-hidden"
       hover
       gradient
       onClick={() => onEdit(project)}
     >
       <div className="flex items-start justify-between mb-6">
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 min-w-0">
           <div
-            className="w-5 h-5 rounded-full shadow-lg"
+            className="w-5 h-5 rounded-full shadow-lg flex-shrink-0"
             style={{ backgroundColor: project.color }}
           />
-          <h3 className={`font-bold text-gray-900 dark:text-white ${state.appSettings?.fontSize === 'small' ? 'text-lg' :
-            state.appSettings?.fontSize === 'large' ? 'text-2xl' : 'text-xl'
-            }`}>
-            {project.name}
-          </h3>
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className={`font-bold text-gray-900 dark:text-white truncate ${state.appSettings?.fontSize === 'small' ? 'text-lg' :
+                state.appSettings?.fontSize === 'large' ? 'text-2xl' : 'text-xl'
+                }`}>
+                {project.name}
+              </h3>
+              {project.source === 'firebase' && (
+                <span className="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800 uppercase tracking-wider">
+                  Cloud
+                </span>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="relative" ref={menuRef}>
@@ -228,9 +237,10 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                             dispatch({ type: 'UPDATE_PROJECT', payload: projectToSync });
 
                             message.success("Projet synchronisé avec succès !");
-                          } catch (error) {
-                            console.error("Erreur de sync:", error);
-                            message.error("Erreur lors de la synchronisation.");
+                          } catch (error: any) {
+                            console.error("Détails de l'erreur de synchronisation:", error);
+                            // On affiche l'erreur réelle pour aider au débug
+                            message.error(`Erreur lors de la synchronisation : ${error.message || 'Erreur inconnue'}`);
                           } finally {
                             hide();
                           }
@@ -324,12 +334,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
         </p>
       )}
 
-      {/* Badge Cloud */}
-      {project.source === 'firebase' && (
-        <div className="absolute top-4 right-12 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-bold border border-blue-200">
-          Cloud
-        </div>
-      )}
+
 
       {/* Reste du render... */}
       <div className="space-y-4 mb-6">
