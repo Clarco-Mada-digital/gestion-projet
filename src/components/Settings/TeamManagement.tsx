@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
-import { Team, TeamMember } from '../../types';
+import { User, TeamMember } from '../../types';
 import { PlusIcon, PencilIcon, TrashIcon, EnvelopeIcon, PhoneIcon, UserCircleIcon } from '@heroicons/react/24/outline';
 
 interface TeamManagementProps {
@@ -9,7 +9,7 @@ interface TeamManagementProps {
 
 export function TeamManagement({ onEditMember }: TeamManagementProps) {
   const { state, dispatch } = useApp();
-  
+
   // Utiliser directement les utilisateurs comme membres d'équipe
   // Ne pas afficher l'utilisateur actuel dans la liste
   const teamMembers = state.users.filter(user => user.id !== state.users[0]?.id) || [];
@@ -26,7 +26,7 @@ export function TeamManagement({ onEditMember }: TeamManagementProps) {
         alert('Impossible de supprimer l\'utilisateur principal');
         return;
       }
-      
+
       // Supprimer l'utilisateur
       dispatch({ type: 'REMOVE_USER', payload: memberId });
     }

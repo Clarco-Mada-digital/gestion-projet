@@ -22,7 +22,8 @@ import {
   Settings as SettingsIcon,
   LogOut,
   ShieldCheck,
-  Info
+  Info,
+  Check
 } from 'lucide-react';
 
 export function SettingsView() {
@@ -783,8 +784,8 @@ export function SettingsView() {
                         <dt className="text-sm font-medium text-gray-500 dark:text-gray-300">Notifications email</dt>
                         <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${formData.emailNotifications
-                              ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
-                              : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
+                            ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
+                            : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
                             }`}>
                             {formData.emailNotifications ? 'Activées' : 'Désactivées'}
                           </span>
@@ -794,8 +795,8 @@ export function SettingsView() {
                         <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Notifications push</dt>
                         <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${formData.pushNotifications
-                              ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
-                              : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
+                            ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
+                            : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
                             }`}>
                             {formData.pushNotifications ? 'Activées' : 'Désactivées'}
                           </span>
@@ -869,8 +870,8 @@ export function SettingsView() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`w-full group flex items-center px-4 py-3.5 text-sm font-medium rounded-2xl transition-all duration-200 ${activeTab === tab.id
-                    ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20 translate-x-1'
-                    : 'text-gray-600 hover:bg-white dark:text-gray-400 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white'
+                  ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20 translate-x-1'
+                  : 'text-gray-600 hover:bg-white dark:text-gray-400 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white'
                   }`}
               >
                 <tab.icon className={`mr-3.5 flex-shrink-0 h-5 w-5 transition-colors ${activeTab === tab.id ? 'text-white' : 'text-gray-400 group-hover:text-blue-500'
