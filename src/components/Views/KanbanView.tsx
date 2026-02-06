@@ -7,6 +7,15 @@ import { TaskCard } from '../Tasks/TaskCard';
 import { AddTaskForm } from '../Tasks/AddTaskForm';
 import { Card } from '../UI/Card';
 
+// Normalisation des statuts (minuscule, sans accents, sans 's' à la fin)
+const normalizeStatusName = (name: string) => {
+  return name
+    .toLowerCase()
+    .trim()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Supprime les accents
+    .replace(/s$/, ""); // Supprime le 's' final pour le pluriel
+};
+
 // Type pour les colonnes
 interface Column {
   id: string;
@@ -58,6 +67,8 @@ export function KanbanView() {
   const [newColumnTitle, setNewColumnTitle] = useState('');
   const [selectedColorIndex, setSelectedColorIndex] = useState(0);
   const [addingTaskColumnId, setAddingTaskColumnId] = useState<string | null>(null);
+  const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
+  const [editingColumnTitle, setEditingColumnTitle] = useState('');
   const columnTitleRef = useRef<HTMLInputElement>(null);
 
   // Charger les projets
@@ -65,57 +76,170 @@ export function KanbanView() {
     // Effet de chargement des données
   }, [state.projects]);
 
-  // Charger les colonnes personnalisées et l'ordre des colonnes depuis le stockage local
+  // Charger les colonnes personnalisées et l'ordre des colonnes
   useEffect(() => {
-    const savedColumns = localStorage.getItem('customKanbanColumns');
-    const savedOrder = localStorage.getItem('kanbanColumnOrder');
+    let savedCols = [];
+    let savedOrder = [];
 
-    if (savedColumns) {
-      setCustomColumns(JSON.parse(savedColumns));
+    if (selectedProjectId === 'all') {
+      savedCols = state.appSettings.kanbanSettings?.customColumns || [];
+      savedOrder = state.appSettings.kanbanSettings?.columnOrder || [];
+    } else {
+      const project = state.projects.find(p => p.id === selectedProjectId);
+      savedCols = project?.kanbanSettings?.customColumns || [];
+      savedOrder = project?.kanbanSettings?.columnOrder || [];
     }
 
-    if (savedOrder) {
-      setColumnOrder(JSON.parse(savedOrder));
+    // Fallback sur localStorage pour la migration
+    if (savedCols.length === 0) {
+      const localCols = localStorage.getItem('customKanbanColumns');
+      if (localCols) savedCols = JSON.parse(localCols);
     }
-  }, []);
+    if (savedOrder.length === 0) {
+      const localOrder = localStorage.getItem('kanbanColumnOrder');
+      if (localOrder) savedOrder = JSON.parse(localOrder);
+    }
+
+    setCustomColumns(savedCols);
+    setColumnOrder(savedOrder);
+  }, [selectedProjectId, state.appSettings.kanbanSettings, state.projects]);
+
+  // Fonction utilitaire pour sauvegarder les paramètres
+  const saveKanbanSettings = (updatedCols: any[], updatedOrder: string[], updatedTaskOrder?: Record<string, string[]>) => {
+    // Récupérer l'ancien taskOrder si non fourni
+    let currentTaskOrder = updatedTaskOrder;
+    if (!currentTaskOrder) {
+      if (selectedProjectId === 'all') {
+        currentTaskOrder = state.appSettings.kanbanSettings?.taskOrder || {};
+      } else {
+        const project = state.projects.find(p => p.id === selectedProjectId);
+        currentTaskOrder = project?.kanbanSettings?.taskOrder || {};
+      }
+    }
+
+    const settings = {
+      columnOrder: updatedOrder,
+      taskOrder: currentTaskOrder,
+      customColumns: updatedCols.map(c => ({
+        id: c.id,
+        title: c.title,
+        gradient: c.gradient,
+        iconColor: c.iconColor
+      }))
+    };
+
+    if (selectedProjectId === 'all') {
+      dispatch({
+        type: 'UPDATE_APP_SETTINGS',
+        payload: { kanbanSettings: settings }
+      });
+    } else {
+      const project = state.projects.find(p => p.id === selectedProjectId);
+      if (project) {
+        dispatch({
+          type: 'UPDATE_PROJECT',
+          payload: {
+            ...project,
+            kanbanSettings: settings,
+            updatedAt: new Date().toISOString()
+          }
+        });
+      }
+    }
+
+    // Garder le localStorage en backup
+    localStorage.setItem('customKanbanColumns', JSON.stringify(settings.customColumns));
+    localStorage.setItem('kanbanColumnOrder', JSON.stringify(settings.columnOrder));
+  };
 
   // Mettre à jour les colonnes quand les tâches, le projet sélectionné, les colonnes personnalisées ou l'ordre changent
   useEffect(() => {
     let tasksToDisplay = [];
 
     if (selectedProjectId === 'all') {
-      // Ne prendre que les tâches des projets actifs
       tasksToDisplay = state.projects
         .filter(project => project.status === 'active')
         .flatMap(p => p.tasks);
     } else {
-      // Vérifier que le projet sélectionné est actif
       const selectedProject = state.projects.find(p => p.id === selectedProjectId);
       tasksToDisplay = (selectedProject && selectedProject.status === 'active')
         ? selectedProject.tasks
         : [];
     }
 
-    // Créer les colonnes par défaut avec leurs tâches
     const defaultCols = defaultColumns.map(col => ({
       ...col,
       tasks: tasksToDisplay.filter(t => t.status === col.id)
     }));
 
-    // Créer les colonnes personnalisées avec leurs tâches
-    const customCols = customColumns.map(col => ({
+    const storedCustomCols = customColumns.map(col => ({
       ...col,
       tasks: tasksToDisplay.filter(t => t.status === col.id),
       isCustom: true
     }));
 
-    const allColumns = [...defaultCols, ...customCols];
+    const existingColIds = new Set([...defaultCols, ...storedCustomCols].map(c => c.id));
+    const normalizedToId = new Map<string, string>();
+    [...defaultCols, ...storedCustomCols].forEach(col => {
+      normalizedToId.set(normalizeStatusName(col.title), col.id);
+      normalizedToId.set(normalizeStatusName(col.id), col.id);
+    });
 
-    // Charger l'ordre des tâches depuis le localStorage
-    const savedTaskOrder = localStorage.getItem('kanbanTaskOrder');
-    const taskOrder = savedTaskOrder ? JSON.parse(savedTaskOrder) : {};
+    const dynamicCols: Column[] = [];
 
-    // Appliquer l'ordre des tâches à chaque colonne
+    tasksToDisplay.forEach(task => {
+      const normalizedTaskStatus = normalizeStatusName(task.status);
+      const targetColId = normalizedToId.get(normalizedTaskStatus);
+
+      if (targetColId) {
+        // Rediriger la tâche vers la colonne existante correspondante
+        const colIndex = [...defaultCols, ...storedCustomCols, ...dynamicCols].findIndex(c => c.id === targetColId);
+        const allColsList = [...defaultCols, ...storedCustomCols, ...dynamicCols];
+        const col = allColsList[colIndex];
+
+        if (col && !col.tasks.some(t => t.id === task.id)) {
+          col.tasks.push(task);
+        }
+      } else {
+        const color = availableColors[dynamicCols.length % availableColors.length];
+
+        // Déterminer un titre lisible. Si c'est un vieil ID technique, on essaie de l'améliorer
+        let displayTitle = task.status;
+        if (task.status.startsWith('custom-')) {
+          displayTitle = 'Nouveau Statut';
+        }
+
+        const newCol: Column = {
+          id: task.status,
+          title: displayTitle,
+          tasks: [task],
+          gradient: color.gradient,
+          iconColor: color.icon,
+          isCustom: true
+        };
+        dynamicCols.push(newCol);
+        existingColIds.add(task.status);
+        normalizedToId.set(normalizedTaskStatus, task.status);
+      }
+    });
+
+    const allColumns = [...defaultCols, ...storedCustomCols, ...dynamicCols];
+
+    // Charger l'ordre des tâches
+    let taskOrder: Record<string, string[]> = {};
+    if (selectedProjectId === 'all') {
+      taskOrder = state.appSettings.kanbanSettings?.taskOrder || {};
+    } else {
+      const project = state.projects.find(p => p.id === selectedProjectId);
+      taskOrder = project?.kanbanSettings?.taskOrder || {};
+    }
+
+    // Fallback localStorage
+    if (Object.keys(taskOrder).length === 0) {
+      const savedTaskOrder = localStorage.getItem('kanbanTaskOrder');
+      if (savedTaskOrder) taskOrder = JSON.parse(savedTaskOrder);
+    }
+
     allColumns.forEach(col => {
       const orderForCol = taskOrder[col.id];
       if (orderForCol && Array.isArray(orderForCol)) {
@@ -130,7 +254,6 @@ export function KanbanView() {
       }
     });
 
-    // Si on a un ordre défini pour les colonnes, on l'applique
     if (columnOrder.length > 0) {
       const allColumnIds = allColumns.map(col => col.id);
       const validOrder = columnOrder.filter(id => allColumnIds.includes(id));
@@ -145,11 +268,24 @@ export function KanbanView() {
     setColumns(allColumns);
   }, [state.projects, selectedProjectId, customColumns, columnOrder]);
 
-  // Ajouter une nouvelle colonne personnalisée
   const handleAddColumn = () => {
     if (!newColumnTitle.trim()) return;
 
-    const newColumnId = `custom-${Date.now()}`;
+    const normalizedNewTitle = normalizeStatusName(newColumnTitle);
+
+    // Vérifier si une colonne similaire existe déjà
+    const existingCol = [...defaultColumns, ...customColumns].find(
+      col => normalizeStatusName(col.title) === normalizedNewTitle || normalizeStatusName(col.id) === normalizedNewTitle
+    );
+
+    if (existingCol) {
+      alert(`Une colonne similaire ("${existingCol.title}") existe déjà.`);
+      setIsAddingColumn(false);
+      setNewColumnTitle('');
+      return;
+    }
+
+    const newColumnId = normalizedNewTitle || `custom-${Date.now()}`;
     const selectedColor = availableColors[selectedColorIndex];
 
     const newColumn = {
@@ -162,81 +298,60 @@ export function KanbanView() {
 
     const updatedCustomColumns = [...customColumns, newColumn];
     setCustomColumns(updatedCustomColumns);
+    saveKanbanSettings(updatedCustomColumns, columnOrder);
 
-    // Sauvegarder dans le stockage local
-    localStorage.setItem('customKanbanColumns', JSON.stringify(updatedCustomColumns));
-
-    // Réinitialiser le formulaire
     setNewColumnTitle('');
     setIsAddingColumn(false);
     setSelectedColorIndex(0);
   };
 
-  // Supprimer une colonne personnalisée avec confirmation
-  const handleDeleteColumn = (columnId: string) => {
-    console.log('handleDeleteColumn appelée avec ID:', columnId);
-
-    // Vérifier si la colonne est une colonne personnalisée
-    const isCustomColumn = customColumns.some(col => col.id === columnId);
-    console.log('Est une colonne personnalisée:', isCustomColumn);
-
-    if (!isCustomColumn) {
-      console.log('La colonne ne peut pas être supprimée car elle n\'est pas personnalisée');
+  // Renommer une colonne
+  const handleRenameColumn = (columnId: string, newTitle: string) => {
+    if (!newTitle.trim()) {
+      setEditingColumnId(null);
       return;
     }
 
-    // Demander confirmation avant de supprimer
-    const confirmDelete = window.confirm(
-      'Êtes-vous sûr de vouloir supprimer cette colonne ? Toutes les tâches qu\'elle contient seront déplacées dans "À faire".'
-    );
+    const updatedCustomColumns = customColumns.map(col => {
+      if (col.id === columnId) {
+        return { ...col, title: newTitle.trim() };
+      }
+      return col;
+    });
 
-    if (confirmDelete) {
-      // Mettre à jour les tâches des projets
+    setCustomColumns(updatedCustomColumns);
+    saveKanbanSettings(updatedCustomColumns, columnOrder);
+    setEditingColumnId(null);
+  };
+
+  const handleDeleteColumn = (columnId: string) => {
+    const isCustomColumn = customColumns.some(col => col.id === columnId);
+    if (!isCustomColumn) return;
+
+    if (window.confirm('Supprimer cette colonne ?')) {
       const updatedProjects = state.projects.map(project => {
         const updatedTasks = project.tasks.map(task => {
           if (task.status === columnId) {
-            return {
-              ...task,
-              status: 'todo',
-              updatedAt: new Date().toISOString()
-            };
+            return { ...task, status: 'todo', updatedAt: new Date().toISOString() };
           }
           return task;
         });
-
-        return {
-          ...project,
-          tasks: updatedTasks
-        };
+        return { ...project, tasks: updatedTasks };
       });
 
-      // Mettre à jour les projets avec les tâches mises à jour
-      dispatch({
-        type: 'SET_PROJECTS',
-        payload: updatedProjects
-      });
+      dispatch({ type: 'SET_PROJECTS', payload: updatedProjects });
 
-      // Mettre à jour l'état local des colonnes personnalisées
       const updatedCustomColumns = customColumns.filter(col => col.id !== columnId);
-      setCustomColumns(updatedCustomColumns);
-      localStorage.setItem('customKanbanColumns', JSON.stringify(updatedCustomColumns));
-
-      // Mettre à jour l'ordre des colonnes
       const updatedOrder = columnOrder.filter(id => id !== columnId);
-      setColumnOrder(updatedOrder);
-      localStorage.setItem('kanbanColumnOrder', JSON.stringify(updatedOrder));
 
-      // Forcer la mise à jour des colonnes
-      setColumns(prevColumns => prevColumns.filter(col => col.id !== columnId));
+      setCustomColumns(updatedCustomColumns);
+      setColumnOrder(updatedOrder);
+      saveKanbanSettings(updatedCustomColumns, updatedOrder);
     }
   };
 
-  // Ajouter une nouvelle tâche
   const handleAddTask = (newTask: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (!newTask.projectId) {
-      console.error('Impossible d\'ajouter une tâche sans projet');
-      return;
-    }
+    if (!newTask.projectId) return;
 
     const task: Task = {
       ...newTask,
@@ -247,84 +362,64 @@ export function KanbanView() {
 
     dispatch({
       type: 'ADD_TASK',
-      payload: {
-        projectId: newTask.projectId,
-        task: task
-      },
+      payload: { projectId: newTask.projectId, task: task },
     });
 
     setAddingTaskColumnId(null);
   };
 
-  // Annuler l'ajout d'une tâche
   const handleCancelAddTask = () => {
     setAddingTaskColumnId(null);
   };
 
   const onDragEnd = useCallback((result: DropResult) => {
     const { source, destination, type } = result;
-
     if (!destination) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
-    // Déplacement de colonnes
     if (type === 'COLUMN') {
       const newColumns = [...columns];
       const [movedColumn] = newColumns.splice(source.index, 1);
       newColumns.splice(destination.index, 0, movedColumn);
 
       const newOrder = newColumns.map(col => col.id);
-
-      // Mettre à jour les deux états immédiatement pour un ressenti fluide
       setColumns(newColumns);
       setColumnOrder(newOrder);
-      localStorage.setItem('kanbanColumnOrder', JSON.stringify(newOrder));
+      saveKanbanSettings(customColumns, newOrder);
       return;
     }
 
-    // Déplacement de tâches
     const sourceColIndex = columns.findIndex(col => col.id === source.droppableId);
     const destColIndex = columns.findIndex(col => col.id === destination.droppableId);
-
     if (sourceColIndex === -1 || destColIndex === -1) return;
 
-    // Créer une copie profonde pour éviter les mutations d'état
     const newColumns: Column[] = JSON.parse(JSON.stringify(columns));
     const sourceCol = newColumns[sourceColIndex];
     const destCol = newColumns[destColIndex];
-
     const [movedTask] = sourceCol.tasks.splice(source.index, 1);
 
-    // Mettre à jour le statut
     movedTask.status = destination.droppableId;
     movedTask.updatedAt = new Date().toISOString();
-
-    // Insérer dans la destination
     destCol.tasks.splice(destination.index, 0, movedTask);
 
-    // Mettre à jour l'ordre des tâches dans le localStorage
-    const savedTaskOrder = localStorage.getItem('kanbanTaskOrder');
-    const taskOrder = savedTaskOrder ? JSON.parse(savedTaskOrder) : {};
-
-    // Mettre à jour l'ordre pour la colonne source
-    taskOrder[source.droppableId] = sourceCol.tasks.map(t => t.id);
-
-    // Si destination différente, mettre aussi à jour l'ordre pour la colonne destination
-    if (source.droppableId !== destination.droppableId) {
-      taskOrder[destination.droppableId] = destCol.tasks.map(t => t.id);
+    // Mettre à jour l'ordre
+    let currentTaskOrder: Record<string, string[]> = {};
+    if (selectedProjectId === 'all') {
+      currentTaskOrder = JSON.parse(JSON.stringify(state.appSettings.kanbanSettings?.taskOrder || {}));
+    } else {
+      const project = state.projects.find(p => p.id === selectedProjectId);
+      currentTaskOrder = JSON.parse(JSON.stringify(project?.kanbanSettings?.taskOrder || {}));
     }
 
-    localStorage.setItem('kanbanTaskOrder', JSON.stringify(taskOrder));
+    currentTaskOrder[source.droppableId] = sourceCol.tasks.map(t => t.id);
+    if (source.droppableId !== destination.droppableId) {
+      currentTaskOrder[destination.droppableId] = destCol.tasks.map(t => t.id);
+    }
 
-    // Mettre à jour l'état local
     setColumns(newColumns);
-
-    // Mettre à jour l'état global
-    dispatch({
-      type: 'UPDATE_TASK',
-      payload: movedTask
-    });
-  }, [dispatch, columns, columnOrder]);
+    saveKanbanSettings(customColumns, columnOrder, currentTaskOrder);
+    dispatch({ type: 'UPDATE_TASK', payload: movedTask });
+  }, [dispatch, columns, customColumns, columnOrder, selectedProjectId, state.projects, state.appSettings.kanbanSettings, saveKanbanSettings]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden space-y-4">
@@ -503,9 +598,32 @@ export function KanbanView() {
                                   className="w-5 h-5 text-gray-100 dark:text-gray-300 opacity-70 group-hover:opacity-100 transition-opacity"
                                 />
                               </div>
-                              <h2 className="font-bold text-gray-900 dark:text-white text-xl">
-                                {column.title}
-                              </h2>
+                              <div className="flex-1 min-w-0">
+                                {editingColumnId === column.id ? (
+                                  <input
+                                    type="text"
+                                    value={editingColumnTitle}
+                                    onChange={(e) => setEditingColumnTitle(e.target.value)}
+                                    onBlur={() => handleRenameColumn(column.id, editingColumnTitle)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleRenameColumn(column.id, editingColumnTitle)}
+                                    className="w-full bg-white/20 border-none rounded px-2 py-1 text-xl font-bold text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                    autoFocus
+                                  />
+                                ) : (
+                                  <h2
+                                    className="font-bold text-gray-900 dark:text-white text-xl truncate cursor-pointer hover:bg-white/10 rounded px-1 -ml-1 transition-colors"
+                                    onClick={() => {
+                                      if (column.isCustom) {
+                                        setEditingColumnId(column.id);
+                                        setEditingColumnTitle(column.title);
+                                      }
+                                    }}
+                                    title={column.isCustom ? "Cliquez pour renommer" : ""}
+                                  >
+                                    {column.title}
+                                  </h2>
+                                )}
+                              </div>
                             </div>
                             <div className="flex items-center space-x-2">
                               <div className={`bg-gradient-to-r ${column.iconColor} text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg`}>

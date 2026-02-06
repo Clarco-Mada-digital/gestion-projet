@@ -1,0 +1,42 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Fonction utilitaire pour vérifier si l'utilisateur est authentifié
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Fonction pour vérifier si l'utilisateur est membre du projet
+    function isProjectMember(resourceData) {
+      return isAuthenticated() && (
+        resourceData.ownerId == request.auth.uid || 
+        (resourceData.members != null && request.auth.uid in resourceData.members)
+      );
+    }
+
+    // Règles pour la collection 'users'
+    match /users/{userId} {
+      // Lecture : tout utilisateur connecté peut lire les profils (pour l'ajout aux équipes)
+      // Écriture : l'utilisateur ne peut modifier que son propre profil
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Règles pour la collection 'projects'
+    match /projects/{projectId} {
+      // Lecture : seul le propriétaire ou un membre peut lire le projet
+      allow read: if isAuthenticated() && isProjectMember(resource.data);
+      
+      // Création : tout utilisateur connecté peut créer un projet
+      // Note: on vérifie que le ownerId correspond bien à l'utilisateur qui crée
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+      
+      // Mise à jour : seul le propriétaire ou un membre peut modifier
+      // (On pourrait restreindre davantage pour interdire aux membres de changer le propriétaire par exemple)
+      allow update: if isAuthenticated() && isProjectMember(resource.data);
+      
+      // Suppression : seul le propriétaire peut supprimer le projet
+      allow delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+    }
+  }
+}

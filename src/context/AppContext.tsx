@@ -1,10 +1,13 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { Project, Task, User, UserSettings, ViewMode, Theme, EmailSettings, AppSettings, DEFAULT_AI_SETTINGS, FontSize, AISettings } from '../types';
+import { firebaseService } from '../services/collaboration/firebaseService';
+import { User as FirebaseUser } from 'firebase/auth';
 
 export interface AppState {
   projects: Project[];
   tasks: Task[]; // Ajout des tâches au niveau racine
   users: User[];
+  cloudUser: FirebaseUser | null;
   theme: 'light' | 'dark';
   currentView: string;
   emailSettings: EmailSettings;
@@ -39,7 +42,9 @@ type AppAction =
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'INIT_STATE'; payload: any }
   | { type: 'IMPORT_DATA'; payload: any }
-  | { type: 'EXPORT_DATA' };
+  | { type: 'EXPORT_DATA' }
+  | { type: 'SET_CLOUD_USER'; payload: FirebaseUser | null }
+  | { type: 'SYNC_PROJECTS'; payload: Project[] };
 
 // Type pour les données exportables
 export interface ExportableData {
@@ -289,7 +294,12 @@ const initialAppSettings: AppSettings & { aiSettings: AISettings } = {
   itemsPerPage: 10,
   enableAnalytics: false,
   enableErrorReporting: false,
-  aiSettings: DEFAULT_AI_SETTINGS
+  aiSettings: DEFAULT_AI_SETTINGS,
+  kanbanSettings: {
+    columnOrder: [],
+    taskOrder: {},
+    customColumns: []
+  }
 };
 
 const initialState: AppState = {
@@ -307,6 +317,7 @@ const initialState: AppState = {
       daysOff: ['saturday', 'sunday']
     }
   }],
+  cloudUser: null,
   theme: 'light',
   currentView: 'today',
   emailSettings: {
@@ -333,14 +344,14 @@ const extractAllTasks = (projects: Project[]): Task[] => {
 const appReducer = (state: AppState, action: AppAction): AppState => {
   switch (action.type) {
     case 'SET_PROJECTS':
-      return { 
-        ...state, 
+      return {
+        ...state,
         projects: action.payload,
         tasks: extractAllTasks(action.payload)
       };
     case 'ADD_PROJECT':
-      return { 
-        ...state, 
+      return {
+        ...state,
         projects: [...state.projects, action.payload],
         tasks: [...state.tasks, ...(action.payload.tasks || [])]
       };
@@ -366,9 +377,10 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       const updatedProjects = state.projects.map(project =>
         project.id === action.payload.projectId
           ? {
-              ...project,
-              tasks: [...(project.tasks || []), action.payload.task],
-            }
+            ...project,
+            tasks: [...(project.tasks || []), action.payload.task],
+            updatedAt: new Date().toISOString()
+          }
           : project
       );
       return {
@@ -380,15 +392,19 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
     case 'UPDATE_TASK': {
       const updatedProjects = state.projects.map(project => {
         if (!project.tasks) return project;
+        const taskExists = project.tasks.some(t => t.id === action.payload.id);
+        if (!taskExists) return project;
+
         return {
           ...project,
+          updatedAt: new Date().toISOString(),
           tasks: project.tasks.map(task => {
             if (task.id === action.payload.id) {
               // Si la tâche passe à l'état 'done', on met à jour completedAt
-              const completedAt = action.payload.status === 'done' && task.status !== 'done' 
-                ? new Date().toISOString() 
+              const completedAt = action.payload.status === 'done' && task.status !== 'done'
+                ? new Date().toISOString()
                 : action.payload.completedAt || task.completedAt;
-              
+
               return {
                 ...action.payload,
                 completedAt: action.payload.completedAt || completedAt
@@ -398,11 +414,11 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
           })
         };
       });
-      
-      const updatedTasks = state.tasks.map(task => 
+
+      const updatedTasks = state.tasks.map(task =>
         task.id === action.payload.id ? action.payload : task
       );
-      
+
       return {
         ...state,
         projects: updatedProjects,
@@ -414,14 +430,15 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         if (project.id !== action.payload.projectId) return project;
         return {
           ...project,
+          updatedAt: new Date().toISOString(),
           tasks: project.tasks?.filter(task => task.id !== action.payload.taskId) || [],
         };
       });
-      
+
       return {
         ...state,
         projects: updatedProjects,
-        tasks: state.tasks.filter(task => 
+        tasks: state.tasks.filter(task =>
           !(task.id === action.payload.taskId && task.projectId === action.payload.projectId)
         )
       };
@@ -436,25 +453,25 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       return {
         ...state,
         users: state.users.map(user =>
-          user.id === action.payload.id ? { 
-            ...user, 
-            ...action.payload, 
-            updatedAt: new Date().toISOString() 
+          user.id === action.payload.id ? {
+            ...user,
+            ...action.payload,
+            updatedAt: new Date().toISOString()
           } : user
         )
       };
     case 'ADD_USER': {
       // Vérifier si l'utilisateur existe déjà par email
       const userExists = state.users.some(user => user.email === action.payload.email);
-      
+
       if (userExists) {
         console.warn('Un utilisateur avec cet email existe déjà');
         return state;
       }
-      
+
       // Créer un nouvel utilisateur avec un ID unique et des timestamps
       const now = new Date().toISOString();
-      
+
       // Créer un objet settings avec des valeurs par défaut complètes
       const defaultUserSettings: UserSettings = {
         theme: 'light',
@@ -465,13 +482,13 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         pushNotifications: true,
         daysOff: ['saturday', 'sunday']
       };
-      
+
       // Fusionner avec les paramètres fournis, en s'assurant que tous les champs requis sont définis
       const userSettings: UserSettings = {
         ...defaultUserSettings,
         ...(action.payload.settings || {})
       };
-      
+
       // S'assurer que les champs obligatoires ne sont pas undefined
       userSettings.language = userSettings.language || 'fr';
       userSettings.timezone = userSettings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -493,7 +510,7 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         isPrimary: false,
         cannotDelete: false
       };
-      
+
       return {
         ...state,
         users: [...state.users, newUser]
@@ -522,9 +539,9 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         fromName: action.payload.fromName ?? state.emailSettings.fromName ?? 'Gestion de Projet',
         isEnabled: action.payload.isEnabled ?? state.emailSettings.isEnabled ?? true
       };
-      
 
-      
+
+
       return {
         ...state,
         emailSettings: updatedSettings
@@ -562,7 +579,7 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         if (!data.projects || !data.users) {
           throw new Error("Données d'importation invalides");
         }
-        
+
         return {
           ...state,
           projects: data.projects || [],
@@ -578,6 +595,28 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
     case 'EXPORT_DATA':
       // L'exportation est gérée dans le composant, cette action ne modifie pas l'état
       return state;
+    case 'SET_CLOUD_USER':
+      return { ...state, cloudUser: action.payload };
+    case 'SYNC_PROJECTS': {
+      const incomingProjects = action.payload;
+      const currentProjects = [...state.projects];
+
+      incomingProjects.forEach(incoming => {
+        const index = currentProjects.findIndex(p => p.id === incoming.id);
+        if (index >= 0) {
+          // Mise à jour si plus récent ou si c'est source firebase
+          currentProjects[index] = incoming;
+        } else {
+          currentProjects.push(incoming);
+        }
+      });
+
+      return {
+        ...state,
+        projects: currentProjects,
+        tasks: extractAllTasks(currentProjects)
+      };
+    }
     default:
       return state;
   }
@@ -591,30 +630,107 @@ const AppContext = createContext<{
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
+  // Effet pour synchroniser avec Firebase
+  useEffect(() => {
+    const unsubscribe = firebaseService.onAuthStateChange(async (user) => {
+      dispatch({ type: 'SET_CLOUD_USER', payload: user });
+
+      if (user) {
+        try {
+          // S'assurer que le profil est à jour pour la recherche par email
+          await firebaseService.saveUserProfile(user);
+
+          const sharedProjects = await firebaseService.getSharedProjects();
+          if (sharedProjects.length > 0) {
+            dispatch({ type: 'SYNC_PROJECTS', payload: sharedProjects });
+          }
+        } catch (error) {
+          console.error("Erreur lors de la synchronisation:", error);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Rafraîchir les données périodiquement ou quand on change de vue (Projects ou Kanban)
+  useEffect(() => {
+    if (!state.cloudUser) return;
+
+    const refreshData = async () => {
+      try {
+        const sharedProjects = await firebaseService.getSharedProjects();
+        if (sharedProjects.length > 0) {
+          dispatch({ type: 'SYNC_PROJECTS', payload: sharedProjects });
+        }
+      } catch (error) {
+        console.error("Erreur lors du rafraîchissement des données:", error);
+      }
+    };
+
+    // Rafraîchir au changement de vue ou de connexion
+    if (state.currentView === 'projects' || state.currentView === 'kanban') {
+      refreshData();
+    }
+
+    // Polling toutes les 30 secondes
+    const interval = setInterval(refreshData, 30000);
+    return () => clearInterval(interval);
+  }, [state.currentView, state.cloudUser]);
+
+  // Synchronisation automatique des modifications vers Firebase
+  useEffect(() => {
+    if (!state.cloudUser || state.isLoading) return;
+
+    const syncModifiedProjects = async () => {
+      const firebaseProjects = state.projects.filter(p => p.source === 'firebase');
+
+      for (const project of firebaseProjects) {
+        try {
+          if (!project.lastSyncedAt || new Date(project.updatedAt) > new Date(project.lastSyncedAt)) {
+            const syncTime = new Date().toISOString();
+            await firebaseService.syncProject(project);
+
+            // Mettre à jour localement pour marquer comme synchronisé
+            dispatch({
+              type: 'UPDATE_PROJECT',
+              payload: { ...project, lastSyncedAt: syncTime }
+            });
+          }
+        } catch (error) {
+          console.error(`Erreur sync projet ${project.id}:`, error);
+        }
+      }
+    };
+
+    const timer = setTimeout(syncModifiedProjects, 2000);
+    return () => clearTimeout(timer);
+  }, [state.projects, state.cloudUser, state.isLoading, dispatch]);
+
   // Effet pour charger les données initiales
   useEffect(() => {
 
-    
+
     const loadInitialData = async () => {
       try {
         const savedData = localStorage.getItem('astroProjectManagerData');
-        
+
         if (savedData) {
           const parsedData = JSON.parse(savedData);
 
-          
+
           // S'assurer qu'il y a au moins un utilisateur
-          const users = parsedData.users && parsedData.users.length > 0 
-            ? parsedData.users 
+          const users = parsedData.users && parsedData.users.length > 0
+            ? parsedData.users
             : [defaultUser];
 
           // Vérification que la vue est valide
           const validViews: ViewMode[] = ['today', 'projects', 'kanban', 'calendar', 'settings'];
           const viewToSet = parsedData.currentView || 'today';
-          
 
 
-          
+
+
           // Mettre à jour l'état avec les données chargées
           dispatch({
             type: 'INIT_STATE',
@@ -660,19 +776,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Effet pour sauvegarder les données dans le localStorage
   useEffect(() => {
     if (state.isLoading) return; // Ne pas sauvegarder pendant le chargement initial
-    
+
     try {
 
-      
+
       // Préparer les données à sauvegarder
       const { isLoading, error, notifications, ...dataToSave } = state;
-      
+
       localStorage.setItem('astroProjectManagerData', JSON.stringify({
         ...dataToSave,
         // S'assurer que les notifications ne sont pas sauvegardées
         notifications: []
       }));
-      
+
 
     } catch (error) {
       console.error('Erreur lors de la sauvegarde des données:', error);
@@ -683,12 +799,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const theme = state.theme;
     document.documentElement.classList.toggle('dark', theme === 'dark');
-    
+
     // Sauvegarder le thème dans le localStorage pour la persistance
     // entre les rechargements de page
     localStorage.setItem('astroProjectManagerTheme', theme);
   }, [state.theme]);
-  
+
   // Effet pour charger le thème au démarrage
   useEffect(() => {
     const savedTheme = localStorage.getItem('astroProjectManagerTheme') as Theme | null;

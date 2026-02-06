@@ -73,6 +73,23 @@ export interface Project {
   tasks: Task[];
   aiSettings?: ProjectAISettings;
   estimatedDuration?: number; // Ajouté pour compatibilité avec ProjectsView
+
+  // Champs pour la synchronisation Cloud (Firebase)
+  source?: 'local' | 'firebase';
+  ownerId?: string;
+  members?: string[]; // Liste des IDs des utilisateurs ayant accès
+  isShared?: boolean;
+  lastSyncedAt?: string;
+  kanbanSettings?: {
+    columnOrder: string[];
+    taskOrder?: Record<string, string[]>;
+    customColumns: {
+      id: string;
+      title: string;
+      gradient: string;
+      iconColor: string;
+    }[];
+  };
 }
 
 export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
@@ -209,6 +226,16 @@ export interface AppSettings {
   enableErrorReporting: boolean;
   aiSettings: AISettings;
   contacts: Contact[];
+  kanbanSettings?: {
+    columnOrder: string[];
+    taskOrder?: Record<string, string[]>;
+    customColumns: {
+      id: string;
+      title: string;
+      gradient: string;
+      iconColor: string;
+    }[];
+  };
 }
 
 export type Theme = 'light' | 'dark';
