@@ -377,7 +377,8 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       return {
         ...state,
         projects: remainingProjects,
-        tasks: extractAllTasks(remainingProjects)
+        tasks: extractAllTasks(remainingProjects),
+        selectedProject: state.selectedProject === action.payload ? null : state.selectedProject
       };
     }
     case 'ADD_TASK': {
@@ -631,23 +632,18 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
     case 'SET_CLOUD_USER':
       return { ...state, cloudUser: action.payload };
     case 'SYNC_PROJECTS': {
-      const incomingProjects = action.payload;
-      const currentProjects = [...state.projects];
+      const incomingProjects = action.payload; // Projets venant du Cloud
 
-      incomingProjects.forEach(incoming => {
-        const index = currentProjects.findIndex(p => p.id === incoming.id);
-        if (index >= 0) {
-          // Mise à jour si plus récent ou si c'est source firebase
-          currentProjects[index] = incoming;
-        } else {
-          currentProjects.push(incoming);
-        }
-      });
+      // On garde les projets locaux (qui n'ont pas de source 'firebase')
+      const localOnlyProjects = state.projects.filter(p => p.source !== 'firebase');
+
+      // On fusionne : projets locaux + nouveaux projets cloud
+      const updatedProjects = [...localOnlyProjects, ...incomingProjects];
 
       return {
         ...state,
-        projects: currentProjects,
-        tasks: extractAllTasks(currentProjects)
+        projects: updatedProjects,
+        tasks: extractAllTasks(updatedProjects)
       };
     }
     default:
@@ -674,9 +670,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           await firebaseService.saveUserProfile(user);
 
           const sharedProjects = await firebaseService.getSharedProjects();
-          if (sharedProjects.length > 0) {
-            dispatch({ type: 'SYNC_PROJECTS', payload: sharedProjects });
-          }
+          dispatch({ type: 'SYNC_PROJECTS', payload: sharedProjects });
         } catch (error) {
           console.error("Erreur lors de la synchronisation:", error);
         }

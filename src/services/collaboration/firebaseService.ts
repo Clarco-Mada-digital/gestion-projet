@@ -194,12 +194,16 @@ export const firebaseService = {
    * Supprime un projet du Cloud
    */
   async deleteProject(projectId: string): Promise<void> {
-    if (!ensureInitialized() || !auth.currentUser) return;
+    if (!ensureInitialized()) throw new Error("Firebase n'est pas initialisé");
+    if (!auth.currentUser) throw new Error("Vous devez être connecté pour supprimer un projet Cloud");
 
     try {
       // On récupère le projet pour vérifier le propriétaire
       const projectDoc = await getDoc(doc(db, 'projects', projectId));
-      if (!projectDoc.exists()) return;
+      if (!projectDoc.exists()) {
+        console.warn(`Projet Cloud ${projectId} introuvable, suppression locale uniquement.`);
+        return;
+      }
 
       const projectData = projectDoc.data();
 
@@ -211,6 +215,29 @@ export const firebaseService = {
       }
     } catch (error) {
       console.error("Erreur lors de la suppression du projet Cloud:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Permet à un collaborateur de quitter un projet
+   */
+  async leaveProject(projectId: string): Promise<void> {
+    if (!ensureInitialized() || !auth.currentUser) return;
+
+    try {
+      const projectDoc = await getDoc(doc(db, 'projects', projectId));
+      if (!projectDoc.exists()) return;
+
+      const projectData = projectDoc.data();
+      const members = projectData.members || [];
+      const updatedMembers = members.filter((uid: string) => uid !== auth.currentUser.uid);
+
+      await setDoc(doc(db, 'projects', projectId), {
+        members: updatedMembers
+      }, { merge: true });
+    } catch (error) {
+      console.error("Erreur lors de la sortie du projet Cloud:", error);
       throw error;
     }
   }
