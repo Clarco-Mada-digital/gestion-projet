@@ -90,6 +90,7 @@ export interface Project {
       iconColor: string;
     }[];
   };
+  accentColor?: string;
 }
 
 export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
@@ -119,6 +120,7 @@ export interface UserSettings {
   emailNotifications: boolean;
   pushNotifications?: boolean; // Rendre optionnel pour la rétrocompatibilité
   daysOff?: DayOfWeek[];
+  accentColor?: string;
 }
 
 export interface User {
@@ -235,6 +237,14 @@ export interface AppSettings {
       gradient: string;
       iconColor: string;
     }[];
+  };
+  accentColor?: string;
+  brandingSettings?: {
+    companyName?: string;
+    logo?: string;
+    primaryColor: string;
+    welcomeMessage?: string;
+    sidebarTheme: 'light' | 'dark' | 'glass';
   };
 }
 

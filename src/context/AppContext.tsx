@@ -299,6 +299,13 @@ const initialAppSettings: AppSettings & { aiSettings: AISettings } = {
     columnOrder: [],
     taskOrder: {},
     customColumns: []
+  },
+  accentColor: 'blue',
+  brandingSettings: {
+    companyName: 'Mon Entreprise',
+    primaryColor: '#3B82F6',
+    sidebarTheme: 'glass',
+    welcomeMessage: 'Bienvenue dans votre espace projet'
   }
 };
 
@@ -572,6 +579,32 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       // S'assurer qu'il y a toujours au moins un utilisateur
       const validUsers = users && users.length > 0 ? users : [defaultUser];
       return { ...state, ...rest, users: validUsers };
+    case 'SET_ACCENT_COLOR':
+      return {
+        ...state,
+        appSettings: {
+          ...state.appSettings,
+          accentColor: action.payload
+        },
+        users: state.users.map(user => ({
+          ...user,
+          settings: {
+            ...user.settings,
+            accentColor: action.payload
+          }
+        }))
+      };
+    case 'UPDATE_BRANDING':
+      return {
+        ...state,
+        appSettings: {
+          ...state.appSettings,
+          brandingSettings: {
+            ...state.appSettings.brandingSettings,
+            ...action.payload
+          }
+        }
+      };
     case 'IMPORT_DATA':
       try {
         const data = action.payload;

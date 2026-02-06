@@ -8,29 +8,45 @@ import { EmailSettings } from '../Settings/EmailSettings';
 import { AISettings } from '../Settings/AISettings';
 import { DataManagement } from '../Settings/DataManagement';
 import { ContactManagement } from '../Settings/ContactManagement';
+import { AppearanceSettings } from '../Settings/AppearanceSettings';
+import {
+  User as UserIcon,
+  Users,
+  Mail,
+  Database,
+  Bell,
+  Palette,
+  Cpu,
+  Contact as ContactIcon,
+  ChevronRight,
+  Settings as SettingsIcon,
+  LogOut,
+  ShieldCheck,
+  Info
+} from 'lucide-react';
 
 export function SettingsView() {
 
   const { state, dispatch } = useApp();
 
-  
+
   // États pour la gestion des onglets et des modales
   const [activeTab, setActiveTab] = useState('profile');
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   const [currentMember, setCurrentMember] = useState<TeamMember | null>(null);
-  
-  // Liste des onglets disponibles
+
+  // Liste des onglets avec icônes
   const tabs = [
-    { id: 'profile', name: 'Profil' },
-    { id: 'team', name: 'Équipe' },
-    { id: 'contacts', name: 'Contacts' },
-    { id: 'email', name: 'Paramètres Email' },
-    { id: 'ai', name: 'Intelligence Artificielle' },
-    { id: 'data', name: 'Gestion des données' },
-    { id: 'notifications', name: 'Notifications' },
-    { id: 'appearance', name: 'Apparence' },
+    { id: 'profile', name: 'Profil', icon: UserIcon, subtitle: 'Infos personnelles & compte' },
+    { id: 'appearance', name: 'Apparence', icon: Palette, subtitle: 'Thèmes, couleurs & branding' },
+    { id: 'team', name: 'Équipe', icon: Users, subtitle: 'Membres & permissions' },
+    { id: 'contacts', name: 'Contacts', icon: ContactIcon, subtitle: 'Gestion du répertoire' },
+    { id: 'email', name: 'Email', icon: Mail, subtitle: 'Configuration SMTP/EmailJS' },
+    { id: 'ai', name: 'IA Settings', icon: Cpu, subtitle: 'OpenAI, OpenRouter & modèles' },
+    { id: 'notifications', name: 'Notifications', icon: Bell, subtitle: 'Alertes & préférences' },
+    { id: 'data', name: 'Données', icon: Database, subtitle: 'Export, Import & Backup' },
   ];
-  
+
   // États pour le formulaire de profil
   const [formData, setFormData] = useState<Partial<User>>({
     settings: {
@@ -45,7 +61,7 @@ export function SettingsView() {
 
   // État local pour le chargement des données utilisateur
   const [isUserLoaded, setIsUserLoaded] = useState(false);
-  
+
   // Effet pour suivre le cycle de vie du composant
   useEffect(() => {
     if (state.users.length > 0) {
@@ -54,12 +70,12 @@ export function SettingsView() {
 
       setIsUserLoaded(true);
     }
-    
+
     return () => {
       console.log('=== SETTINGS VIEW UNMOUNTED ===');
     };
   }, [state.users, state.currentView]);
-  
+
   // Gestion de l'ouverture/fermeture de la modale d'équipe
   const handleOpenTeamModal = (member?: TeamMember) => {
     if (member) {
@@ -88,11 +104,11 @@ export function SettingsView() {
           position: memberData.position || currentMember.position,
           department: memberData.department || currentMember.department,
           role: (memberData.role as 'admin' | 'member' | 'viewer') || currentMember.role || 'member',
-          emailNotifications: memberData.emailNotifications !== undefined 
-            ? memberData.emailNotifications 
+          emailNotifications: memberData.emailNotifications !== undefined
+            ? memberData.emailNotifications
             : currentMember.emailNotifications,
-          pushNotifications: memberData.pushNotifications !== undefined 
-            ? memberData.pushNotifications 
+          pushNotifications: memberData.pushNotifications !== undefined
+            ? memberData.pushNotifications
             : currentMember.pushNotifications,
           language: memberData.language || currentMember.language || 'fr',
           timezone: memberData.timezone || currentMember.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -101,22 +117,22 @@ export function SettingsView() {
             ...currentMember.settings,
             language: memberData.language || currentMember.settings?.language || 'fr',
             timezone: memberData.timezone || currentMember.settings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
-            emailNotifications: memberData.emailNotifications !== undefined 
-              ? memberData.emailNotifications 
+            emailNotifications: memberData.emailNotifications !== undefined
+              ? memberData.emailNotifications
               : currentMember.settings?.emailNotifications !== false
           }
         };
-        
+
         // Ne pas inclure les propriétés undefined
-        Object.keys(updatedUser).forEach(key => 
+        Object.keys(updatedUser).forEach(key =>
           updatedUser[key as keyof User] === undefined && delete updatedUser[key as keyof User]
         );
-        
-        dispatch({ 
-          type: 'UPDATE_USER', 
+
+        dispatch({
+          type: 'UPDATE_USER',
           payload: updatedUser
         });
-        
+
         setSuccess('Membre d\'équipe mis à jour avec succès');
       } else {
         // Ajout d'un nouveau membre
@@ -144,15 +160,15 @@ export function SettingsView() {
             emailNotifications: memberData.emailNotifications !== false
           }
         };
-        
-        dispatch({ 
-          type: 'ADD_USER', 
+
+        dispatch({
+          type: 'ADD_USER',
           payload: newUser
         });
-        
+
         setSuccess('Membre d\'équipe ajouté avec succès');
       }
-      
+
       // Fermer la modale après un court délai
       setTimeout(() => {
         setIsTeamModalOpen(false);
@@ -177,7 +193,7 @@ export function SettingsView() {
       </div>
     );
   }
-  
+
   // Utiliser le premier utilisateur comme utilisateur actuel
   const currentUser = state.users[0];
 
@@ -186,7 +202,7 @@ export function SettingsView() {
     console.log('=== SETTINGS VIEW MOUNTED ===');
 
     console.log('Current view:', state.currentView);
-    
+
     return () => {
       console.log('=== SETTINGS VIEW UNMOUNTED ===');
     };
@@ -198,7 +214,7 @@ export function SettingsView() {
       const primaryUser = state.users[0];
       const defaultDaysOff = ['sunday'];
       const userDaysOff = primaryUser.daysOff || primaryUser.settings?.daysOff || defaultDaysOff;
-      
+
       setFormData({
         name: primaryUser.name,
         email: primaryUser.email,
@@ -221,7 +237,7 @@ export function SettingsView() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target as HTMLInputElement;
     const checked = type === 'checkbox' ? (e.target as HTMLInputElement).checked : undefined;
-    
+
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
@@ -230,12 +246,12 @@ export function SettingsView() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (state.users.length === 0) {
       setError('Aucun utilisateur trouvé');
       return;
     }
-    
+
     setIsLoading(true);
     setError(null);
     setSuccess(null);
@@ -246,7 +262,7 @@ export function SettingsView() {
         ...formData,
         updatedAt: new Date().toISOString()
       };
-      
+
       dispatch({
         type: 'UPDATE_USER',
         payload: updatedUser
@@ -266,20 +282,20 @@ export function SettingsView() {
     if (!window.confirm('Êtes-vous sûr de vouloir régénérer votre clé API ? Cette action est irréversible.')) {
       return;
     }
-    
+
     setIsLoading(true);
     setError(null);
-    
+
     try {
       // Simuler un appel API
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       const newApiKey = `sk_${Math.random().toString(36).substr(2, 32)}`;
-      dispatch({ 
-        type: 'UPDATE_USER', 
-        payload: { apiKey: newApiKey } 
+      dispatch({
+        type: 'UPDATE_USER',
+        payload: { apiKey: newApiKey }
       });
-      
+
       setSuccess('Clé API régénérée avec succès');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -289,7 +305,7 @@ export function SettingsView() {
       setIsLoading(false);
     }
   };
-  
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
       setSuccess('Copié dans le presse-papier');
@@ -318,28 +334,28 @@ export function SettingsView() {
     switch (activeTab) {
       case 'team':
         return <TeamManagement onEditMember={handleOpenTeamModal} />;
-      
+
       case 'contacts':
         return (
-          <ContactManagement 
-            contacts={state.appSettings.contacts || []} 
+          <ContactManagement
+            contacts={state.appSettings.contacts || []}
             onUpdateContacts={(updatedContacts) => {
-              dispatch({ 
-                type: 'UPDATE_APP_SETTINGS', 
-                payload: { 
-                  contacts: updatedContacts 
-                } 
+              dispatch({
+                type: 'UPDATE_APP_SETTINGS',
+                payload: {
+                  contacts: updatedContacts
+                }
               });
-            }} 
+            }}
           />
         );
-        
+
       case 'email':
         return <EmailSettings />;
-        
+
       case 'data':
         return <DataManagement />;
-        
+
       case 'notifications':
         return (
           <div className="space-y-6">
@@ -348,7 +364,7 @@ export function SettingsView() {
               <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
                 <div className="px-4 py-5 sm:p-6">
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Préférences de notification</h3>
-                  
+
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <div>
@@ -356,11 +372,11 @@ export function SettingsView() {
                         <p className="text-sm text-gray-500 dark:text-gray-400">Recevez des notifications importantes par email</p>
                       </div>
                       <button
-                        onClick={() => dispatch({ 
-                          type: 'UPDATE_USER', 
-                          payload: { 
-                            emailNotifications: !state.users[0]?.emailNotifications 
-                          } 
+                        onClick={() => dispatch({
+                          type: 'UPDATE_USER',
+                          payload: {
+                            emailNotifications: !state.users[0]?.emailNotifications
+                          }
                         })}
                         className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${state.users[0]?.emailNotifications !== false ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'}`}
                         role="switch"
@@ -380,11 +396,11 @@ export function SettingsView() {
                         <p className="text-sm text-gray-500 dark:text-gray-400">Recevez des notifications sur votre appareil</p>
                       </div>
                       <button
-                        onClick={() => dispatch({ 
-                          type: 'UPDATE_USER', 
-                          payload: { 
-                            pushNotifications: !state.users[0]?.pushNotifications 
-                          } 
+                        onClick={() => dispatch({
+                          type: 'UPDATE_USER',
+                          payload: {
+                            pushNotifications: !state.users[0]?.pushNotifications
+                          }
                         })}
                         className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${state.users[0]?.pushNotifications ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'}`}
                         role="switch"
@@ -450,95 +466,8 @@ export function SettingsView() {
         return <AISettings />;
 
       case 'appearance':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-semibold mb-6">Apparence</h2>
-              <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
-                <div className="px-4 py-5 sm:p-6 space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Mode sombre</h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Activez le mode sombre pour un confort visuel optimal</p>
-                    </div>
-                    <button
-                      onClick={toggleTheme}
-                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${state.theme === 'dark' ? 'bg-blue-600' : 'bg-gray-200'}`}
-                      role="switch"
-                      aria-checked={state.theme === 'dark'}
-                    >
-                      <span className="sr-only">Mode sombre</span>
-                      <span
-                        aria-hidden="true"
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${state.theme === 'dark' ? 'translate-x-5' : 'translate-x-0'}`}
-                      />
-                    </button>
-                  </div>
+        return <AppearanceSettings />;
 
-                  <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Couleur d'accent</h4>
-                    <div className="flex space-x-3">
-                      {['blue', 'indigo', 'purple', 'pink', 'red', 'orange', 'yellow', 'green', 'emerald', 'teal', 'cyan'].map((color) => (
-                        <button
-                          key={color}
-                          onClick={() => dispatch({ type: 'SET_ACCENT_COLOR', payload: color })}
-                          className={`w-8 h-8 rounded-full bg-${color}-500`}
-                          title={color.charAt(0).toUpperCase() + color.slice(1)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Taille de la police</h4>
-                    <div className="flex items-center space-x-4">
-                      <button 
-                        onClick={() => dispatch({ type: 'UPDATE_APP_SETTINGS', payload: { fontSize: 'small' } })}
-                        className={`px-3 py-1 rounded-md ${
-                          state.appSettings.fontSize === 'small' 
-                            ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 font-medium' 
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
-                        }`}
-                      >
-                        Petit
-                      </button>
-                      <button 
-                        onClick={() => dispatch({ type: 'UPDATE_APP_SETTINGS', payload: { fontSize: 'medium' } })}
-                        className={`px-3 py-1 rounded-md ${
-                          state.appSettings.fontSize === 'medium' 
-                            ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 font-medium' 
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
-                        }`}
-                      >
-                        Moyen
-                      </button>
-                      <button 
-                        onClick={() => dispatch({ type: 'UPDATE_APP_SETTINGS', payload: { fontSize: 'large' } })}
-                        className={`px-3 py-1 rounded-md ${
-                          state.appSettings.fontSize === 'large' 
-                            ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 font-medium' 
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
-                        }`}
-                      >
-                        Grand
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Densité de l'interface</h4>
-                    <div className="flex items-center space-x-4">
-                      <button className="text-sm px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">Compact</button>
-                      <button className="text-sm px-3 py-1 rounded-md bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 font-medium">Normal</button>
-                      <button className="text-sm px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">Confortable</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-        
       case 'profile':
       default:
         return (
@@ -720,10 +649,10 @@ export function SettingsView() {
                               onChange={() => {
                                 setFormData(prev => {
                                   const currentDays = Array.isArray(prev.daysOff) ? [...prev.daysOff] : [];
-                                  const newDays = isSelected 
+                                  const newDays = isSelected
                                     ? currentDays.filter(d => d !== day)
                                     : [...currentDays, day];
-                                  
+
                                   return {
                                     ...prev,
                                     daysOff: newDays,
@@ -737,8 +666,8 @@ export function SettingsView() {
                               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600"
                               disabled={isLoading}
                             />
-                            <label 
-                              htmlFor={`day-${day}`} 
+                            <label
+                              htmlFor={`day-${day}`}
                               className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
                             >
                               {getDayName(day)}
@@ -772,7 +701,7 @@ export function SettingsView() {
                         Recevoir les notifications par email
                       </label>
                     </div>
-                    
+
                     <div className="flex items-center">
                       <input
                         type="checkbox"
@@ -834,30 +763,29 @@ export function SettingsView() {
                       <div className="bg-white dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                         <dt className="text-sm font-medium text-gray-500 dark:text-gray-300">Langue</dt>
                         <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
-                          {formData.language === 'fr' ? 'Français' : 
-                           formData.language === 'en' ? 'English' : 
-                           formData.language === 'es' ? 'Español' : 
-                           formData.language || 'Non spécifié'}
+                          {formData.language === 'fr' ? 'Français' :
+                            formData.language === 'en' ? 'English' :
+                              formData.language === 'es' ? 'Español' :
+                                formData.language || 'Non spécifié'}
                         </dd>
                       </div>
                       <div className="bg-gray-50 dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                         <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Fuseau horaire</dt>
                         <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
                           {formData.timezone === 'Europe/Paris' ? 'Europe/Paris (CET)' :
-                           formData.timezone === 'UTC' ? 'UTC' :
-                           formData.timezone === 'America/New_York' ? 'America/New York (EST)' :
-                           formData.timezone === 'Asia/Tokyo' ? 'Asia/Tokyo (JST)' :
-                           formData.timezone || 'Non spécifié'}
+                            formData.timezone === 'UTC' ? 'UTC' :
+                              formData.timezone === 'America/New_York' ? 'America/New York (EST)' :
+                                formData.timezone === 'Asia/Tokyo' ? 'Asia/Tokyo (JST)' :
+                                  formData.timezone || 'Non spécifié'}
                         </dd>
                       </div>
                       <div className="bg-white dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                         <dt className="text-sm font-medium text-gray-500 dark:text-gray-300">Notifications email</dt>
                         <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            formData.emailNotifications 
-                              ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100' 
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${formData.emailNotifications
+                              ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
                               : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
-                          }`}>
+                            }`}>
                             {formData.emailNotifications ? 'Activées' : 'Désactivées'}
                           </span>
                         </dd>
@@ -865,11 +793,10 @@ export function SettingsView() {
                       <div className="bg-gray-50 dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                         <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Notifications push</dt>
                         <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            formData.pushNotifications 
-                              ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100' 
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${formData.pushNotifications
+                              ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
                               : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
-                          }`}>
+                            }`}>
                             {formData.pushNotifications ? 'Activées' : 'Désactivées'}
                           </span>
                         </dd>
@@ -882,7 +809,7 @@ export function SettingsView() {
                           ) : (
                             <div className="flex flex-wrap gap-2">
                               {(formData.daysOff || formData.settings?.daysOff || []).map(day => (
-                                <span 
+                                <span
                                   key={day}
                                   className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100"
                                 >
@@ -904,63 +831,86 @@ export function SettingsView() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* En-tête avec les onglets */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === tab.id
-                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200'
-              }`}
-            >
-              {tab.name}
-            </button>
-          ))}
-        </nav>
-      </div>
-
-      {/* Messages d'erreur et de succès */}
-      {error && (
-        <div className="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800" role="alert">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg dark:bg-green-200 dark:text-green-800" role="alert">
-          {success}
+    <div className="h-full flex flex-col space-y-6 animate-in fade-in duration-500">
+      {/* Messages de feedback flottants ou fixes */}
+      {(error || success) && (
+        <div className="fixed top-20 right-8 z-[100] space-y-2 max-w-sm animate-in slide-in-from-right-full">
+          {error && (
+            <div className="p-4 flex items-center bg-red-50 border border-red-200 text-red-700 rounded-2xl shadow-xl dark:bg-red-900/40 dark:border-red-800 dark:text-red-300 backdrop-blur-md">
+              <ShieldCheck className="w-5 h-5 mr-3 flex-shrink-0" />
+              <p className="text-sm font-medium">{error}</p>
+              <button onClick={() => setError(null)} className="ml-auto pl-4 text-red-500 hover:text-red-700">&times;</button>
+            </div>
+          )}
+          {success && (
+            <div className="p-4 flex items-center bg-green-50 border border-green-200 text-green-700 rounded-2xl shadow-xl dark:bg-green-900/40 dark:border-green-800 dark:text-green-300 backdrop-blur-md">
+              <Check className="w-5 h-5 mr-3 flex-shrink-0" />
+              <p className="text-sm font-medium">{success}</p>
+              <button onClick={() => setSuccess(null)} className="ml-auto pl-4 text-green-500 hover:text-green-700">&times;</button>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Message d'information sur le stockage local */}
-      <div className="p-4 mb-6 text-sm text-blue-700 bg-blue-50 rounded-lg dark:bg-blue-900/30 dark:text-blue-400">
-        <p>ℹ️ <span className="font-medium">Stockage local :</span> Vos paramètres sont enregistrés directement dans votre navigateur (localStorage). Cela signifie que vos données restent privées et accessibles hors ligne. Cependant, elles seront supprimées si vous videz le cache de votre navigateur ou utilisez un autre appareil/navigateur. Pour une sauvegarde permanente, pensez à exporter régulièrement vos données depuis l'onglet "Gestion des données".</p>
-      </div>
+      <div className="flex flex-col lg:flex-row gap-8 items-start h-full">
+        {/* Sidebar Navigation */}
+        <aside className="w-full lg:w-80 flex-shrink-0 space-y-2 bg-white/50 dark:bg-gray-800/40 backdrop-blur-xl p-4 rounded-3xl border border-gray-200/50 dark:border-gray-700/50 shadow-sm sticky top-0">
+          <div className="px-4 py-4 mb-4">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center space-x-2">
+              <SettingsIcon className="w-5 h-5 text-blue-500" />
+              <span>Paramètres</span>
+            </h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 uppercase tracking-widest font-semibold">Configuration Globale</p>
+          </div>
 
-      {/* Contenu de l'onglet actif */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-        {renderTabContent()}
-      </div>
+          <nav className="space-y-1">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`w-full group flex items-center px-4 py-3.5 text-sm font-medium rounded-2xl transition-all duration-200 ${activeTab === tab.id
+                    ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20 translate-x-1'
+                    : 'text-gray-600 hover:bg-white dark:text-gray-400 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+              >
+                <tab.icon className={`mr-3.5 flex-shrink-0 h-5 w-5 transition-colors ${activeTab === tab.id ? 'text-white' : 'text-gray-400 group-hover:text-blue-500'
+                  }`} aria-hidden="true" />
+                <div className="flex flex-col items-start text-left">
+                  <span className="font-bold">{tab.name}</span>
+                  <span className={`text-[10px] hidden sm:block ${activeTab === tab.id ? 'text-blue-100' : 'text-gray-400'}`}>
+                    {tab.subtitle}
+                  </span>
+                </div>
+                {activeTab === tab.id && <ChevronRight className="ml-auto w-4 h-4 text-white/50" />}
+              </button>
+            ))}
+          </nav>
 
-      {/* Bouton de débogage */}
-      <button 
-        onClick={debugForceSettings}
-        className="fixed bottom-4 left-4 bg-red-500 text-white p-2 rounded-full shadow-lg z-50"
-        title="Forcer le rechargement en mode débogage"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-      </button>
+          <div className="pt-6 mt-6 border-t border-gray-200/50 dark:border-gray-700/50 space-y-2">
+            <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100/50 dark:border-blue-800/20">
+              <div className="flex items-center space-x-2 text-blue-600 dark:text-blue-400 mb-2">
+                <Info className="w-4 h-4" />
+                <span className="text-xs font-bold uppercase tracking-wider">Local storage</span>
+              </div>
+              <p className="text-[10px] leading-relaxed text-gray-500 dark:text-gray-400">
+                Vos données sont privées et stockées localement. Exportez régulièrement vos backups.
+              </p>
+            </div>
+          </div>
+        </aside>
+
+        {/* Content Area */}
+        <div className="flex-1 min-w-0 w-full space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+          <Card className="p-8 h-full min-h-[600px] border-none shadow-xl bg-white/60 dark:bg-gray-800/60 transition-all duration-300">
+            {renderTabContent()}
+          </Card>
+        </div>
+      </div>
 
       {/* Modal d'équipe */}
-      <TeamModal 
-        isOpen={isTeamModalOpen} 
-        onClose={handleCloseTeamModal} 
+      <TeamModal
+        isOpen={isTeamModalOpen}
+        onClose={handleCloseTeamModal}
         member={currentMember}
         onSubmit={handleTeamMemberSubmit}
       />

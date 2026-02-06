@@ -272,10 +272,10 @@ export function KanbanView() {
     if (!newColumnTitle.trim()) return;
 
     const normalizedNewTitle = normalizeStatusName(newColumnTitle);
-
-    // Vérifier si une colonne similaire existe déjà
-    const existingCol = [...defaultColumns, ...customColumns].find(
-      col => normalizeStatusName(col.title) === normalizedNewTitle || normalizeStatusName(col.id) === normalizedNewTitle
+    const allExistingCols = [...defaultColumns, ...customColumns];
+    const existingCol = allExistingCols.find(col =>
+      normalizeStatusName(col.title) === normalizedNewTitle ||
+      normalizeStatusName(col.id) === normalizedNewTitle
     );
 
     if (existingCol) {
@@ -285,7 +285,7 @@ export function KanbanView() {
       return;
     }
 
-    const newColumnId = normalizedNewTitle || `custom-${Date.now()}`;
+    const newColumnId = `custom-${Date.now()}`;
     const selectedColor = availableColors[selectedColorIndex];
 
     const newColumn = {
