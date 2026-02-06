@@ -10,11 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { EmailService } from '../../services/emailService';
 import type { Task, SubTask, Project } from '../../types';
 
-interface SubTaskReport {
-  id: string;
-  title: string;
-  completed: boolean;
-  completedAt?: string;
+interface SubTaskReport extends SubTask {
 }
 
 interface TaskReport {
@@ -73,23 +69,9 @@ export function ReportView() {
   // Récupérer le profil utilisateur actuel (non utilisé pour le moment)
   // const currentUser = state.users[0];
 
-  // Fonction utilitaire pour obtenir toutes les tâches de tous les projets
-  const getAllTasks = (): Array<{
-    id: string;
-    title: string;
-    status: string;
-    completedAt?: string;
-    priority: string;
-    assignees: string[];
-    notes: string;
-  }> => {
-    return (state.projects || []).flatMap(project => project.tasks || []);
-  };
 
-  // Fonction utilitaire pour vérifier si une propriété existe sur un objet
-  const hasProperty = <T extends object>(obj: T, key: PropertyKey): key is keyof T => {
-    return key in obj;
-  };
+
+
 
   // Déclaration des fonctions de gestion du rapport
   const generateSignature = (): string => {
@@ -182,7 +164,13 @@ export function ReportView() {
   const handleOpenEmailDialog = () => {
     // Pré-remplir le sujet avec la période du rapport
     if (report) {
-      const period = `Delivery du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}`;
+      const formatDateShort = (date: Date) => {
+        const d = date.getDate().toString().padStart(2, '0');
+        const m = (date.getMonth() + 1).toString().padStart(2, '0');
+        const y = date.getFullYear();
+        return `${d}.${m}.${y}`;
+      };
+      const period = `Delivery du ${formatDateShort(report.startDate)} au ${formatDateShort(report.endDate)}`;
       setEmailForm(prev => ({
         ...prev,
         subject: period,
@@ -398,12 +386,7 @@ export function ReportView() {
           assignees: string[];
           isMainTask?: boolean;
           isParentOfSubTasks?: boolean;
-          subTasks?: Array<{
-            id: string;
-            title: string;
-            completed: boolean;
-            completedAt?: string;
-          }>;
+          subTasks?: SubTaskReport[];
         };
 
         // Préparer les tâches pour le rapport
@@ -431,7 +414,9 @@ export function ReportView() {
               id: subTask.id,
               title: subTask.title,
               completed: true,
-              completedAt: subTask.completedAt
+              completedAt: subTask.completedAt,
+              createdAt: subTask.createdAt,
+              updatedAt: subTask.updatedAt
             }))
           }))
         ];
@@ -465,17 +450,7 @@ export function ReportView() {
     setIsGenerating(true);
 
     try {
-      // Interface pour le résumé des tâches
-      interface TaskSummary {
-        project: string;
-        title: string;
-        completedAt: string;
-        priority: string;
-        notes: string;
-        isSubTask: boolean;
-        parentTaskTitle?: string;
-        parentTaskCompleted?: boolean;
-      }
+
 
       // Récupérer les paramètres IA
       const project = state.projects[0];
@@ -535,7 +510,7 @@ export function ReportView() {
           }
 
           // Ajouter les sous-tâches si nécessaire
-          if (includeSubTasks && task.subTasks?.length > 0) {
+          if (includeSubTasks && task.subTasks && task.subTasks.length > 0) {
             task.subTasks.forEach(subTask => {
               if (subTask.completed && subTask.completedAt) {
                 const subTaskCompletedAt = new Date(subTask.completedAt);
@@ -560,23 +535,34 @@ export function ReportView() {
         });
       });
 
+      // Vérifier s'il y a des tâches à inclure
+      if (tasksSummary.length === 0) {
+        const noTasksMessage = `Période du rapport : du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}\n\nAucune activité enregistrée sur cette période.`;
+        setAiReport(noTasksMessage);
+        setEditedReport(noTasksMessage);
+        return;
+      }
+
       // Préparer le prompt pour l'IA
       const prompt = `
-      Tu es un assistant qui aide à générer des rapports professionnels pour la gestion de projet.
+      Tu es un Expert en Gestion de Projet et Communication d'Entreprise.
+      Ta mission est de transformer une liste brute de tâches en un RAPPORT D'ACTIVITÉ PRESTIGIEUX et PROFESSIONNEL.
       
-      Voici les tâches à analyser pour la période du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')} :
+      Période du rapport : du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}
+      Données sources : ${JSON.stringify(tasksSummary, null, 2)}
       
-      ${JSON.stringify(tasksSummary, null, 2)}
+      CONSIGNES STRICTES :
+      1. STYLE : Ton très professionnel, exécutif, factuel et élégant. Pas de fioritures inutiles, mais un langage soutenu (ex: utilisez "concrétisation", "jalon", "optimisation", "perspective").
+      2. STRUCTURE DU RAPPORT :
+         - TITRE : Grand titre professionnel (ex: BILAN D'ACTIVITÉ OPÉRATIONNELLE).
+         - RÉSUMÉ EXÉCUTIF : Un paragraphe de 3-4 lignes synthétisant l'avancement global.
+         - RÉALISATIONS MAJEURES : Listez les succès clés par projet en utilisant des puces élégantes (•).
+         - ANALYSE DE PERFORMANCE : Commentez la dynamique de travail (priorités respectées, réactivité).
+         - PERSPECTIVES : Proposez 3 objectifs stratégiques pour la semaine suivante basés sur les données.
+      3. INTERDICTION : Ne mentionne JAMAIS que tu es une IA. N'utilise pas d'indications comme "Voici votre rapport" ou "Généré par". Le texte doit sembler avoir été écrit par un directeur de projet.
+      4. FORMATTAGE : Utilise des titres en majuscules et des espacements clairs. Utilise le Markdown pour la structure si nécessaire.
       
-      Analyse ces tâches et génère un rapport professionnel qui inclut :
-      1. Un résumé exécutif des réalisations
-      2. Une analyse des tâches terminées par projet
-      3. Les points forts et les défis rencontrés
-      4. Des recommandations pour la période suivante
-      
-      Le rapport doit être en français, clair et structuré avec des titres et sous-titres.`;
-
-
+      Langue : Français exclusivement.`;
 
       // Appeler le service IA
       const aiResponse = await AIService.generateAiText(aiSettings, prompt);
@@ -585,117 +571,20 @@ export function ReportView() {
         throw new Error('Aucune réponse reçue du service IA');
       }
 
+      // Récupérer les informations utilisateur pour la signature
+      const currentUser = state.users[0];
+      const userName = currentUser?.name || 'Responsable de Projet';
+      const userDept = currentUser?.department ? ` ${currentUser?.department?.trim()}` : '';
 
+      // Construire le contenu final sans aucune mention d'IA
+      const finalReport = `${aiResponse.trim()}\n\n---\nCordialement,\n\n${userName}${userDept}`;
 
-      // Formater la réponse de l'IA
-      const reportContent = `
-      ===========================================
-        RAPPORT D'ACTIVITÉ - ANALYSE PAR IA
-      ===========================================
-      
-      Période : Du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}
-      Généré le : ${new Date().toLocaleString('fr-FR')}
-      
-      ${aiResponse}
-      
-      ===========================================
-        DONNÉES BRUTES POUR RÉFÉRENCE
-      ===========================================
-      
-      Nombre total de tâches analysées : ${tasksSummary.length}
-      Nombre de projets concernés : ${report.projects.length}
-      `;
-
-      // Vérifier s'il y a des tâches à inclure
-      if (tasksSummary.length === 0) {
-        const noTasksMessage = `Période du rapport : du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}
-
-Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
-        setAiReport(noTasksMessage);
-        setEditedReport(noTasksMessage);
-        return;
-      }
-
-      try {
-        // Préparer le contenu du rapport avec l'IA
-        const aiResponse = await AIService.generateAiText(aiSettings, `
-          Tu es un assistant qui aide à générer des rapports professionnels pour la gestion de projet.
-          
-          Voici les tâches à analyser pour la période du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')} :
-          
-          ${JSON.stringify(tasksSummary, null, 2)}
-          
-          Analyse ces tâches et génère un rapport professionnel qui inclut :
-          1. Un résumé exécutif des réalisations
-          2. Une analyse des tâches terminées par projet
-          3. Les points forts et les défis rencontrés
-          4. Des recommandations pour la période suivante
-          
-          Le rapport doit être en français, clair et structuré avec des titres et sous-titres.
-        `);
-
-        if (!aiResponse) {
-          throw new Error('Aucune réponse reçue du service IA');
-        }
-
-        // Récupérer les informations utilisateur pour la signature
-        const currentUser = state.users[0];
-        const userInfo = [
-          currentUser?.name || 'Utilisateur',
-          currentUser?.position,
-          currentUser?.department,
-          currentUser?.email
-        ].filter(Boolean).join(' | ');
-
-        // Construire le contenu final du rapport
-        const reportContent = `
-        ===========================================
-          RAPPORT D'ACTIVITÉ - ANALYSE PAR IA
-        ===========================================
-        
-        Période : Du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}
-        Généré le : ${new Date().toLocaleString('fr-FR')}
-        
-        ${aiResponse}
-        
-        ===========================================
-          DONNÉES BRUTES POUR RÉFÉRENCE
-        ===========================================
-        
-        Nombre total de tâches analysées : ${tasksSummary.length}
-        Nombre de projets concernés : ${report.projects.length}
-        `;
-
-        // Ajouter la signature
-        const signature = `
-        ${'='.repeat(60)}
-        SIGNATURE
-        ${'='.repeat(60)}
-        
-        Ce rapport a été généré automatiquement avec l'assistance d'une IA.
-        
-        Avec nos meilleures salutations,
-        ${userInfo}
-        
-        © ${new Date().getFullYear()} - Tous droits réservés`;
-
-        // Mettre à jour l'état avec le rapport généré
-        setAiReport(reportContent + signature);
-        setEditedReport(reportContent + signature);
-        setIsEditing(false);
-      } catch (error) {
-        console.error('Erreur lors de la génération du rapport IA :', error);
-        const errorMessage = `Erreur lors de la génération du rapport IA : ${error instanceof Error ? error.message : 'Erreur inconnue'}`;
-        setAiReport(errorMessage);
-        setEditedReport(errorMessage);
-      }
-      // La génération du rapport est maintenant gérée par l'IA
-      // Les tâches et sous-tâches sont incluses dans l'analyse IA
-      setIsEditing(false); // Sortir du mode édition
-      return;
+      setAiReport(finalReport);
+      setEditedReport(finalReport);
+      setIsEditing(false);
     } catch (error) {
       console.error('Erreur lors de la génération du rapport IA:', error);
-      const errorMessage = 'Une erreur est survenue lors de la génération du rapport IA.';
+      const errorMessage = 'Désolé, une erreur technique a empêché la génération du rapport. Veuillez vérifier votre connexion et votre configuration IA.';
       setAiReport(errorMessage);
       setEditedReport(errorMessage);
     } finally {
@@ -710,10 +599,7 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
 
   // Suppression des déclarations en double - les fonctions sont déjà définies plus haut dans le composant
 
-  // Vérification de l'existence des propriétés optionnelles dans les tâches
-  const safeGetTaskNotes = (task: any): string => {
-    return hasProperty(task, 'notes') ? task.notes : '';
-  };
+
 
   // Gestion de la génération du rapport IA avec gestion d'erreur améliorée et feedback utilisateur
   const handleGenerateAIReport = async () => {
@@ -832,7 +718,6 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
                 ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
-              title={includeSubTasks ? 'Masquer les sous-tâches' : 'Afficher les sous-tâches'}
             >
               {includeSubTasks ? 'Activées' : 'Désactivées'}
               {includeSubTasks ? (
@@ -974,12 +859,6 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
                             </ul>
                           </div>
                         )}
-                        <span className={`px-2 py-1 text-xs rounded-full ${task.priority === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
-                          task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
-                            'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                          }`}>
-                          {task.priority === 'high' ? 'Haute' : task.priority === 'medium' ? 'Moyenne' : 'Basse'}
-                        </span>
                       </div>
                     ))}
                   </div>
@@ -1013,7 +892,7 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
       {(aiReport || isEditing) && (
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">Rapport Généré par IA</h2>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Résumé du Rapport d'Activité</h2>
             <div className="flex items-center gap-2">
               {!isEditing ? (
                 <>
@@ -1094,15 +973,8 @@ Aucune tâche ou sous-tâche terminée n'a été trouvée pour cette période.`;
                 className="min-h-[300px] font-mono dark:bg-gray-700 text-sm"
               />
             ) : (
-              <div className="whitespace-pre-wrap font-sans">
+              <div className="whitespace-pre-wrap font-sans text-gray-800 dark:text-gray-200 leading-relaxed">
                 {aiReport}
-                {aiReport && !aiReport.includes(generateSignature()) && (
-                  <div className="mt-8 pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {generateSignature()}
-                    </p>
-                  </div>
-                )}
               </div>
             )}
           </div>

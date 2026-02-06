@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Calendar, TextCursorInput, Folder, Sparkles } from 'lucide-react';
-import { Task, Project } from '../../types';
+import { Task, Project, AISettings } from '../../types';
 import { useApp } from '../../context/AppContext';
 import AIService from '../../services/aiService';
 
@@ -47,7 +47,7 @@ export function AddTaskForm({ projects, selectedProjectId, status, onAddTask, on
       if (!project) return;
 
       // Récupérer les paramètres IA du projet ou des paramètres généraux
-      const aiSettings = project.aiSettings || state.appSettings?.aiSettings;
+      const aiSettings = (project.aiSettings || state.appSettings?.aiSettings) as AISettings;
 
       // Vérifier si les paramètres IA sont correctement configurés
       if (!aiSettings?.provider) {
@@ -97,13 +97,12 @@ export function AddTaskForm({ projects, selectedProjectId, status, onAddTask, on
       description: description.trim(),
       status,
       projectId,
+      startDate: now.split('T')[0],
       dueDate: taskDueDate,
       priority: 'medium',
       assignees: [],
       tags: [],
       subTasks: [],
-      createdAt: now,
-      updatedAt: now,
       completedAt: status === 'done' ? now : undefined
     };
 
@@ -178,7 +177,6 @@ export function AddTaskForm({ projects, selectedProjectId, status, onAddTask, on
                 <input
                   type="date"
                   value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
                   onChange={(e) => setDueDate(e.target.value)}
                   className="w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 bg-gray-50/50 dark:bg-black/20 border border-gray-200 dark:border-gray-700/50 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all cursor-pointer"
                   min={new Date().toISOString().split('T')[0]}

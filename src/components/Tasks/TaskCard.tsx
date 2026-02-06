@@ -291,7 +291,10 @@ const TaskCardComponent = ({ task, className = '' }: TaskCardProps): JSX.Element
           {/* Pied de carte avec statut et actions */}
           <div className="pt-2 flex items-center justify-between border-t border-gray-100 dark:border-gray-700/50">
             <button
-              onClick={toggleStatus}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleStatus();
+              }}
               className={`flex items-center text-xs font-medium transition-colors ${task.status === 'done'
                 ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300'
                 : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'

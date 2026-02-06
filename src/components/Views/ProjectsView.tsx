@@ -5,7 +5,7 @@ import { useApp } from '../../context/AppContext';
 import { Card } from '../UI/Card';
 import { Button } from '../UI/Button';
 import { Modal } from '../UI/Modal';
-import { Project, Task, AISettings as AISettingsType } from '../../types';
+import { Project, Task, AISettings as AISettingsType, DEFAULT_AI_SETTINGS } from '../../types';
 import { AISettings } from '../Settings/AISettings';
 import { Tabs, Form, Input, Select, Row, Col, InputNumber, message } from 'antd';
 
@@ -34,12 +34,12 @@ interface CustomFormItemProps {
   className?: string;
 }
 
-const CustomFormItem: React.FC<CustomFormItemProps> = ({ 
-  children, 
-  label, 
-  required = false, 
+const CustomFormItem: React.FC<CustomFormItemProps> = ({
+  children,
+  label,
+  required = false,
   className = '',
-  ...props 
+  ...props
 }) => {
   return (
     <Form.Item label={label} required={required} className={className} {...props}>
@@ -55,12 +55,12 @@ interface CustomSelectOptionProps {
   className?: string;
 }
 
-const CustomSelectOption: React.FC<CustomSelectOptionProps> = ({ 
-  children, 
-  value, 
+const CustomSelectOption: React.FC<CustomSelectOptionProps> = ({
+  children,
+  value,
   disabled = false,
   className = '',
-  ...props 
+  ...props
 }) => {
   return (
     <Select.Option value={value} disabled={disabled} className={className} {...props}>
@@ -120,13 +120,13 @@ interface ProjectCardProps {
   children?: React.ReactNode;
 }
 
-const ProjectCard: React.FC<ProjectCardProps> = ({ 
-  project, 
-  onEdit, 
-  onArchive, 
-  onDelete, 
+const ProjectCard: React.FC<ProjectCardProps> = ({
+  project,
+  onEdit,
+  onArchive,
+  onDelete,
   getProjectStats,
-  children 
+  children
 }) => {
   const { state } = useApp();
   const [showMenu, setShowMenu] = useState(false);
@@ -148,23 +148,27 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
   }, []);
 
   return (
-    <Card className="p-6 group" hover gradient>
+    <Card
+      className="p-6 group cursor-pointer"
+      hover
+      gradient
+      onClick={() => onEdit(project)}
+    >
       <div className="flex items-start justify-between mb-6">
         <div className="flex items-center space-x-3">
-          <div 
+          <div
             className="w-5 h-5 rounded-full shadow-lg"
             style={{ backgroundColor: project.color }}
           />
-          <h3 className={`font-bold text-gray-900 dark:text-white ${
-            state.appSettings?.fontSize === 'small' ? 'text-lg' : 
+          <h3 className={`font-bold text-gray-900 dark:text-white ${state.appSettings?.fontSize === 'small' ? 'text-lg' :
             state.appSettings?.fontSize === 'large' ? 'text-2xl' : 'text-xl'
-          }`}>
+            }`}>
             {project.name}
           </h3>
         </div>
-        
+
         <div className="relative" ref={menuRef}>
-          <button 
+          <button
             onClick={(e) => {
               e.stopPropagation();
               setShowMenu(!showMenu);
@@ -174,18 +178,24 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
           >
             <MoreHorizontal className="w-5 h-5 text-gray-500" />
           </button>
-          
+
           {showMenu && (
             <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg py-1 z-50 border border-gray-200 dark:border-gray-700">
               <button
-                onClick={() => onEdit(project)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(project);
+                }}
                 className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 <Edit className="w-4 h-4 mr-3" />
                 Modifier
               </button>
               <button
-                onClick={() => onArchive(project)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onArchive(project);
+                }}
                 className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 <Archive className="w-4 h-4 mr-3" />
@@ -207,35 +217,33 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
       </div>
 
       {project.description && (
-        <p className={`text-gray-600 dark:text-gray-400 mb-6 line-clamp-2 leading-relaxed ${
-          state.appSettings?.fontSize === 'small' ? 'text-xs' : 
+        <p className={`text-gray-600 dark:text-gray-400 mb-6 line-clamp-2 leading-relaxed ${state.appSettings?.fontSize === 'small' ? 'text-xs' :
           state.appSettings?.fontSize === 'large' ? 'text-base' : 'text-sm'
-        }`}>
+          }`}>
           {project.description}
         </p>
       )}
 
       <div className="space-y-4 mb-6">
-        <div className={`flex justify-between ${
-          state.appSettings?.fontSize === 'small' ? 'text-xs' : 
+        <div className={`flex justify-between ${state.appSettings?.fontSize === 'small' ? 'text-xs' :
           state.appSettings?.fontSize === 'large' ? 'text-base' : 'text-sm'
-        }`}>
+          }`}>
           <span className="text-gray-600 dark:text-gray-400 font-medium">Progression</span>
           <span className="font-bold text-gray-900 dark:text-white">
             {stats.completedTasks}/{stats.totalTasks}
           </span>
         </div>
-        
+
         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-          <div 
+          <div
             className="h-3 rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 transition-all duration-500 shadow-sm"
-            style={{ 
-              width: `${stats.totalTasks > 0 ? Math.round((stats.completedTasks / stats.totalTasks) * 100) : 0}%` 
+            style={{
+              width: `${stats.totalTasks > 0 ? Math.round((stats.completedTasks / stats.totalTasks) * 100) : 0}%`
             }}
           />
         </div>
       </div>
-      
+
       {children}
     </Card>
   );
@@ -253,7 +261,7 @@ export function ProjectsView() {
   };
 
   const [editingProject, setEditingProject] = useState<Project | null>(null);
-  
+
   const resetNewProjectForm = () => {
     setNewProject({
       name: '',
@@ -292,7 +300,7 @@ export function ProjectsView() {
     estimatedDuration: 0,
     tasks: []
   });
-  
+
   const [newTask, setNewTask] = useState<{
     title: string;
     description: string;
@@ -314,23 +322,23 @@ export function ProjectsView() {
   // Fonction pour générer des tâches avec l'IA
   const generateTasksWithAI = async () => {
     if (!editingProject) return;
-    
+
     setIsGeneratingTasks(true);
-    
+
     try {
       const projectDetails = {
         name: editingProject.name,
         description: editingProject.description || '',
         tasks: editingProject.tasks || []
       };
-      
+
       // Préparer le prompt pour l'IA
       let prompt = `Génère 3 à 5 tâches pour le projet "${editingProject.name}".`;
-      
+
       if (editingProject.description) {
         prompt += ` Description du projet: ${editingProject.description}\n\n`;
       }
-      
+
       if (editingProject.tasks?.length > 0) {
         prompt += `Tâches existantes (${editingProject.tasks.length}):\n`;
         editingProject.tasks.slice(0, 3).forEach((task, index) => {
@@ -341,17 +349,17 @@ export function ProjectsView() {
         }
         prompt += '\n';
       }
-      
+
       prompt += `Génère des tâches pertinentes et bien structurées. \nFormat de sortie JSON : [{"title":"Titre de la tâche","description":"Description détaillée","estimatedHours":2}]`;
-      
+
       // Récupérer les paramètres IA du contexte de l'application
       const aiConfig = state.appSettings?.aiSettings || DEFAULT_AI_SETTINGS;
       const apiKey = aiConfig.openrouterApiKey || '';
-      
+
       if (!apiKey) {
         throw new Error('Clé API OpenRouter non configurée. Veuillez configurer les paramètres IA dans les paramètres de l\'application.');
       }
-      
+
       // Appeler le service IA
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
@@ -377,30 +385,30 @@ export function ProjectsView() {
           max_tokens: aiConfig.maxTokens || 1000
         })
       });
-      
+
       if (!response.ok) {
         throw new Error('Erreur lors de la génération des tâches');
       }
-      
+
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content;
-      
+
       if (!content) {
         throw new Error('Réponse de l\'IA invalide');
       }
-      
+
       // Extraire le JSON de la réponse
       const jsonMatch = content.match(/\[\s*\{.*\}\s*\]/s);
       if (!jsonMatch) {
         throw new Error('Format de réponse inattendu');
       }
-      
+
       const generatedTasks = JSON.parse(jsonMatch[0]);
-      
+
       // Ajouter les nouvelles tâches au projet
       if (generatedTasks && Array.isArray(generatedTasks) && generatedTasks.length > 0) {
         const updatedTasks = [...(editingProject.tasks || [])];
-        
+
         generatedTasks.forEach((task: any) => {
           if (task.title) {
             const newTask: Task = {
@@ -423,15 +431,15 @@ export function ProjectsView() {
             updatedTasks.push(newTask);
           }
         });
-        
+
         setEditingProject({
           ...editingProject,
           tasks: updatedTasks
         });
-        
+
         message.success(`${generatedTasks.length} tâches générées avec succès !`);
       }
-      
+
     } catch (error) {
       console.error('Erreur lors de la génération des tâches:', error);
       message.error('Erreur lors de la génération des tâches. Veuillez réessayer.');
@@ -442,7 +450,7 @@ export function ProjectsView() {
 
   const addTask = () => {
     if (!editingProject || !newTask.title.trim()) return;
-    
+
     const task: Task = {
       id: uuidv4(),
       title: newTask.title,
@@ -474,7 +482,7 @@ export function ProjectsView() {
         tasks: [...newProject.tasks, task]
       });
     }
-    
+
     // Réinitialiser le formulaire de tâche
     setNewTask({
       title: '',
@@ -486,11 +494,11 @@ export function ProjectsView() {
       estimatedHours: 1,
     });
   };
-  
+
   const removeTask = (taskId: string, isEditing: boolean = false) => {
     if (isEditing) {
       if (!editingProject) return;
-      
+
       const updatedTasks = editingProject.tasks?.filter(task => task.id !== taskId) || [];
       setEditingProject({
         ...editingProject,
@@ -560,7 +568,7 @@ export function ProjectsView() {
 
     setEditingProject(null);
   };
-  
+
 
 
   const getProjectStats = (project: Project) => {
@@ -655,14 +663,14 @@ export function ProjectsView() {
   };
 
   const colors = [
-    '#0EA5E9', 
-    '#8B5CF6', 
-    '#EC4899', 
-    '#10B981', 
-    '#F59E0B', 
-    '#EF4444', 
-    '#06B6D4', 
-    '#F97316'  
+    '#0EA5E9',
+    '#8B5CF6',
+    '#EC4899',
+    '#10B981',
+    '#F59E0B',
+    '#EF4444',
+    '#06B6D4',
+    '#F97316'
   ];
 
   const [showProjectModal, setShowProjectModal] = useState(false);
@@ -770,7 +778,7 @@ export function ProjectsView() {
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">Total Projets</div>
         </Card>
-        
+
         <Card className="p-6 text-center" hover gradient>
           <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
             <span className="text-2xl font-bold text-white">
@@ -779,7 +787,7 @@ export function ProjectsView() {
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">Actifs</div>
         </Card>
-        
+
         <Card className="p-6 text-center" hover gradient>
           <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
             <span className="text-2xl font-bold text-white">
@@ -788,7 +796,7 @@ export function ProjectsView() {
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">Total Tâches</div>
         </Card>
-        
+
         <Card className="p-6 text-center" hover gradient>
           <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
             <span className="text-2xl font-bold text-white">
@@ -802,37 +810,36 @@ export function ProjectsView() {
       {/* Projets actifs */}
       <div className="mt-12">
         <div className="flex items-center justify-between mb-6">
-          <h2 className={`font-bold text-gray-800 dark:text-white ${
-            state.appSettings?.fontSize === 'small' ? 'text-lg' : 
+          <h2 className={`font-bold text-gray-800 dark:text-white ${state.appSettings?.fontSize === 'small' ? 'text-lg' :
             state.appSettings?.fontSize === 'large' ? 'text-2xl' : 'text-xl'
-          }`}>
+            }`}>
             Projets actifs
           </h2>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             onClick={() => setShowActive(!showActive)}
             className="flex items-center gap-2"
           >
             {showActive ? 'Masquer' : 'Afficher'} les projets actifs
-            <svg 
-              className={`w-4 h-4 transition-transform ${showActive ? 'rotate-180' : ''}`} 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24" 
+            <svg
+              className={`w-4 h-4 transition-transform ${showActive ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
               xmlns="http://www.w3.org/2000/svg"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </Button>
         </div>
-        
+
         {showActive && state.projects.some(p => p.status === 'active') ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {state.projects
               .filter(project => project.status === 'active')
               .map(project => (
-                <ProjectCard 
+                <ProjectCard
                   key={project.id}
                   project={project}
                   onEdit={handleEditProject}
@@ -880,7 +887,7 @@ export function ProjectsView() {
         <>
           {/* Projets en attente */}
           <div className="mb-8">
-            <div 
+            <div
               className="flex items-center justify-between cursor-pointer mb-4 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
               onClick={() => setShowPending(!showPending)}
             >
@@ -891,20 +898,20 @@ export function ProjectsView() {
                   ({state.projects.filter(p => p.status === 'on-hold').length})
                 </span>
               </h2>
-              <ChevronDown 
-                className={`transform transition-transform ${showPending ? 'rotate-0' : '-rotate-90'} text-gray-500`} 
-                size={20} 
+              <ChevronDown
+                className={`transform transition-transform ${showPending ? 'rotate-0' : '-rotate-90'} text-gray-500`}
+                size={20}
               />
             </div>
-            
+
             {showPending && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {state.projects
                   .filter(project => project.status === 'on-hold')
                   .map(project => (
-                    <ProjectCard 
-                      key={project.id} 
-                      project={project} 
+                    <ProjectCard
+                      key={project.id}
+                      project={project}
                       onEdit={handleEditProject}
                       onArchive={handleArchiveProject}
                       onDelete={(project) => {
@@ -916,17 +923,20 @@ export function ProjectsView() {
                       completedTasks={getProjectStats(project).completedTasks}
                     >
                       <div className="flex justify-between mt-2">
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          onClick={() => handleActivateProject(project)}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleActivateProject(project);
+                          }}
                           className="flex-1 mr-2"
                         >
                           Activer
                         </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
+                        <Button
+                          size="sm"
+                          variant="outline"
                           onClick={(e) => {
                             e.stopPropagation();
                             setProjectToDelete(project);
@@ -939,7 +949,7 @@ export function ProjectsView() {
                       </div>
                     </ProjectCard>
                   ))}
-                
+
                 {state.projects.filter(p => p.status === 'on-hold').length === 0 && (
                   <div className="col-span-full text-center py-8 text-gray-500 dark:text-gray-400">
                     Aucun projet en attente
@@ -952,37 +962,36 @@ export function ProjectsView() {
           {/* Projets terminés */}
           <div className="mt-12">
             <div className="flex items-center justify-between mb-6">
-              <h2 className={`font-bold text-gray-800 dark:text-white ${
-                state.appSettings?.fontSize === 'small' ? 'text-lg' : 
+              <h2 className={`font-bold text-gray-800 dark:text-white ${state.appSettings?.fontSize === 'small' ? 'text-lg' :
                 state.appSettings?.fontSize === 'large' ? 'text-2xl' : 'text-xl'
-              }`}>
+                }`}>
                 Projets terminés
               </h2>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => setShowCompletedProjects(!showCompletedProjects)}
                 className="flex items-center gap-2"
               >
                 {showCompletedProjects ? 'Masquer' : 'Afficher'} les projets terminés
-                <svg 
-                  className={`w-4 h-4 transition-transform ${showCompletedProjects ? 'rotate-180' : ''}`} 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24" 
+                <svg
+                  className={`w-4 h-4 transition-transform ${showCompletedProjects ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                   xmlns="http://www.w3.org/2000/svg"
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </Button>
             </div>
-            
+
             {showCompletedProjects && state.projects.some(p => p.status === 'completed') && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
                 {state.projects
                   .filter(project => project.status === 'completed')
                   .map(project => (
-                    <ProjectCard 
+                    <ProjectCard
                       key={project.id}
                       project={project}
                       onEdit={handleEditProject}
@@ -994,7 +1003,7 @@ export function ProjectsView() {
                       getProjectStats={getProjectStats}
                     >
                       <div className="flex gap-2 mt-4">
-                        <Button 
+                        <Button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleActivateProject(project);
@@ -1005,7 +1014,7 @@ export function ProjectsView() {
                         >
                           Réactiver
                         </Button>
-                        <Button 
+                        <Button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleArchiveProject(project);
@@ -1027,30 +1036,30 @@ export function ProjectsView() {
               </div>
             )}
           </div>
-          
+
           {/* Projets archivés */}
           <div className="mt-12">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-gray-800 dark:text-white">Projets archivés</h2>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => setShowArchivedProjects(!showArchivedProjects)}
                 className="flex items-center gap-2"
               >
                 {showArchivedProjects ? 'Masquer' : 'Afficher'} les projets archivés
-                <svg 
-                  className={`w-4 h-4 transition-transform ${showArchivedProjects ? 'rotate-180' : ''}`} 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24" 
+                <svg
+                  className={`w-4 h-4 transition-transform ${showArchivedProjects ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                   xmlns="http://www.w3.org/2000/svg"
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </Button>
             </div>
-            
+
             {showArchivedProjects && state.projects.some(p => p.status === 'archived') && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
                 {state.projects
@@ -1058,12 +1067,17 @@ export function ProjectsView() {
                   .map(project => {
                     const stats = getProjectStats(project);
                     const progress = stats.totalTasks > 0 ? (stats.completedTasks / stats.totalTasks) * 100 : 0;
-                    
+
                     return (
-                      <Card key={project.id} className="p-6 group opacity-75 hover:opacity-100 transition-opacity duration-200" hover>
+                      <Card
+                        key={project.id}
+                        className="p-6 group opacity-75 hover:opacity-100 transition-opacity duration-200 cursor-pointer"
+                        hover
+                        onClick={() => handleEditProject(project)}
+                      >
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center space-x-3">
-                            <div 
+                            <div
                               className="w-5 h-5 rounded-full shadow-lg"
                               style={{ backgroundColor: project.color }}
                             />
@@ -1075,23 +1089,27 @@ export function ProjectsView() {
                             Archivé
                           </div>
                         </div>
-                        
+
                         {project.description && (
                           <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-2">
                             {project.description}
                           </p>
                         )}
-                        
+
                         <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
                           <div className="flex space-x-2">
                             <button
-                              onClick={() => handleArchiveProject(project)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleArchiveProject(project);
+                              }}
                               className="text-xs px-3 py-1 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 transition-colors"
                             >
                               Désarchiver
                             </button>
                             <button
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setProjectToDelete(project);
                                 setShowDeleteConfirm(true);
                               }}
@@ -1132,7 +1150,7 @@ export function ProjectsView() {
               <CustomFormItem label="Nom du projet" required>
                 <Input
                   value={newProject.name}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     setNewProject({ ...newProject, name: e.target.value })}
                   placeholder="Nom du projet"
                 />
@@ -1140,7 +1158,7 @@ export function ProjectsView() {
               <CustomFormItem label="Description">
                 <TextArea
                   value={newProject.description}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => 
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
                     setNewProject({ ...newProject, description: e.target.value })}
                   placeholder="Description du projet"
                   rows={4}
@@ -1151,7 +1169,7 @@ export function ProjectsView() {
                   <CustomFormItem label="Couleur">
                     <Select
                       value={newProject.color}
-                      onChange={(value: string) => 
+                      onChange={(value: string) =>
                         setNewProject({ ...newProject, color: value })}
                       style={{ width: '100%' }}
                     >
@@ -1188,19 +1206,19 @@ export function ProjectsView() {
               </CustomFormItem>
             </CustomForm>
           </CustomTabPane>
-          <CustomTabPane 
+          <CustomTabPane
             tab={
               <span>
                 <Cpu size={16} style={{ marginRight: 8 }} />
                 IA
               </span>
-            } 
-            key="ai" 
+            }
+            key="ai"
             disabled={!editingProject}
           >
             {editingProject ? (
-              <AISettings 
-                value={aiSettings} 
+              <AISettings
+                value={aiSettings}
                 onChange={(settings) => setAISettings(settings)}
                 showTitle={false}
               />
@@ -1212,14 +1230,14 @@ export function ProjectsView() {
           </CustomTabPane>
         </Tabs>
       </Modal>
-      
+
       {/* Modal d'édition de projet */}
       <Modal
         isOpen={!!editingProject}
         onClose={() => setEditingProject(null)}
         title="Modifier le projet"
         size="lg"
-        >
+      >
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -1229,19 +1247,19 @@ export function ProjectsView() {
               <input
                 type="text"
                 value={editingProject?.name || ''}
-                onChange={(e) => editingProject && setEditingProject({...editingProject, name: e.target.value})}
+                onChange={(e) => editingProject && setEditingProject({ ...editingProject, name: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
                 placeholder="Ex: Site e-commerce"
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Statut
               </label>
               <select
                 value={editingProject?.status || 'active'}
-                onChange={(e) => editingProject && setEditingProject({...editingProject, status: e.target.value as any})}
+                onChange={(e) => editingProject && setEditingProject({ ...editingProject, status: e.target.value as any })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
               >
                 <option value="active">Actif</option>
@@ -1251,7 +1269,7 @@ export function ProjectsView() {
               </select>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1259,12 +1277,12 @@ export function ProjectsView() {
               </label>
               <textarea
                 value={editingProject?.description || ''}
-                onChange={(e) => editingProject && setEditingProject({...editingProject, description: e.target.value})}
+                onChange={(e) => editingProject && setEditingProject({ ...editingProject, description: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white min-h-[100px]"
                 placeholder="Description du projet..."
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Durée estimée (jours)
@@ -1273,13 +1291,13 @@ export function ProjectsView() {
                 type="number"
                 min="1"
                 value={editingProject?.estimatedDuration || 1}
-                onChange={(e) => editingProject && setEditingProject({...editingProject, estimatedDuration: Math.max(1, Number(e.target.value))})}
+                onChange={(e) => editingProject && setEditingProject({ ...editingProject, estimatedDuration: Math.max(1, Number(e.target.value)) })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
                 placeholder="Durée estimée en jours"
               />
             </div>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
               Couleur du projet
@@ -1289,22 +1307,21 @@ export function ProjectsView() {
                 <button
                   key={color}
                   type="button"
-                  onClick={() => editingProject && setEditingProject({...editingProject, color})}
-                  className={`w-10 h-10 rounded-2xl border-2 transition-all duration-200 transform hover:scale-110 shadow-lg ${
-                    editingProject?.color === color ? 'border-gray-400 scale-110' : 'border-transparent'
-                  }`}
+                  onClick={() => editingProject && setEditingProject({ ...editingProject, color })}
+                  className={`w-10 h-10 rounded-2xl border-2 transition-all duration-200 transform hover:scale-110 shadow-lg ${editingProject?.color === color ? 'border-gray-400 scale-110' : 'border-transparent'
+                    }`}
                   style={{ backgroundColor: color }}
                 />
               ))}
             </div>
           </div>
-          
+
           {/* Liste des tâches existantes */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white">
               Tâches du projet
             </h3>
-            
+
             {editingProject?.tasks?.length ? (
               <div className="space-y-3">
                 {editingProject.tasks.map((task) => (
@@ -1331,7 +1348,7 @@ export function ProjectsView() {
               </div>
             )}
           </div>
-          
+
           {/* Formulaire d'ajout de tâche */}
           <div className="space-y-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed border-gray-300 dark:border-gray-700">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1342,7 +1359,7 @@ export function ProjectsView() {
                 <input
                   type="text"
                   value={newTask.title}
-                  onChange={(e) => setNewTask({...newTask, title: e.target.value})}
+                  onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
                   placeholder="Ex: Créer la maquette"
                 />
@@ -1353,7 +1370,7 @@ export function ProjectsView() {
                 </label>
                 <select
                   value={newTask.priority}
-                  onChange={(e) => setNewTask({...newTask, priority: e.target.value as any})}
+                  onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as any })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
                 >
                   <option value="low">Basse</option>
@@ -1362,19 +1379,19 @@ export function ProjectsView() {
                 </select>
               </div>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Description (optionnel)
               </label>
               <textarea
                 value={newTask.description}
-                onChange={(e) => setNewTask({...newTask, description: e.target.value})}
+                onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white min-h-[80px]"
                 placeholder="Détails de la tâche..."
               />
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1383,7 +1400,7 @@ export function ProjectsView() {
                 <input
                   type="date"
                   value={newTask.startDate}
-                  onChange={(e) => setNewTask({...newTask, startDate: e.target.value})}
+                  onChange={(e) => setNewTask({ ...newTask, startDate: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
                 />
               </div>
@@ -1395,7 +1412,7 @@ export function ProjectsView() {
                   type="date"
                   min={newTask.startDate}
                   value={newTask.endDate}
-                  onChange={(e) => setNewTask({...newTask, endDate: e.target.value})}
+                  onChange={(e) => setNewTask({ ...newTask, endDate: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
                 />
               </div>
@@ -1408,7 +1425,7 @@ export function ProjectsView() {
                   min="0"
                   step="0.5"
                   value={newTask.estimatedHours}
-                  onChange={(e) => setNewTask({...newTask, estimatedHours: parseFloat(e.target.value) || 0})}
+                  onChange={(e) => setNewTask({ ...newTask, estimatedHours: parseFloat(e.target.value) || 0 })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
                 />
               </div>
@@ -1420,7 +1437,7 @@ export function ProjectsView() {
                 >
                   Ajouter la tâche
                 </Button>
-                
+
                 {/* Bouton pour générer des tâches avec IA */}
                 <Button
                   className="w-auto mt-2"
@@ -1455,7 +1472,7 @@ export function ProjectsView() {
               </div>
             </div>
           </div>
-          
+
           <div className="flex space-x-4 pt-6">
             <Button
               variant="outline"
@@ -1482,7 +1499,7 @@ export function ProjectsView() {
         onClose={() => setShowDeleteConfirm(false)}
         title="Confirmer la suppression"
         size="sm"
-        >
+      >
         <div className="space-y-6">
           <div className="flex items-center justify-center text-yellow-500 mb-4">
             <AlertTriangle className="w-12 h-12" />
@@ -1538,24 +1555,24 @@ export function ProjectsView() {
             <input
               type="text"
               value={newProject.name}
-              onChange={(e) => setNewProject({...newProject, name: e.target.value})}
+              onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
               placeholder="Ex: Site web client"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Description (optionnel)
             </label>
             <textarea
               value={newProject.description}
-              onChange={(e) => setNewProject({...newProject, description: e.target.value})}
+              onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white min-h-[100px]"
               placeholder="Décrivez votre projet..."
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
               Couleur du projet
@@ -1565,16 +1582,15 @@ export function ProjectsView() {
                 <button
                   key={color}
                   type="button"
-                  onClick={() => setNewProject({...newProject, color})}
-                  className={`w-10 h-10 rounded-2xl border-2 transition-all duration-200 transform hover:scale-110 shadow-lg ${
-                    newProject.color === color ? 'border-gray-400 scale-110' : 'border-transparent'
-                  }`}
+                  onClick={() => setNewProject({ ...newProject, color })}
+                  className={`w-10 h-10 rounded-2xl border-2 transition-all duration-200 transform hover:scale-110 shadow-lg ${newProject.color === color ? 'border-gray-400 scale-110' : 'border-transparent'
+                    }`}
                   style={{ backgroundColor: color }}
                 />
               ))}
             </div>
           </div>
-          
+
           <div className="flex space-x-4 pt-6">
             <Button
               variant="outline"

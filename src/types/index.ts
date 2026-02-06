@@ -5,6 +5,7 @@ export interface SubTask {
   createdAt: string;
   updatedAt: string;
   completedAt?: string; // Date de complétion de la sous-tâche (définie uniquement quand la case est cochée)
+  notes?: string;
 }
 
 export interface Task {
@@ -24,6 +25,7 @@ export interface Task {
   subTasks: SubTask[];
   notes?: string;
   estimatedHours?: number;
+  endDate?: string; // Ajouté pour compatibilité avec ProjectsView
 }
 
 // Fonction utilitaire pour créer une tâche par défaut
@@ -44,7 +46,8 @@ export function createDefaultTask(): Task {
     tags: [],
     subTasks: [],
     notes: '',
-    estimatedHours: 0
+    estimatedHours: 0,
+    endDate: today
   };
 }
 
@@ -69,6 +72,7 @@ export interface Project {
   updatedAt: string;
   tasks: Task[];
   aiSettings?: ProjectAISettings;
+  estimatedDuration?: number; // Ajouté pour compatibilité avec ProjectsView
 }
 
 export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';

@@ -1,23 +1,9 @@
 import { errorHandler } from '../lib/error/errorHandler';
-import { ErrorContext } from '../lib/error/types';
+import { ErrorContext } from '../lib/error/AppError';
 
-// Déclaration du type global pour EmailJS v4
 declare global {
   interface Window {
-    emailjs: {
-      init: (publicKey: string) => void;
-      sendForm: (
-        serviceId: string,
-        templateId: string,
-        templateParams: Record<string, unknown> | string,
-        publicKey: string
-      ) => Promise<{
-        status: number;
-        text: string;
-        json?(): Promise<any>;
-      }>;
-      send: typeof import('@emailjs/browser').send;
-    };
+    emailjs: any;
   }
 }
 
@@ -56,86 +42,46 @@ const EMAIL_ERRORS = {
  * Service de gestion des emails utilisant EmailJS
  */
 export class EmailService {
-  private static isInitialized = false;
+
+
   private static config: EmailJsConfig | null = null;
-  private static readonly SCRIPT_URL = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js';
 
-  /**
-   * Initialise le service EmailJS
-   * @throws {Error} Si l'initialisation échoue
-   */
-  private static async initialize(): Promise<void> {
-    if (this.isInitialized) return;
 
-    try {
-      // Vérifier que la configuration est valide
-      if (!this.isValidConfig()) {
-        throw new Error(EMAIL_ERRORS.INVALID_CONFIG);
-      }
-
-      // Charger la bibliothèque EmailJS si nécessaire
-      if (typeof window.emailjs === 'undefined') {
-        await this.loadEmailJs();
-      }
-
-      // Vérifier que emailjs est bien disponible
-      if (!window.emailjs) {
-        throw new Error(EMAIL_ERRORS.LOAD_FAILED);
-      }
-
-      // Initialiser EmailJS avec la configuration
-      window.emailjs.init(this.config!.userId);
-      this.isInitialized = true;
-
-    } catch (error) {
-      const appError = new Error(
-        error instanceof Error ? error.message : EMAIL_ERRORS.INIT_FAILED,
-        { cause: error }
-      );
-
-      errorHandler.handleError(appError, {
-        type: 'API_ERROR',
-        context: {
-          source: 'EmailService.initialize',
-          config: this.config ? 'configured' : 'not configured',
-        },
-      });
-
-      throw appError;
-    }
-  }
-
-  /**
-   * Vérifie si la configuration est valide
-   */
-  private static isValidConfig(): boolean {
-    return !!(this.config?.userId && this.config?.serviceId);
-  }
 
   /**
    * Envoie un email via EmailJS
    * @param options Options d'envoi d'email
-   * @returns Promesse résolue lorsque l'email est envoyé
+   * @param config Configuration optionnelle (utilise la config chargée si non fournie)
+   * @returns Promesse résolue avec le statut de l'envoi
    */
-  public static async sendEmail(options: EmailOptions): Promise<void> {
+  public static async sendEmail(options: EmailOptions, config?: EmailJsConfig): Promise<{ success: boolean; message: string }> {
     try {
-      return await this.sendEmailInternal(options);
+      // Si une config est passée, on l'utilise
+      if (config) {
+        this.config = config;
+      }
+
+      await this.sendEmailInternal(options);
+      return { success: true, message: 'Email envoyé avec succès' };
     } catch (error) {
+      const errorMessage = this.getErrorMessage(error);
       const context: ErrorContext = {
         type: 'API_ERROR',
         context: {
           source: 'EmailService.sendEmail',
           to: Array.isArray(options.to) ? options.to : [options.to],
           subject: options.subject,
+          errorMessage
         },
       };
 
       if (error instanceof Error) {
         errorHandler.handleError(error, context);
       } else {
-        errorHandler.handleError(new Error('Erreur inconnue lors de l\'envoi de l\'email'), context);
+        errorHandler.handleError(new Error(errorMessage), context);
       }
-      throw error;
+
+      return { success: false, message: errorMessage };
     }
   }
 
@@ -143,72 +89,67 @@ export class EmailService {
    * Implémentation interne de l'envoi d'email
    */
   private static async sendEmailInternal(options: EmailOptions): Promise<void> {
-    await this.initialize();
+    // S'assurer que la bibliothèque est chargée
+    if (typeof window.emailjs === 'undefined') {
+      await this.loadEmailJs();
+    }
 
     if (!this.config) {
       throw new Error(EMAIL_ERRORS.INVALID_CONFIG);
     }
 
-    // Préparation des paramètres du template avec plusieurs alias pour le sujet
-    // pour maximiser la compatibilité avec les différents templates EmailJS
+    // Initialiser EmailJS avec la clé publique (User ID) si nécessaire
+    // Dans la v4, on peut aussi le passer à l'appel send()
+    if (window.emailjs && typeof window.emailjs.init === 'function') {
+      window.emailjs.init(this.config.userId);
+    }
+
+    // Préparation des paramètres du template
+    const toEmail = Array.isArray(options.to) ? options.to.join(', ') : options.to;
     const templateParams = {
-      // Destinataire
-      to_email: Array.isArray(options.to) ? options.to.join(', ') : options.to,
-      to_name: '', // Sera rempli par EmailJS si disponible
+      // Alias pour le destinataire
+      to_email: toEmail,
+      email: toEmail,
+      to: toEmail,
+
+      // Alias pour le nom du destinataire
+      to_name: options.templateParams?.to_name || '',
+      name: options.templateParams?.to_name || '',
 
       // Expéditeur
       from_name: options.fromName || this.config.fromName,
       from_email: options.from || this.config.fromEmail,
 
-      // Sujet (plusieurs variantes pour être sûr que l'une d'elles matche le template)
+      // Sujet
       subject: options.subject,
       email_subject: options.subject,
-      object: options.subject, // "Objet" en français
       title: options.subject,
-      delivery_title: options.subject,
 
       // Contenu
-      message: options.html, // Contenu HTML complet
-      content: options.html, // Alias courant
-      html_content: options.html, // Autre alias courant
-
-      // Version texte
-      text: options.text || '',
+      message: options.html,
+      content: options.html,
       text_content: options.text || '',
-
-      // Métadonnées
       reply_to: options.from || this.config.fromEmail,
 
-      // Paramètres personnalisés (prennent le pas sur les défauts)
+      // Paramètres personnalisés (prennent le pas sur les alias)
       ...options.templateParams,
     };
 
     try {
-      // Utilisation de la méthode send de la version 4+ d'EmailJS
-      await window.emailjs.send(
+      // Utilisation de la méthode send d'EmailJS
+      const response = await window.emailjs.send(
         this.config.serviceId,
         options.templateId || this.config.templateId,
         templateParams,
-        {
-          publicKey: this.config.userId,
-          // Le token privé est optionnel et rarement nécessaire côté client
-          ...(this.config.accessToken && { privateKey: this.config.accessToken })
-        }
+        this.config.userId // La clé publique peut être passée ici dans les versions récentes
       );
+
+      if (response.status !== 200) {
+        throw new Error(`Erreur EmailJS: ${response.text} (Status: ${response.status})`);
+      }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : EMAIL_ERRORS.SEND_FAILED;
-      const emailError = new Error(errorMessage, { cause: error });
-
-      errorHandler.handleError(emailError, {
-        type: 'API_ERROR',
-        context: {
-          source: 'EmailService.sendEmailInternal',
-          templateId: options.templateId || this.config.templateId,
-          serviceId: this.config.serviceId,
-        },
-      });
-
-      throw emailError;
+      console.error('EmailJS send error:', error);
+      throw error;
     }
   }
 

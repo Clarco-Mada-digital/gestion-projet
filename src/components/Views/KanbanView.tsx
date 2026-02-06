@@ -11,7 +11,7 @@ import { Card } from '../UI/Card';
 interface Column {
   id: string;
   title: string;
-  tasks: any[];
+  tasks: Task[];
   gradient: string;
   iconColor: string;
   isCustom?: boolean;
@@ -109,20 +109,34 @@ export function KanbanView() {
       isCustom: true
     }));
 
-    // Fusionner les colonnes
     const allColumns = [...defaultCols, ...customCols];
 
-    // Si on a un ordre défini, on l'applique
+    // Charger l'ordre des tâches depuis le localStorage
+    const savedTaskOrder = localStorage.getItem('kanbanTaskOrder');
+    const taskOrder = savedTaskOrder ? JSON.parse(savedTaskOrder) : {};
+
+    // Appliquer l'ordre des tâches à chaque colonne
+    allColumns.forEach(col => {
+      const orderForCol = taskOrder[col.id];
+      if (orderForCol && Array.isArray(orderForCol)) {
+        col.tasks.sort((a, b) => {
+          const indexA = orderForCol.indexOf(a.id);
+          const indexB = orderForCol.indexOf(b.id);
+          if (indexA === -1 && indexB === -1) return 0;
+          if (indexA === -1) return 1;
+          if (indexB === -1) return -1;
+          return indexA - indexB;
+        });
+      }
+    });
+
+    // Si on a un ordre défini pour les colonnes, on l'applique
     if (columnOrder.length > 0) {
-      // Vérifier que toutes les colonnes sont dans l'ordre
       const allColumnIds = allColumns.map(col => col.id);
       const validOrder = columnOrder.filter(id => allColumnIds.includes(id));
-
-      // Ajouter les colonnes manquantes à la fin
       const missingColumns = allColumns.filter(col => !validOrder.includes(col.id));
       const finalOrder = [...validOrder, ...missingColumns.map(col => col.id)];
 
-      // Trier les colonnes selon l'ordre défini
       allColumns.sort((a, b) => {
         return finalOrder.indexOf(a.id) - finalOrder.indexOf(b.id);
       });
@@ -247,67 +261,62 @@ export function KanbanView() {
     setAddingTaskColumnId(null);
   };
 
-  // Réorganiser les colonnes
   const onDragEnd = useCallback((result: DropResult) => {
     const { source, destination, type } = result;
 
-    // Si pas de destination, on ne fait rien
-    if (!destination) return;
-
-    // Gestion du déplacement des colonnes
-    if (type === 'COLUMN') {
-      const newColumnOrder = Array.from(columnOrder);
-      // Si c'est la première fois qu'on déplace des colonnes, initialiser l'ordre
-      if (newColumnOrder.length === 0) {
-        newColumnOrder.push(...columns.map(col => col.id));
-      }
-
-      const [movedColumnId] = newColumnOrder.splice(source.index, 1);
-      newColumnOrder.splice(destination.index, 0, movedColumnId);
-
-      // Mettre à jour l'ordre des colonnes
-      setColumnOrder(newColumnOrder);
-      localStorage.setItem('kanbanColumnOrder', JSON.stringify(newColumnOrder));
-
-      // Mettre à jour l'ordre des colonnes dans l'état
-      const newColumns = [...columns];
-      const movedColumnIndex = newColumns.findIndex(col => col.id === movedColumnId);
-      const [movedColumn] = newColumns.splice(movedColumnIndex, 1);
-      newColumns.splice(destination.index, 0, movedColumn);
-
-      setColumns(newColumns);
-      return;
-    }
-
-    // Gestion du déplacement des tâches (code existant)
-    const { source: taskSource, destination: taskDestination } = result;
-    if (!taskDestination) return;
-    if (taskSource.droppableId === taskDestination.droppableId && taskSource.index === taskDestination.index) return;
-
-    // Vérifier si le drop est valide
     if (!destination) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
-    // Trouver la colonne source
+    // Déplacement de colonnes
+    if (type === 'COLUMN') {
+      const newColumns = [...columns];
+      const [movedColumn] = newColumns.splice(source.index, 1);
+      newColumns.splice(destination.index, 0, movedColumn);
+
+      const newOrder = newColumns.map(col => col.id);
+
+      // Mettre à jour les deux états immédiatement pour un ressenti fluide
+      setColumns(newColumns);
+      setColumnOrder(newOrder);
+      localStorage.setItem('kanbanColumnOrder', JSON.stringify(newOrder));
+      return;
+    }
+
+    // Déplacement de tâches
     const sourceColIndex = columns.findIndex(col => col.id === source.droppableId);
     const destColIndex = columns.findIndex(col => col.id === destination.droppableId);
 
     if (sourceColIndex === -1 || destColIndex === -1) return;
 
-    // Créer une copie des colonnes
-    const newColumns = [...columns];
+    // Créer une copie profonde pour éviter les mutations d'état
+    const newColumns: Column[] = JSON.parse(JSON.stringify(columns));
+    const sourceCol = newColumns[sourceColIndex];
+    const destCol = newColumns[destColIndex];
 
-    // Retirer la tâche de la colonne source
-    const [movedTask] = newColumns[sourceColIndex].tasks.splice(source.index, 1);
+    const [movedTask] = sourceCol.tasks.splice(source.index, 1);
 
-    // Mettre à jour le statut de la tâche
-    movedTask.status = destination.droppableId as 'todo' | 'in-progress' | 'done';
+    // Mettre à jour le statut
+    movedTask.status = destination.droppableId;
     movedTask.updatedAt = new Date().toISOString();
 
-    // Ajouter la tâche à la colonne de destination
-    newColumns[destColIndex].tasks.splice(destination.index, 0, movedTask);
+    // Insérer dans la destination
+    destCol.tasks.splice(destination.index, 0, movedTask);
 
-    // Mettre à jour l'état local immédiatement pour un meilleur ressenti
+    // Mettre à jour l'ordre des tâches dans le localStorage
+    const savedTaskOrder = localStorage.getItem('kanbanTaskOrder');
+    const taskOrder = savedTaskOrder ? JSON.parse(savedTaskOrder) : {};
+
+    // Mettre à jour l'ordre pour la colonne source
+    taskOrder[source.droppableId] = sourceCol.tasks.map(t => t.id);
+
+    // Si destination différente, mettre aussi à jour l'ordre pour la colonne destination
+    if (source.droppableId !== destination.droppableId) {
+      taskOrder[destination.droppableId] = destCol.tasks.map(t => t.id);
+    }
+
+    localStorage.setItem('kanbanTaskOrder', JSON.stringify(taskOrder));
+
+    // Mettre à jour l'état local
     setColumns(newColumns);
 
     // Mettre à jour l'état global
@@ -315,7 +324,7 @@ export function KanbanView() {
       type: 'UPDATE_TASK',
       payload: movedTask
     });
-  }, [dispatch, columns]);
+  }, [dispatch, columns, columnOrder]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden space-y-4">
@@ -470,7 +479,7 @@ export function KanbanView() {
                       <div
                         ref={provided.innerRef}
                         {...provided.draggableProps}
-                        className={`flex-shrink-0 w-[450px] h-full transition-all duration-200 ${snapshot.isDragging ? 'shadow-2xl scale-105 z-10' : 'shadow-md hover:shadow-lg'
+                        className={`flex-shrink-0 w-[450px] h-full ${!snapshot.isDragging ? 'transition-all duration-200' : ''} ${snapshot.isDragging ? 'shadow-2xl scale-105 z-10' : 'shadow-md hover:shadow-lg'
                           }`}
                         style={{
                           ...provided.draggableProps.style,
@@ -482,15 +491,11 @@ export function KanbanView() {
                         <Card
                           className={`bg-gradient-to-br ${column.gradient} p-4 h-full flex flex-col`}
                           gradient
-                          onClick={(e) => {
-                            // Empêcher la propagation des événements de clic sur la carte
-                            e.stopPropagation();
-                          }}
                         >
                           <div className="flex items-center justify-between mb-6">
                             <div className="flex items-center group">
                               <div
-                                className="p-1 -ml-2 mr-1 rounded-md hover:bg-white/20 transition-colors cursor-grab active:cursor-grabbing"
+                                className="p-1 -ml-2 mr-1 rounded-md hover:bg-white/20 transition-colors cursor-grab active:cursor-grabbing touch-none"
                                 {...provided.dragHandleProps}
                                 title="Déplacer la colonne"
                               >
@@ -542,7 +547,7 @@ export function KanbanView() {
                               <div
                                 ref={provided.innerRef}
                                 {...provided.droppableProps}
-                                className={`flex-1 overflow-y-auto scrollbar-thin p-2 rounded-lg transition-all duration-200 custom-scrollbar ${snapshot.isDraggingOver
+                                className={`flex-1 overflow-y-auto scrollbar-thin p-2 rounded-lg custom-scrollbar ${snapshot.isDraggingOver
                                   ? 'bg-black/5 dark:bg-white/5 ring-2 ring-blue-400/50'
                                   : 'bg-transparent'
                                   }`}
@@ -574,7 +579,7 @@ export function KanbanView() {
                                               <TaskCard
                                                 task={task}
                                                 showProject
-                                                className={`transition-transform duration-200 ${snapshot.isDragging
+                                                className={` ${!snapshot.isDragging ? 'transition-transform duration-200' : ''} ${snapshot.isDragging
                                                   ? 'shadow-lg scale-[1.02] rotate-1'
                                                   : 'shadow-sm hover:shadow-md hover:-translate-y-0.5'
                                                   }`}
