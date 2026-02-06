@@ -663,14 +663,10 @@ export function ProjectsView() {
   };
 
   const colors = [
-    '#0EA5E9',
-    '#8B5CF6',
-    '#EC4899',
-    '#10B981',
-    '#F59E0B',
-    '#EF4444',
-    '#06B6D4',
-    '#F97316'
+    '#0EA5E9', '#3B82F6', '#6366F1', '#8B5CF6', '#A855F7',
+    '#D946EF', '#EC4899', '#F43F5E', '#EF4444', '#F97316',
+    '#F59E0B', '#EAB308', '#84CC16', '#22C55E', '#10B981',
+    '#14B8A6', '#06B6D4', '#0891B2', '#475569', '#71717a'
   ];
 
   const [showProjectModal, setShowProjectModal] = useState(false);
@@ -1178,7 +1174,27 @@ export function ProjectsView() {
                       <CustomSelectOption value="#faad14">Jaune</CustomSelectOption>
                       <CustomSelectOption value="#f5222d">Rouge</CustomSelectOption>
                       <CustomSelectOption value="#722ed1">Violet</CustomSelectOption>
+                      <CustomSelectOption value="#eb2f96">Rose</CustomSelectOption>
+                      <CustomSelectOption value="#fa8c16">Orange</CustomSelectOption>
+                      <CustomSelectOption value="#13c2c2">Cyan</CustomSelectOption>
+                      <CustomSelectOption value="#ff4d4f">Corail</CustomSelectOption>
+                      <CustomSelectOption value="#2f54eb">Indigo</CustomSelectOption>
                     </Select>
+                    <div className="mt-4 flex items-center gap-3">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">Ou personnalisée :</span>
+                      <input
+                        type="color"
+                        value={newProject.color}
+                        onChange={(e) => setNewProject({ ...newProject, color: e.target.value })}
+                        className="w-12 h-8 rounded-lg cursor-pointer bg-transparent border-0 p-0"
+                      />
+                      <Input
+                        value={newProject.color}
+                        onChange={(e) => setNewProject({ ...newProject, color: e.target.value })}
+                        className="w-28 text-center font-mono text-xs"
+                        placeholder="#000000"
+                      />
+                    </div>
                   </CustomFormItem>
                 </Col>
                 <Col span={12}>
@@ -1302,7 +1318,7 @@ export function ProjectsView() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
               Couleur du projet
             </label>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-3 items-center">
               {colors.map((color) => (
                 <button
                   key={color}
@@ -1313,6 +1329,19 @@ export function ProjectsView() {
                   style={{ backgroundColor: color }}
                 />
               ))}
+              <div className="flex items-center gap-2 ml-2 pl-4 border-l border-gray-200 dark:border-gray-700">
+                <div className="relative group">
+                  <input
+                    type="color"
+                    value={editingProject?.color || '#000000'}
+                    onChange={(e) => editingProject && setEditingProject({ ...editingProject, color: e.target.value })}
+                    className="w-10 h-10 rounded-2xl overflow-hidden border-2 border-transparent cursor-pointer bg-transparent shadow-lg transform hover:scale-110 transition-transform"
+                  />
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-opacity">
+                    Couleur libre
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1577,7 +1606,7 @@ export function ProjectsView() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
               Couleur du projet
             </label>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-3 items-center">
               {colors.map((color) => (
                 <button
                   key={color}
@@ -1588,6 +1617,19 @@ export function ProjectsView() {
                   style={{ backgroundColor: color }}
                 />
               ))}
+              <div className="flex items-center gap-2 ml-2 pl-4 border-l border-gray-200 dark:border-gray-700">
+                <div className="relative group">
+                  <input
+                    type="color"
+                    value={newProject.color}
+                    onChange={(e) => setNewProject({ ...newProject, color: e.target.value })}
+                    className="w-10 h-10 rounded-2xl overflow-hidden border-2 border-transparent cursor-pointer bg-transparent shadow-lg transform hover:scale-110 transition-transform"
+                  />
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-opacity">
+                    Couleur libre
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
