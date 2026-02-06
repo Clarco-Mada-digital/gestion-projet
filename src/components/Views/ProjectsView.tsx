@@ -289,16 +289,19 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                 <Archive className="w-4 h-4 mr-3" />
                 {project.status === 'archived' ? 'Désarchiver' : 'Archiver'}
               </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(project);
-                }}
-                className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
-              >
-                <Trash2 className="w-4 h-4 mr-3" />
-                Supprimer
-              </button>
+              {/* Option Supprimer (visible seulement pour les projets locaux OU les projets cloud dont on est propriétaire) */}
+              {(project.source !== 'firebase' || state.cloudUser?.uid === project.ownerId) && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(project);
+                  }}
+                  className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
+                >
+                  <Trash2 className="w-4 h-4 mr-3" />
+                  Supprimer
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -930,10 +933,16 @@ export function ProjectsView() {
     handleUpdateProjectStatus(project, 'completed');
   };
 
-  const confirmDeleteProject = () => {
+  const confirmDeleteProject = async () => {
     if (!projectToDelete) return;
 
     try {
+      // Si c'est un projet Cloud, on le supprime de Firebase aussi
+      if (projectToDelete.source === 'firebase') {
+        const { firebaseService } = await import('../../services/collaboration/firebaseService');
+        await firebaseService.deleteProject(projectToDelete.id);
+      }
+
       dispatch({ type: 'DELETE_PROJECT', payload: projectToDelete.id });
 
       dispatch({
@@ -951,7 +960,7 @@ export function ProjectsView() {
         payload: {
           id: Date.now().toString(),
           type: 'error',
-          message: 'Une erreur est survenue lors de la suppression du projet',
+          message: error instanceof Error ? error.message : 'Une erreur est survenue lors de la suppression du projet',
           timeout: 5000
         }
       });
@@ -1258,18 +1267,20 @@ export function ProjectsView() {
                         >
                           Activer
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setProjectToDelete(project);
-                            setShowDeleteConfirm(true);
-                          }}
-                          className="text-red-500 hover:bg-red-50 hover:text-red-600"
-                        >
-                          <Trash2 size={16} />
-                        </Button>
+                        {(project.source !== 'firebase' || state.cloudUser?.uid === project.ownerId) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setProjectToDelete(project);
+                              setShowDeleteConfirm(true);
+                            }}
+                            className="text-red-500 hover:bg-red-50 hover:text-red-600"
+                          >
+                            <Trash2 size={16} />
+                          </Button>
+                        )}
                       </div>
                     </ProjectCard>
                   ))}
@@ -1432,16 +1443,18 @@ export function ProjectsView() {
                             >
                               Désarchiver
                             </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setProjectToDelete(project);
-                                setShowDeleteConfirm(true);
-                              }}
-                              className="text-xs px-3 py-1 rounded-full bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
-                            >
-                              Supprimer
-                            </button>
+                            {(project.source !== 'firebase' || state.cloudUser?.uid === project.ownerId) && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setProjectToDelete(project);
+                                  setShowDeleteConfirm(true);
+                                }}
+                                className="text-xs px-3 py-1 rounded-full bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
+                              >
+                                Supprimer
+                              </button>
+                            )}
                           </div>
                         </div>
                       </Card>

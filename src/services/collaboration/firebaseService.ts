@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { firebaseConfig, isFirebaseConfigured } from '../../lib/firebaseConfig';
 import { Project } from '../../types';
@@ -187,6 +187,31 @@ export const firebaseService = {
     } catch (error) {
       console.error("Erreur lors de la récupération des projets partagés:", error);
       return [];
+    }
+  },
+
+  /**
+   * Supprime un projet du Cloud
+   */
+  async deleteProject(projectId: string): Promise<void> {
+    if (!ensureInitialized() || !auth.currentUser) return;
+
+    try {
+      // On récupère le projet pour vérifier le propriétaire
+      const projectDoc = await getDoc(doc(db, 'projects', projectId));
+      if (!projectDoc.exists()) return;
+
+      const projectData = projectDoc.data();
+
+      // Seul le propriétaire peut supprimer le projet
+      if (projectData.ownerId === auth.currentUser.uid) {
+        await deleteDoc(doc(db, 'projects', projectId));
+      } else {
+        throw new Error("Vous n'avez pas l'autorisation de supprimer ce projet.");
+      }
+    } catch (error) {
+      console.error("Erreur lors de la suppression du projet Cloud:", error);
+      throw error;
     }
   }
 };
