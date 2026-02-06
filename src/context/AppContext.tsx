@@ -633,11 +633,15 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       return { ...state, cloudUser: action.payload };
     case 'SYNC_PROJECTS': {
       const incomingProjects = action.payload; // Projets venant du Cloud
+      const incomingIds = new Set(incomingProjects.map(p => p.id));
 
-      // On garde les projets locaux (qui n'ont pas de source 'firebase')
-      const localOnlyProjects = state.projects.filter(p => p.source !== 'firebase');
+      // On garde les projets strictement locaux (pas de source firebase)
+      // ET qui ne sont pas déjà présents dans les projets entrants (pour éviter les doublons au moment du passage au cloud)
+      const localOnlyProjects = state.projects.filter(p =>
+        p.source !== 'firebase' && !incomingIds.has(p.id)
+      );
 
-      // On fusionne : projets locaux + nouveaux projets cloud
+      // On fusionne : locaux restants + nouveaux projets cloud
       const updatedProjects = [...localOnlyProjects, ...incomingProjects];
 
       return {
