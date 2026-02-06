@@ -193,59 +193,56 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                   if (!project.source || project.source === 'local') {
                     // Action: Synchroniser vers le cloud (Partager)
                     try {
-                      // On demande confirmation
-                      if (window.confirm("Voulez-vous partager ce projet sur le Cloud pour collaborer ?")) {
-                        const { firebaseService } = await import('../../services/collaboration/firebaseService');
+                      const { Modal } = await import('antd');
+                      Modal.confirm({
+                        title: 'Partager sur le Cloud',
+                        content: 'Voulez-vous partager ce projet sur le Cloud pour collaborer ?',
+                        okText: 'Partager',
+                        cancelText: 'Annuler',
+                        onOk: async () => {
+                          const hide = message.loading('Synchronisation en cours...', 0);
+                          try {
+                            const { firebaseService } = await import('../../services/collaboration/firebaseService');
 
-                        // Vérifier si Firebase est initialisé
-                        if (!firebaseService.isReady()) {
-                          alert("Firebase n'est pas configuré. Veuillez configurer Firebase dans les paramètres.");
-                          return;
+                            if (!firebaseService.isReady()) {
+                              message.error("Firebase n'est pas configuré.");
+                              return;
+                            }
+
+                            const user = await firebaseService.getCurrentUser();
+                            if (!user) {
+                              message.warning("Vous devez être connecté. Allez dans Paramètres > Gestion des données.");
+                              return;
+                            }
+
+                            const projectToSync = {
+                              ...project,
+                              source: 'firebase' as const,
+                              ownerId: user.uid,
+                              members: [user.uid],
+                              isShared: true,
+                              updatedAt: new Date().toISOString()
+                            };
+
+                            await firebaseService.syncProject(projectToSync);
+                            dispatch({ type: 'UPDATE_PROJECT', payload: projectToSync });
+
+                            message.success("Projet synchronisé avec succès !");
+                          } catch (error) {
+                            console.error("Erreur de sync:", error);
+                            message.error("Erreur lors de la synchronisation.");
+                          } finally {
+                            hide();
+                          }
                         }
-
-                        // Récupérer l'utilisateur courant via la méthode getCurrentUser
-                        const user = await firebaseService.getCurrentUser();
-
-                        if (!user) {
-                          alert("Vous devez être connecté pour partager un projet. Allez dans Paramètres > Gestion des données pour vous connecter.");
-                          return;
-                        }
-
-                        const projectToSync = {
-                          ...project,
-                          source: 'firebase' as const,
-                          ownerId: user.uid,
-                          members: [user.uid],
-                          isShared: true,
-                          updatedAt: new Date().toISOString()
-                        };
-
-                        await firebaseService.syncProject(projectToSync);
-
-                        // Mettre à jour le projet dans le state sans ouvrir la modal
-                        dispatch({ type: 'UPDATE_PROJECT', payload: projectToSync });
-
-                        alert("Projet synchronisé avec succès ! Vous pouvez maintenant inviter des membres.");
-                      }
+                      });
                     } catch (error) {
-                      console.error("Erreur de sync:", error);
-                      alert("Erreur lors de la synchronisation.");
+                      console.error("Erreur lors de l'ouverture du modal:", error);
                     }
                   } else {
                     // Action: Télécharger une copie locale (si c'est un projet cloud)
                     if (window.confirm("Créer une copie locale de ce projet ?")) {
-                      const localCopy = {
-                        ...project,
-                        id: uuidv4(), // Nouvel ID pour éviter les conflits
-                        name: `${project.name} (Copie)`,
-                        source: 'local' as const,
-                        ownerId: undefined,
-                        members: undefined,
-                        isShared: false,
-                        updatedAt: new Date().toISOString()
-                      };
-
-                      alert("La création de copie locale arrivera bientôt !");
+                      message.info("La création de copie locale arrivera bientôt !");
                     }
                   }
                 }}
