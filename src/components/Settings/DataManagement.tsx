@@ -165,10 +165,10 @@ export function DataManagement() {
       <div className="space-y-6">
         {/* Section Cloud Sync */}
         <div className="border-b pb-4">
-          <h3 className="text-lg font-medium mb-3">Synchronisation Cloud (Beta)</h3>
+          <h3 className="text-lg font-medium mb-3">Collaboration Cloud & Synchronisation</h3>
           <p className="text-sm text-gray-500 mb-4">
-            Connectez-vous avec Google pour activer la synchronisation de projets avec votre équipe.
-            Les données restent stockées localement par défaut.
+            Par défaut, vos données sont stockées <strong>uniquement sur votre appareil</strong> (Local Storage) pour une confidentialité totale.
+            Connectez-vous pour pouvoir <strong>partager sélectivement</strong> certains projets dans le Cloud et collaborer en temps réel avec votre équipe.
           </p>
 
           {!firebaseService.isReady() ? (
@@ -260,8 +260,8 @@ export function DataManagement() {
 
           {importStatus.type !== 'idle' && (
             <div className={`mt-4 p-3 rounded-md ${importStatus.type === 'success' ? 'bg-green-100 text-green-800' :
-                importStatus.type === 'error' ? 'bg-red-100 text-red-800' :
-                  'bg-blue-100 text-blue-800'
+              importStatus.type === 'error' ? 'bg-red-100 text-red-800' :
+                'bg-blue-100 text-blue-800'
               }`}>
               {importStatus.message}
             </div>

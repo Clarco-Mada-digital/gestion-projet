@@ -6,6 +6,9 @@ Un tableau de bord moderne de gestion de projet construit avec Astro, React et T
 
 - 📋 Gestion des tâches avec glisser-déposer
 - 📊 Tableaux Kanban pour une visualisation claire des tâches
+- ☁️ **Collaboration en temps réel** (Synchronisation Cloud via Firebase)
+- 👥 **Gestion d'équipe** (Partage de projets et membres)
+- 🤖 **Intelligence Artificielle** (Génération de tâches automatique via GPT)
 - 🏷️ Étiquetage et catégorisation des tâches
 - 📅 Suivi des échéances
 - ✨ Interface utilisateur moderne et réactive
@@ -15,6 +18,7 @@ Un tableau de bord moderne de gestion de projet construit avec Astro, React et T
 
 - [Astro](https://astro.build/) - Framework web tout-en-un
 - [React](https://react.dev/) - Bibliothèque JavaScript pour les interfaces utilisateur
+- [Firebase](https://firebase.google.com/) - Backend Cloud pour la collaboration
 - [TypeScript](https://www.typescriptlang.org/) - JavaScript typé à l'échelle de l'application
 - [Tailwind CSS](https://tailwindcss.com/) - Framework CSS utilitaire
 - [React Beautiful DnD](https://github.com/atlassian/react-beautiful-dnd) - Bibliothèque de glisser-déposer

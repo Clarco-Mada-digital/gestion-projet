@@ -99,6 +99,7 @@ export function AboutView() {
                   <li>Création de projets avec couleur personnalisée</li>
                   <li>Suivi du statut (Actif, En attente, Terminé, Archivé)</li>
                   <li>Génération automatique de tâches par IA</li>
+                  <li><strong>Collaboration Cloud & Partage d'équipe</strong></li>
                 </ul>
               </Card>
 
@@ -148,11 +149,11 @@ export function AboutView() {
                 </h2>
                 <p className={`${baseTextClass} text-gray-700 dark:text-gray-300 mb-4`}>
                   Ce projet est né de la volonté de créer un outil de gestion de tâches qui soit à la fois esthétique, performant et respectueux de la vie privée.
-                  Développé avec passion, il combine les meilleures pratiques du développement moderne (React, Tailwind CSS, TypeScript) pour offrir une expérience utilisateur fluide.
+                  Depuis la version 1.2, il intègre une dimension collaborative puissante grâce à Firebase, permettant de partager des projets spécifiques tout en gardant le reste de vos données en local.
                 </p>
                 <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 mt-4">
                   <GitBranch className="w-4 h-4" />
-                  <span>Version 1.1.0 - Open Source</span>
+                  <span>Version 1.2.0 - Hybrid Cloud Sync</span>
                 </div>
               </Card>
 
