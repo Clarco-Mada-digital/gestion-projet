@@ -61,8 +61,10 @@ export function KanbanView() {
   const [columns, setColumns] = useState<Column[]>([]);
   const [customColumns, setCustomColumns] = useState<Omit<Column, 'tasks'>[]>([]);
   const [columnOrder, setColumnOrder] = useState<string[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | 'all'>('all');
-  const [isProjectSelectOpen, setIsProjectSelectOpen] = useState(false);
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [isProjectFilterOpen, setIsProjectFilterOpen] = useState(false);
+  const [isUserFilterOpen, setIsUserFilterOpen] = useState(false);
   const [isAddingColumn, setIsAddingColumn] = useState(false);
   const [newColumnTitle, setNewColumnTitle] = useState('');
   const [selectedColorIndex, setSelectedColorIndex] = useState(0);
@@ -81,11 +83,14 @@ export function KanbanView() {
     let savedCols = [];
     let savedOrder = [];
 
-    if (selectedProjectId === 'all') {
+    const isAllSelected = selectedProjectIds.length === 0;
+    const activeProjectId = selectedProjectIds.length === 1 ? selectedProjectIds[0] : 'all';
+
+    if (isAllSelected || selectedProjectIds.length > 1) {
       savedCols = state.appSettings.kanbanSettings?.customColumns || [];
       savedOrder = state.appSettings.kanbanSettings?.columnOrder || [];
     } else {
-      const project = state.projects.find(p => p.id === selectedProjectId);
+      const project = state.projects.find(p => p.id === activeProjectId);
       savedCols = project?.kanbanSettings?.customColumns || [];
       savedOrder = project?.kanbanSettings?.columnOrder || [];
     }
@@ -102,17 +107,19 @@ export function KanbanView() {
 
     setCustomColumns(savedCols);
     setColumnOrder(savedOrder);
-  }, [selectedProjectId, state.appSettings.kanbanSettings, state.projects]);
+  }, [selectedProjectIds, state.appSettings.kanbanSettings, state.projects]);
 
   // Fonction utilitaire pour sauvegarder les paramètres
   const saveKanbanSettings = (updatedCols: any[], updatedOrder: string[], updatedTaskOrder?: Record<string, string[]>) => {
+    const activeProjectId = selectedProjectIds.length === 1 ? selectedProjectIds[0] : 'all';
+
     // Récupérer l'ancien taskOrder si non fourni
     let currentTaskOrder = updatedTaskOrder;
     if (!currentTaskOrder) {
-      if (selectedProjectId === 'all') {
+      if (activeProjectId === 'all') {
         currentTaskOrder = state.appSettings.kanbanSettings?.taskOrder || {};
       } else {
-        const project = state.projects.find(p => p.id === selectedProjectId);
+        const project = state.projects.find(p => p.id === activeProjectId);
         currentTaskOrder = project?.kanbanSettings?.taskOrder || {};
       }
     }
@@ -128,13 +135,14 @@ export function KanbanView() {
       }))
     };
 
-    if (selectedProjectId === 'all') {
+    const isAllSelected = selectedProjectIds.length === 0;
+    if (isAllSelected) {
       dispatch({
         type: 'UPDATE_APP_SETTINGS',
         payload: { kanbanSettings: settings }
       });
-    } else {
-      const project = state.projects.find(p => p.id === selectedProjectId);
+    } else if (selectedProjectIds.length === 1) {
+      const project = state.projects.find(p => p.id === selectedProjectIds[0]);
       if (project) {
         dispatch({
           type: 'UPDATE_PROJECT',
@@ -146,6 +154,8 @@ export function KanbanView() {
         });
       }
     }
+    // Note: Pour plusieurs projets, on ne sauvegarde pas les paramètres de colonne globalement pour le moment
+    // ou on pourrait choisir de les sauvegarder dans AppSettings.
 
     // Garder le localStorage en backup
     localStorage.setItem('customKanbanColumns', JSON.stringify(settings.customColumns));
@@ -156,15 +166,21 @@ export function KanbanView() {
   useEffect(() => {
     let tasksToDisplay = [];
 
-    if (selectedProjectId === 'all') {
+    if (selectedProjectIds.length === 0) {
       tasksToDisplay = state.projects
         .filter(project => project.status === 'active')
         .flatMap(p => p.tasks);
     } else {
-      const selectedProject = state.projects.find(p => p.id === selectedProjectId);
-      tasksToDisplay = (selectedProject && selectedProject.status === 'active')
-        ? selectedProject.tasks
-        : [];
+      tasksToDisplay = state.projects
+        .filter(p => selectedProjectIds.includes(p.id) && p.status === 'active')
+        .flatMap(p => p.tasks);
+    }
+
+    // Filtrer par personnel
+    if (selectedUserIds.length > 0) {
+      tasksToDisplay = tasksToDisplay.filter(t =>
+        t.assignees.some(userId => selectedUserIds.includes(userId))
+      );
     }
 
     const defaultCols = defaultColumns.map(col => ({
@@ -225,12 +241,14 @@ export function KanbanView() {
 
     const allColumns = [...defaultCols, ...storedCustomCols, ...dynamicCols];
 
+    const activeProjectId = selectedProjectIds.length === 1 ? selectedProjectIds[0] : 'all';
+
     // Charger l'ordre des tâches
     let taskOrder: Record<string, string[]> = {};
-    if (selectedProjectId === 'all') {
+    if (activeProjectId === 'all') {
       taskOrder = state.appSettings.kanbanSettings?.taskOrder || {};
     } else {
-      const project = state.projects.find(p => p.id === selectedProjectId);
+      const project = state.projects.find(p => p.id === activeProjectId);
       taskOrder = project?.kanbanSettings?.taskOrder || {};
     }
 
@@ -266,7 +284,7 @@ export function KanbanView() {
     }
 
     setColumns(allColumns);
-  }, [state.projects, selectedProjectId, customColumns, columnOrder]);
+  }, [state.projects, selectedProjectIds, selectedUserIds, customColumns, columnOrder]);
 
   const handleAddColumn = () => {
     if (!newColumnTitle.trim()) return;
@@ -402,12 +420,14 @@ export function KanbanView() {
     movedTask.updatedAt = new Date().toISOString();
     destCol.tasks.splice(destination.index, 0, movedTask);
 
+    const activeProjectId = selectedProjectIds.length === 1 ? selectedProjectIds[0] : 'all';
+
     // Mettre à jour l'ordre
     let currentTaskOrder: Record<string, string[]> = {};
-    if (selectedProjectId === 'all') {
+    if (activeProjectId === 'all') {
       currentTaskOrder = JSON.parse(JSON.stringify(state.appSettings.kanbanSettings?.taskOrder || {}));
     } else {
-      const project = state.projects.find(p => p.id === selectedProjectId);
+      const project = state.projects.find(p => p.id === activeProjectId);
       currentTaskOrder = JSON.parse(JSON.stringify(project?.kanbanSettings?.taskOrder || {}));
     }
 
@@ -419,7 +439,7 @@ export function KanbanView() {
     setColumns(newColumns);
     saveKanbanSettings(customColumns, columnOrder, currentTaskOrder);
     dispatch({ type: 'UPDATE_TASK', payload: movedTask });
-  }, [dispatch, columns, customColumns, columnOrder, selectedProjectId, state.projects, state.appSettings.kanbanSettings, saveKanbanSettings]);
+  }, [dispatch, columns, customColumns, columnOrder, selectedProjectIds, state.projects, state.appSettings.kanbanSettings, saveKanbanSettings]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden space-y-4">
@@ -448,64 +468,105 @@ export function KanbanView() {
         </div>
 
         {/* Sélecteur de projet */}
-        <div className="relative">
-          <button
-            onClick={() => setIsProjectSelectOpen(!isProjectSelectOpen)}
-            className="flex items-center justify-between w-full md:w-64 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          >
-            <span className="truncate">
-              {selectedProjectId === 'all'
-                ? 'Tous les projets'
-                : state.projects.find(p => p.id === selectedProjectId)?.name || 'Sélectionner un projet'}
-            </span>
-            {isProjectSelectOpen ? (
-              <ChevronUp className="w-5 h-5 text-gray-400 ml-2" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-gray-400 ml-2" />
-            )}
-          </button>
-
-          {isProjectSelectOpen && (
-            <>
-              <div
-                className="fixed inset-0 z-40"
-                onClick={() => setIsProjectSelectOpen(false)}
-              />
-              <div className="absolute z-50 mt-1 w-full md:w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden">
-                <div className="max-h-60 overflow-y-auto">
-                  <button
-                    onClick={() => {
-                      setSelectedProjectId('all');
-                      setIsProjectSelectOpen(false);
-                    }}
-                    className={`w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${selectedProjectId === 'all' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : ''
-                      }`}
-                  >
-                    Tous les projets
-                  </button>
-                  {state.projects
-                    .filter(project => project.status === 'active')
-                    .map(project => (
-                      <button
-                        key={project.id}
-                        onClick={() => {
-                          setSelectedProjectId(project.id);
-                          setIsProjectSelectOpen(false);
-                        }}
-                        className={`w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center ${selectedProjectId === project.id ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : ''
-                          }`}
-                      >
-                        <div
-                          className="w-2 h-2 rounded-full mr-3 flex-shrink-0"
-                          style={{ backgroundColor: project.color }}
-                        />
-                        <span className="truncate">{project.name}</span>
-                      </button>
-                    ))}
-                </div>
+        <div className="flex items-center space-x-3">
+          {/* Sélecteur de projets multiples */}
+          <div className="relative">
+            <button
+              onClick={() => setIsProjectFilterOpen(!isProjectFilterOpen)}
+              className={`flex items-center justify-between min-w-[180px] px-4 py-2 border rounded-xl shadow-sm transition-all ${selectedProjectIds.length > 0 ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800' : 'bg-white border-gray-200 text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300'}`}
+            >
+              <div className="flex items-center">
+                <span className="text-sm font-bold truncate max-w-[120px]">
+                  {selectedProjectIds.length === 0
+                    ? 'Tous les projets'
+                    : `${selectedProjectIds.length} projet${selectedProjectIds.length > 1 ? 's' : ''}`}
+                </span>
               </div>
-            </>
-          )}
+              <ChevronDown className={`w-4 h-4 ml-2 transition-transform ${isProjectFilterOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isProjectFilterOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsProjectFilterOpen(false)} />
+                <div className="absolute z-50 mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-2 max-h-80 overflow-y-auto custom-scrollbar">
+                  <div className="p-2 space-y-1">
+                    <button
+                      onClick={() => setSelectedProjectIds([])}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${selectedProjectIds.length === 0 ? 'bg-blue-600 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
+                    >
+                      Tous les projets
+                    </button>
+                    <div className="h-px bg-gray-100 dark:bg-gray-700 my-1" />
+                    {state.projects.filter(p => p.status === 'active').map(project => (
+                      <label key={project.id} className="flex items-center px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={selectedProjectIds.includes(project.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedProjectIds([...selectedProjectIds, project.id]);
+                            else setSelectedProjectIds(selectedProjectIds.filter(id => id !== project.id));
+                          }}
+                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{project.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Sélecteur de personnel multiple */}
+          <div className="relative">
+            <button
+              onClick={() => setIsUserFilterOpen(!isUserFilterOpen)}
+              className={`flex items-center justify-between min-w-[160px] px-4 py-2 border rounded-xl shadow-sm transition-all ${selectedUserIds.length > 0 ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800' : 'bg-white border-gray-200 text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300'}`}
+            >
+              <span className="text-sm font-bold">
+                {selectedUserIds.length === 0
+                  ? 'Personnel'
+                  : `${selectedUserIds.length} person.${selectedUserIds.length > 1 ? 's' : ''}`}
+              </span>
+              <ChevronDown className={`w-4 h-4 ml-2 transition-transform ${isUserFilterOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isUserFilterOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsUserFilterOpen(false)} />
+                <div className="absolute z-50 mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-2 max-h-80 overflow-y-auto custom-scrollbar">
+                  <div className="p-2 space-y-1">
+                    <button
+                      onClick={() => setSelectedUserIds([])}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${selectedUserIds.length === 0 ? 'bg-blue-600 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
+                    >
+                      Tout le personnel
+                    </button>
+                    <div className="h-px bg-gray-100 dark:bg-gray-700 my-1" />
+                    {state.users.map(user => (
+                      <label key={user.id} className="flex items-center px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={selectedUserIds.includes(user.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedUserIds([...selectedUserIds, user.id]);
+                            else setSelectedUserIds(selectedUserIds.filter(id => id !== user.id));
+                          }}
+                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3"
+                        />
+                        <div className="flex items-center truncate">
+                          <span className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-[10px] font-bold text-blue-600 mr-2">
+                            {user.name.charAt(0)}
+                          </span>
+                          <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{user.name}</span>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -728,7 +789,7 @@ export function KanbanView() {
                                   <div className="mt-3">
                                     <AddTaskForm
                                       projects={state.projects}
-                                      selectedProjectId={selectedProjectId === 'all' ? state.projects[0]?.id || '' : selectedProjectId}
+                                      selectedProjectId={selectedProjectIds.length === 1 ? selectedProjectIds[0] : (state.projects[0]?.id || '')}
                                       status={column.id}
                                       onAddTask={handleAddTask}
                                       onCancel={handleCancelAddTask}

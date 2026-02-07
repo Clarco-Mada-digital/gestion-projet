@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { FileText, CheckCircle2, Send, Loader2, Edit, X, Save } from 'lucide-react';
+import { FileText, CheckCircle2, Send, Loader2, Edit, X, Save, ChevronDown } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import AIService from '../../services/aiService';
 import { Button } from '../UI/Button';
@@ -41,7 +41,8 @@ interface EmailFormData {
 export function ReportView() {
   const { state } = useApp();
   const [dateRange, setDateRange] = useState<'day' | 'week' | 'month'>('week');
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
+  const [isProjectFilterOpen, setIsProjectFilterOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
@@ -301,7 +302,7 @@ export function ReportView() {
     // Filtrer les tâches par période, par projet et par statut (uniquement actif)
     const projectsData = (state.projects || [])
       .filter(project => {
-        const isSelected = selectedProjectId === 'all' || project.id === selectedProjectId;
+        const isSelected = selectedProjectIds.length === 0 || selectedProjectIds.includes(project.id);
         const isActive = project.status === 'active';
 
         return isSelected && isActive;
@@ -595,7 +596,7 @@ export function ReportView() {
   // Effet pour générer le rapport quand la période ou le projet change
   useEffect(() => {
     generateReport();
-  }, [dateRange, selectedProjectId, state.projects]);
+  }, [dateRange, selectedProjectIds, state.projects]);
 
   // Suppression des déclarations en double - les fonctions sont déjà définies plus haut dans le composant
 
@@ -691,20 +692,48 @@ export function ReportView() {
             <option value="month">Ce mois</option>
           </select>
 
-          <select
-            value={selectedProjectId}
-            onChange={(e) => setSelectedProjectId(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          >
-            <option value="all">Tous les projets</option>
-            {state.projects
-              .filter(project => project.status === 'active')
-              .map(project => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-          </select>
+          <div className="relative">
+            <button
+              onClick={() => setIsProjectFilterOpen(!isProjectFilterOpen)}
+              className={`flex items-center justify-between min-w-[200px] px-3 py-2 border rounded-md shadow-sm transition-all focus:ring-2 focus:ring-blue-500 ${selectedProjectIds.length > 0 ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800' : 'bg-white border-gray-300 text-gray-700 dark:bg-gray-700 dark:border-gray-600 dark:text-white'}`}
+            >
+              <span className="text-sm">
+                {selectedProjectIds.length === 0
+                  ? 'Tous les projets'
+                  : `${selectedProjectIds.length} projet${selectedProjectIds.length > 1 ? 's' : ''}`}
+              </span>
+              <ChevronDown className={`w-4 h-4 ml-2 transition-transform ${isProjectFilterOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isProjectFilterOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsProjectFilterOpen(false)} />
+                <div className="absolute z-50 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-2 max-h-80 overflow-y-auto custom-scrollbar">
+                  <button
+                    onClick={() => setSelectedProjectIds([])}
+                    className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors mb-1 ${selectedProjectIds.length === 0 ? 'bg-blue-600 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
+                  >
+                    Tous les projets
+                  </button>
+                  <div className="h-px bg-gray-100 dark:bg-gray-700 my-1" />
+                  {state.projects.filter(p => p.status === 'active').map(project => (
+                    <label key={project.id} className="flex items-center px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={selectedProjectIds.includes(project.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedProjectIds([...selectedProjectIds, project.id]);
+                          else setSelectedProjectIds(selectedProjectIds.filter(id => id !== project.id));
+                        }}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{project.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
 
           <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-md p-1 border border-gray-300 dark:border-gray-600">
             <span className="px-3 py-1 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">

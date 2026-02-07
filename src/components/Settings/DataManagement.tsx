@@ -179,24 +179,24 @@ export function DataManagement() {
               </p>
             </div>
           ) : cloudUser ? (
-            <div className="bg-blue-50 border border-blue-100 rounded-md p-4 flex items-center justify-between">
+            <div className="bg-blue-50 dark:bg-blue-900 border border-blue-100 dark:border-blue-800 rounded-md p-4 flex items-center justify-between">
               <div className="flex items-center">
                 {cloudUser.photoURL ? (
                   <img src={cloudUser.photoURL} alt="Avatar" className="w-10 h-10 rounded-full mr-3 border-2 border-white shadow-sm" />
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-blue-200 flex items-center justify-center mr-3 text-blue-700 font-bold">
+                  <div className="w-10 h-10 rounded-full bg-blue-200 dark:bg-blue-700 flex items-center justify-center mr-3 text-blue-700 dark:text-blue-200 font-bold">
                     {cloudUser.email?.charAt(0).toUpperCase()}
                   </div>
                 )}
                 <div>
-                  <p className="font-medium text-blue-900">Connecté en tant que</p>
-                  <p className="text-sm text-blue-700">{cloudUser.displayName || cloudUser.email}</p>
+                  <p className="font-medium text-blue-900 dark:text-blue-200">Connecté en tant que</p>
+                  <p className="text-sm text-blue-700 dark:text-blue-200">{cloudUser.displayName || cloudUser.email}</p>
                 </div>
               </div>
               <Button
                 onClick={handleLogout}
                 variant="outline"
-                className="bg-white text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+                className="bg-white dark:bg-gray-800 text-red-600 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-700 hover:border-red-300 dark:hover:border-red-700"
               >
                 Déconnexion
               </Button>
@@ -204,7 +204,7 @@ export function DataManagement() {
           ) : (
             <Button
               onClick={handleLogin}
-              className="bg-white border text-gray-700 hover:bg-gray-50 flex items-center"
+              className="bg-white dark:bg-gray-800 border dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center"
             >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -223,7 +223,7 @@ export function DataManagement() {
           <div className="flex flex-col sm:flex-row gap-4">
             <Button
               onClick={handleExport}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-800 text-white"
             >
               Exporter les données
             </Button>
@@ -231,7 +231,7 @@ export function DataManagement() {
             <div className="relative">
               <Button
                 onClick={() => fileInputRef.current?.click()}
-                className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
+                className="bg-green-600 dark:bg-green-700 hover:bg-green-700 dark:hover:bg-green-800 text-white w-full sm:w-auto"
               >
                 Importer des données
               </Button>
@@ -249,7 +249,7 @@ export function DataManagement() {
             <Button
               onClick={handleReset}
               variant="outline"
-              className="text-red-600 border-red-600 hover:bg-red-50"
+              className="text-red-600 border-red-600 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-700"
             >
               Réinitialiser toutes les données
             </Button>

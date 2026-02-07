@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, X, ChevronDown } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Card } from '../UI/Card';
 import { Button } from '../UI/Button';
@@ -13,13 +13,26 @@ export function CalendarView() {
   const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [selectedTask, setSelectedTask] = useState<{ task: Task; project: Project } | null>(null);
   const [selectedDayTasks, setSelectedDayTasks] = useState<{ date: Date; tasks: Task[] } | null>(null);
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
 
 
-  // Récupérer les tâches de tous les projets actifs
+  // Récupérer les tâches de tous les projets actifs et appliquer les filtres
   const allTasks = (state.projects as Project[])
-    .filter((project) => project.status === 'active')
-    .flatMap((p) => p.tasks) as Task[];
+    .filter((project) => {
+      if (project.status !== 'active') return false;
+      if (selectedProjectIds.length > 0 && !selectedProjectIds.includes(project.id)) return false;
+      return true;
+    })
+    .flatMap((p) => p.tasks)
+    .filter((task) => {
+      if (selectedUserIds.length > 0) {
+        return task.assignees.some(userId => selectedUserIds.includes(userId));
+      }
+      return true;
+    }) as Task[];
 
   interface DayInfo {
     date: Date;
@@ -98,10 +111,6 @@ export function CalendarView() {
 
   const getTasksForDate = (date: Date): Task[] => {
     return allTasks.filter((task) => {
-      // Vérifier que la tâche appartient à un projet actif
-      const project = state.projects.find((p: Project) => p.id === task.projectId);
-      if (!project || project.status !== 'active') return false;
-
       const taskStartDate = new Date(task.startDate || task.dueDate);
       const taskDueDate = new Date(task.dueDate);
 
@@ -157,6 +166,95 @@ export function CalendarView() {
             <p className="text-gray-600 dark:text-gray-400 mt-1 font-medium">
               Vue d'ensemble de vos échéances
             </p>
+          </div>
+        </div>
+
+        {/* Filtres Avancés */}
+        <div className="flex items-center space-x-3">
+          <div className="relative group">
+            <button
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              className={`flex items-center px-4 py-2 rounded-xl transition-all duration-200 border ${isFilterOpen || selectedProjectIds.length > 0 || selectedUserIds.length > 0 ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800' : 'bg-white border-gray-200 text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300'}`}
+            >
+              <span className="text-sm font-bold mr-2">Filtres</span>
+              {(selectedProjectIds.length > 0 || selectedUserIds.length > 0) && (
+                <span className="flex items-center justify-center w-5 h-5 bg-blue-600 text-white text-[10px] rounded-full mr-2">
+                  {selectedProjectIds.length + selectedUserIds.length}
+                </span>
+              )}
+              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isFilterOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isFilterOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsFilterOpen(false)} />
+                <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl z-50 p-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="space-y-4">
+                    {/* Projets */}
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 block">Projets</label>
+                      <div className="max-h-32 overflow-y-auto space-y-1 custom-scrollbar">
+                        {state.projects.filter(p => p.status === 'active').map(project => (
+                          <label key={project.id} className="flex items-center p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={selectedProjectIds.includes(project.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) setSelectedProjectIds([...selectedProjectIds, project.id]);
+                                else setSelectedProjectIds(selectedProjectIds.filter(id => id !== project.id));
+                              }}
+                              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{project.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Personnel */}
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 block">Personnel</label>
+                      <div className="max-h-32 overflow-y-auto space-y-1 custom-scrollbar">
+                        {state.users.map(user => (
+                          <label key={user.id} className="flex items-center p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={selectedUserIds.includes(user.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) setSelectedUserIds([...selectedUserIds, user.id]);
+                                else setSelectedUserIds(selectedUserIds.filter(id => id !== user.id));
+                              }}
+                              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3"
+                            />
+                            <div className="flex items-center">
+                              <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-[10px] font-bold text-blue-600 mr-2 uppercase">
+                                {user.name.charAt(0)}
+                              </span>
+                              <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{user.name}</span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-gray-100 dark:border-gray-700 flex justify-between">
+                      <button
+                        onClick={() => { setSelectedProjectIds([]); setSelectedUserIds([]); }}
+                        className="text-xs text-gray-500 hover:text-red-500 transition-colors"
+                      >
+                        Réinitialiser
+                      </button>
+                      <button
+                        onClick={() => setIsFilterOpen(false)}
+                        className="text-xs font-bold text-blue-600 hover:text-blue-700"
+                      >
+                        Appliquer
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -308,7 +406,7 @@ export function CalendarView() {
                       className={`
                         min-h-[140px] p-2 border border-blue-200/20 dark:border-blue-800/20 rounded-xl transition-all
                         ${day.isCurrentMonth ? 'bg-white/40 dark:bg-gray-800/40' : 'bg-gray-50/20 dark:bg-gray-900/20'}
-                        ${isToday(day.date) ? 'ring-2 ring-blue-500 bg-blue-50/30 dark:bg-blue-900/20' : ''}
+                        ${isToday(day.date) ? 'ring-2 ring-amber-500 bg-amber-50/30 dark:bg-amber-900/20' : ''}
                       `}
                       style={{ gridColumn: dayIdx + 1, gridRow: '1 / span 6' }}
                     >
@@ -384,11 +482,11 @@ export function CalendarView() {
           </div>
           <div className="flex items-center space-x-3">
             <div className="w-4 h-4 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full shadow-sm" />
-            <span className="text-gray-600 dark:text-gray-400 font-medium">Tâches à venir</span>
+            <span className="text-gray-600 dark:text-gray-400 font-medium">Tâches à venir / En cours</span>
           </div>
           <div className="flex items-center space-x-3">
-            <div className="w-4 h-4 bg-blue-200 dark:bg-blue-800 rounded border-2 border-blue-500 shadow-sm" />
-            <span className="text-gray-600 dark:text-gray-400 font-medium">Aujourd'hui</span>
+            <div className="w-4 h-4 bg-amber-200 dark:bg-amber-800 rounded border-2 border-amber-500 shadow-sm" />
+            <span className="text-gray-600 dark:text-gray-400 font-medium">Aujourd'hui (Date actuelle)</span>
           </div>
         </div>
       </Card>
