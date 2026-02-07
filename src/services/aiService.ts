@@ -1,7 +1,7 @@
 import { AISettings, Project, Task, SubTask } from '../types';
 import { loadDocumentation } from '../utils/documentationLoader';
 import { getAppDataSummary, formatAppDataForAI } from './appDataService';
-import { AppState } from '../store/types';
+import { AppState } from '../context/AppContext';
 
 export interface GeneratedSubTask {
   title: string;
@@ -35,7 +35,7 @@ export class AIService {
   /**
    * Prépare le prompt système avec la documentation et le contexte utilisateur
    */
-  private static async prepareSystemPrompt(aiSettings: AISettings, appState?: AppState): Promise<string> {
+  private static async prepareSystemPrompt(appState?: AppState): Promise<string> {
     let documentation = '';
     try {
       documentation = await loadDocumentation();
@@ -54,12 +54,49 @@ export class AIService {
       try {
         const appData = getAppDataSummary(appState);
         appDataInfo = `\n\n## CONTEXTE UTILISATEUR ACTUEL\n${formatAppDataForAI(appData)}`;
+
+        // Ajouter des précisions sur le projet sélectionné si disponible
+        if (appState.selectedProject) {
+          const project = appState.projects.find(p => p.id === appState.selectedProject);
+          if (project) {
+            appDataInfo += `\n\n### PROJET ACTUELLEMENT OUVERT\n- Nom : ${project.name}\n- Description : ${project.description || 'N/A'}\n- Tâches : ${project.tasks.length}\n- Statut : ${project.status}`;
+          }
+        }
+
+        // Ajouter la vue actuelle pour aider à la navigation
+        appDataInfo += `\n- Vue actuelle de l'utilisateur : ${appState.currentView}`;
+
       } catch (error) {
         console.error('Erreur lors du chargement des données utilisateur:', error);
       }
     }
 
-    return `Tu es un assistant expert pour l'application de Gestion de Projet. \nTu as accès aux informations sur les projets et tâches de l'utilisateur pour fournir des réponses personnalisées.\n\n## DOCUMENTATION DE L'APPLICATION\n${documentation}\n\n${appDataInfo}\n\n## INSTRUCTIONS POUR TES RÉPONSES :\n- Sois concis et précis\n- Fournis des étapes claires et numérotées quand c'est pertinent\n- Utilise les informations du contexte utilisateur pour personnaliser tes réponses\n- Si on te pose une question sur un projet ou une tâche spécifique, utilise les données fournies\n- Si tu ne connais pas la réponse, dis-le simplement`;
+    return `Tu es "Nexus IA", l'assistant expert et guide personnel de l'application de Gestion de Projet.
+Ton rôle est double :
+1. **Guide de l'Application** : Aide l'utilisateur à naviguer. Explique où trouver les fonctionnalités.
+   - Menu Sidebar : "Aujourd'hui" (Résumé), "Projets" (Liste complète), "Kanban" (Tableau visuel), "Calendrier", "Rapports" (Graphiques), "Paramètres".
+   - Bouton "+" : Permet de créer une tâche ou un projet rapidement.
+   - Paramètres d'IA : Pour changer de modèle ou de fournisseur (OpenAI/OpenRouter).
+   - Collaboration : Explique comment partager un projet (bouton "Partager" sur la carte projet) ou inviter des membres.
+
+2. **Analyste de Données Personnel** : Utilise le contexte utilisateur ci-dessous pour répondre aux questions sur SES projets et tâches.
+   - Donne des conseils sur la gestion de son temps.
+   - Identifie les projets qui stagnent.
+   - Suggère des priorités basées sur les échéances proches.
+
+## DOCUMENTATION DE RÉFÉRENCE
+${documentation}
+
+${appDataInfo}
+
+## TES RÈGLES D'OR :
+- **Salutations** : Salue l'utilisateur par son **nom** uniquement au TOUT DÉBUT de la conversation ou si vous ne vous êtes pas parlé depuis longtemps. Ne répète pas "Bonjour" ou "Salut" à chaque message d'une conversation en cours.
+- **Ton** : Reste amical et professionnel.
+- **Adaptation au métier** : Adapte ton vocabulaire, tes conseils et ton ton en fonction du **poste** et du **département** de l'utilisateur (Par exemple, parle de "code/déploiement" à un développeur, de "conception" à un designer, ou de "stratégie" à un manager).
+- **Formatage** : Utilise le gras et les listes pour rendre tes réponses lisibles.
+- **Proactivité** : Si l'utilisateur a des tâches en retard, mentionne-le gentiment de temps en temps.
+- Si on te demande "Où est X ?", réfère-toi à la structure de la sidebar.
+- Si tu ne trouves pas une information spécifique dans les données fournies, propose à l'utilisateur de te donner plus de détails.`;
   }
 
   /**
@@ -80,16 +117,16 @@ export class AIService {
       }
 
       const effectiveProvider = aiSettings.provider || 'openrouter';
-      const apiKey = effectiveProvider === 'openai' 
-        ? aiSettings.openaiApiKey?.trim() 
+      const apiKey = effectiveProvider === 'openai'
+        ? aiSettings.openaiApiKey?.trim()
         : aiSettings.openrouterApiKey?.trim();
-      
+
       if (!apiKey) {
         throw new Error(`Clé API ${effectiveProvider} manquante ou invalide`);
       }
 
       // Utiliser un modèle adapté pour la conversation
-      const model = effectiveProvider === 'openai' 
+      const model = effectiveProvider === 'openai'
         ? aiSettings.openaiModel || 'gpt-3.5-turbo'
         : aiSettings.openrouterModel || 'google/gemma-7b-it:free';
 
@@ -97,9 +134,8 @@ export class AIService {
         ? 'https://api.openai.com/v1/chat/completions'
         : 'https://openrouter.ai/api/v1/chat/completions';
 
-      // Préparer le prompt système
-      const systemPrompt = await this.prepareSystemPrompt(aiSettings, appState);
-      
+      const systemPrompt = await this.prepareSystemPrompt(appState);
+
       // Préparer les messages avec l'historique et le nouveau message
       const messages: AIMessage[] = [
         {
@@ -150,7 +186,7 @@ export class AIService {
 
         const data: AIResponse = await response.json();
         const content = data.choices[0].message.content;
-        
+
         if (!content) {
           throw new Error('Réponse de l\'IA invalide');
         }
@@ -168,14 +204,14 @@ export class AIService {
       }
     } catch (error) {
       console.error('Erreur lors de la génération de la réponse IA:', error);
-      return { 
+      return {
         content: "Désolé, je n'ai pas pu traiter votre demande. Veuillez réessayer plus tard.",
         error: error instanceof Error ? error.message : 'Erreur inconnue'
       };
     }
   }
 
-  
+
   static async generateSubTasksWithAI(
     settings: AISettings,
     project: Project,
@@ -184,12 +220,12 @@ export class AIService {
   ): Promise<GeneratedSubTask[]> {
     try {
       const effectiveProvider = settings.provider || 'openrouter';
-      const apiKey = effectiveProvider === 'openai' 
-        ? settings.openaiApiKey?.trim() 
+      const apiKey = effectiveProvider === 'openai'
+        ? settings.openaiApiKey?.trim()
         : settings.openrouterApiKey?.trim();
 
       // Utiliser un modèle plus léger pour OpenRouter
-      const model = effectiveProvider === 'openai' 
+      const model = effectiveProvider === 'openai'
         ? settings.openaiModel || 'gpt-3.5-turbo'
         : settings.openrouterModel || 'google/gemma-7b-it:free';
 
@@ -199,7 +235,7 @@ export class AIService {
 
       // Préparer le prompt concis
       const prompt = this.buildSubTaskPrompt(project, task, existingSubTasks);
-      
+
       // Préparer les en-têtes
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
@@ -220,12 +256,12 @@ export class AIService {
         body: JSON.stringify({
           model,
           messages: [
-            { 
-              role: 'system', 
+            {
+              role: 'system',
               content: 'Tu es un assistant concis qui aide à décomposer les tâches en sous-tâches.'
             },
-            { 
-              role: 'user', 
+            {
+              role: 'user',
               content: `${prompt} (Génère uniquement 3-5 sous-tâches maximum, sois concis)`
             }
           ],
@@ -241,7 +277,7 @@ export class AIService {
 
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content;
-      
+
       if (!content) {
         throw new Error('Réponse de l\'IA invalide');
       }
@@ -259,16 +295,16 @@ export class AIService {
     // Construire un prompt concis
     let prompt = `Projet: ${project.name}\n`;
     prompt += `Tâche: ${task.title}\n`;
-    
+
     // Ajouter la description si elle existe
     if (task.description) {
       prompt += `Description: ${task.description.substring(0, 200)}${task.description.length > 200 ? '...' : ''}\n\n`;
     }
-    
+
     // Lister les sous-tâches existantes de manière concise
     if (existingSubTasks.length > 0) {
       prompt += 'Sous-tâches existantes :\n';
-      existingSubTasks.slice(0, 3).forEach((st, index) => {
+      existingSubTasks.slice(0, 3).forEach((st) => {
         prompt += `- ${st.title}${st.completed ? ' ✓' : ''}\n`;
       });
       if (existingSubTasks.length > 3) prompt += `... (${existingSubTasks.length - 3} de plus)\n`;
@@ -289,11 +325,11 @@ export class AIService {
       if (jsonMatch) {
         return JSON.parse(jsonMatch[0]);
       }
-      
+
       // Si pas de JSON valide, essayer de parser manuellement
       const lines = content.split('\n').filter(line => line.trim() !== '');
       const subTasks: GeneratedSubTask[] = [];
-      
+
       for (const line of lines) {
         const match = line.match(/^[\d\-\.\s]*(.+?)(?:\.|:|$)/);
         if (match && match[1]) {
@@ -303,7 +339,7 @@ export class AIService {
           });
         }
       }
-      
+
       return subTasks.length > 0 ? subTasks : [{ title: 'Sous-tâche générée', description: '' }];
     } catch (error) {
       console.error('Erreur lors du parsing de la réponse des sous-tâches:', error);
@@ -319,10 +355,10 @@ export class AIService {
   ): Promise<{ title: string; description: string }> {
     try {
       const { provider } = settings;
-      const apiKey = provider === 'openai' 
-        ? settings.openaiApiKey?.trim() 
+      const apiKey = provider === 'openai'
+        ? settings.openaiApiKey?.trim()
         : settings.openrouterApiKey?.trim();
-      
+
       if (!apiKey) {
         throw new Error(`Clé API ${provider} manquante ou invalide`);
       }
@@ -331,8 +367,8 @@ export class AIService {
         ? 'https://api.openai.com/v1/chat/completions'
         : 'https://openrouter.ai/api/v1/chat/completions';
 
-      const model = provider === 'openai' 
-        ? settings.openaiModel 
+      const model = provider === 'openai'
+        ? settings.openaiModel
         : settings.openrouterModel;
 
       // Construire le prompt pour générer une tâche
@@ -370,7 +406,7 @@ export class AIService {
 
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content;
-      
+
       if (!content) {
         throw new Error('Réponse de l\'IA invalide');
       }
@@ -400,21 +436,21 @@ export class AIService {
     try {
       // Utiliser OpenRouter par défaut avec des modèles gratuits
       const effectiveProvider = settings.provider || 'openrouter';
-      
+
       // Pour les modèles gratuits, ne pas exiger de clé API
-      const apiKey = effectiveProvider === 'openai' 
-        ? settings.openaiApiKey?.trim() 
+      const apiKey = effectiveProvider === 'openai'
+        ? settings.openaiApiKey?.trim()
         : settings.openrouterApiKey?.trim();
-      
+
       // Utiliser des modèles gratuits par défaut
-      const model = effectiveProvider === 'openai' 
-        ? settings.openaiModel || 'gpt-3.5-turbo' 
+      const model = effectiveProvider === 'openai'
+        ? settings.openaiModel || 'gpt-3.5-turbo'
         : settings.openrouterModel || 'google/gemma-7b-it:free';
-      
-      const endpoint = effectiveProvider === 'openai' 
-        ? 'https://api.openai.com/v1/chat/completions' 
+
+      const endpoint = effectiveProvider === 'openai'
+        ? 'https://api.openai.com/v1/chat/completions'
         : 'https://openrouter.ai/api/v1/chat/completions';
-      
+
       // Préparer les en-têtes de base
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
@@ -427,7 +463,7 @@ export class AIService {
       // Pour OpenAI, l'authentification est toujours requise
       if (effectiveProvider === 'openai' && apiKey) {
         headers['Authorization'] = `Bearer ${apiKey}`;
-      } 
+      }
       // Pour OpenRouter, n'ajouter l'authentification que si une clé valide est fournie
       else if (effectiveProvider === 'openrouter' && apiKey && apiKey.trim() !== '') {
         headers['Authorization'] = `Bearer ${apiKey}`;
@@ -443,8 +479,8 @@ export class AIService {
               role: 'system',
               content: 'Tu es un assistant concis qui aide à générer des rapports professionnels. Sois bref et va droit au but.'
             },
-            { 
-              role: 'user', 
+            {
+              role: 'user',
               content: `${prompt} (Réponds de manière concise en moins de 300 mots)`
             }
           ],
@@ -456,14 +492,14 @@ export class AIService {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(
-          errorData.error?.message || 
+          errorData.error?.message ||
           `Erreur HTTP: ${response.status} ${response.statusText}`
         );
       }
 
       const data = await response.json();
       return data.choices?.[0]?.message?.content || 'Aucune réponse générée';
-      
+
     } catch (error) {
       console.error('Erreur lors de la génération de texte avec IA:', error);
       // Renvoyer une réponse d'erreur plus conviviale
@@ -484,16 +520,16 @@ export class AIService {
     try {
       // Utiliser OpenRouter par défaut si aucun fournisseur n'est spécifié
       const effectiveProvider = settings.provider || 'openrouter';
-      
+
       // Récupérer la clé API appropriée
-      const apiKey = effectiveProvider === 'openai' 
-        ? settings.openaiApiKey?.trim() 
+      const apiKey = effectiveProvider === 'openai'
+        ? settings.openaiApiKey?.trim()
         : settings.openrouterApiKey?.trim();
-      
+
       // Définir le modèle en fonction du fournisseur
-      const model = (effectiveProvider === 'openai' 
-        ? settings.openaiModel?.trim() 
-        : settings.openrouterModel?.trim()) || 
+      const model = (effectiveProvider === 'openai'
+        ? settings.openaiModel?.trim()
+        : settings.openrouterModel?.trim()) ||
         (effectiveProvider === 'openai' ? 'gpt-3.5-turbo' : 'google/gemma-7b-it:free');
 
       const endpoint = effectiveProvider === 'openai'
@@ -514,7 +550,7 @@ export class AIService {
         // Ces en-têtes sont requis par OpenRouter
         headers['HTTP-Referer'] = window.location.origin || 'http://localhost:3000';
         headers['X-Title'] = 'Gestion de Projet App';
-      } 
+      }
       // Configuration pour OpenAI
       else if (effectiveProvider === 'openai' && apiKey) {
         headers['Authorization'] = `Bearer ${apiKey}`;
@@ -533,7 +569,7 @@ export class AIService {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(
-          errorData.error?.message || 
+          errorData.error?.message ||
           `Erreur HTTP: ${response.status} ${response.statusText}`
         );
       }
@@ -546,7 +582,7 @@ export class AIService {
       };
     } catch (error) {
       console.error('Erreur lors du test de connexion:', error);
-      
+
       let errorMessage = 'Erreur inconnue';
       if (error instanceof Error) {
         errorMessage = error.message;
@@ -555,7 +591,7 @@ export class AIService {
       } else if (error && typeof error === 'object' && 'message' in error) {
         errorMessage = String(error.message);
       }
-      
+
       return {
         success: false,
         message: `Échec de la connexion: ${errorMessage}`,

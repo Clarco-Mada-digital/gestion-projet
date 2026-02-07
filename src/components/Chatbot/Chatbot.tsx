@@ -6,23 +6,23 @@ import { Avatar, Button, Tooltip, message, Input, theme, Modal, Typography } fro
 export const formatMessageDate = (date: Date): string => {
   const now = new Date();
   const messageDate = new Date(date);
-  const timeString = messageDate.toLocaleTimeString('fr-FR', { 
-    hour: '2-digit', 
-    minute: '2-digit' 
+  const timeString = messageDate.toLocaleTimeString('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit'
   });
-  
+
   // Vérifier si c'est aujourd'hui
   if (now.toDateString() === messageDate.toDateString()) {
     return `Aujourd'hui, ${timeString}`;
   }
-  
+
   // Vérifier si c'était hier
   const yesterday = new Date(now);
   yesterday.setDate(now.getDate() - 1);
   if (yesterday.toDateString() === messageDate.toDateString()) {
     return `Hier, ${timeString}`;
   }
-  
+
   // Vérifier si c'était dans les 6 derniers jours
   const lastWeek = new Date(now);
   lastWeek.setDate(now.getDate() - 6);
@@ -31,7 +31,7 @@ export const formatMessageDate = (date: Date): string => {
     const dayName = days[messageDate.getDay()];
     return `${dayName}, ${timeString}`;
   }
-  
+
   // Pour les dates plus anciennes, afficher la date complète
   const dateOptions: Intl.DateTimeFormatOptions = {
     weekday: 'long',
@@ -39,7 +39,7 @@ export const formatMessageDate = (date: Date): string => {
     month: 'long',
     year: 'numeric'
   };
-  
+
   const fullDate = messageDate.toLocaleDateString('fr-FR', dateOptions);
   return `${fullDate} à ${timeString}`;
 };
@@ -59,7 +59,7 @@ const MarkdownRenderer = ({ content, isDark }: { content: string; isDark: boolea
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       components={{
-        code({node, inline, className, children, ...props}: any) {
+        code({ node, inline, className, children, ...props }: any) {
           const match = /language-(\w+)/.exec(className || '');
           return !inline && match ? (
             <SyntaxHighlighter
@@ -93,10 +93,10 @@ const MarkdownRenderer = ({ content, isDark }: { content: string; isDark: boolea
             </code>
           );
         },
-        a: ({node, ...props}) => (
-          <a {...props} style={{color: '#1890ff'}} target="_blank" rel="noopener noreferrer" />
+        a: ({ node, ...props }) => (
+          <a {...props} style={{ color: '#1890ff' }} target="_blank" rel="noopener noreferrer" />
         ),
-        blockquote: ({node, ...props}) => (
+        blockquote: ({ node, ...props }) => (
           <blockquote style={{
             margin: '16px 0',
             padding: '0 1em',
@@ -106,8 +106,8 @@ const MarkdownRenderer = ({ content, isDark }: { content: string; isDark: boolea
             marginLeft: 0,
           }} {...props} />
         ),
-        table: ({node, ...props}) => (
-          <div style={{overflowX: 'auto'}}>
+        table: ({ node, ...props }) => (
+          <div style={{ overflowX: 'auto' }}>
             <table style={{
               borderCollapse: 'collapse',
               width: '100%',
@@ -116,7 +116,7 @@ const MarkdownRenderer = ({ content, isDark }: { content: string; isDark: boolea
             }} {...props} />
           </div>
         ),
-        th: ({node, ...props}) => (
+        th: ({ node, ...props }) => (
           <th style={{
             padding: '6px 13px',
             border: `1px solid ${isDark ? '#4a5568' : '#dfe2e5'}`,
@@ -124,26 +124,26 @@ const MarkdownRenderer = ({ content, isDark }: { content: string; isDark: boolea
             backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)',
           }} {...props} />
         ),
-        td: ({node, ...props}) => (
+        td: ({ node, ...props }) => (
           <td style={{
             padding: '6px 13px',
             border: `1px solid ${isDark ? '#4a5568' : '#dfe2e5'}`,
           }} {...props} />
         ),
-        tr: ({node, ...props}) => {
+        tr: ({ node, ...props }) => {
           // @ts-ignore - data-index n'est pas dans les types standards
           const rowIndex = props['data-index'] || 0;
           const isEven = Number(rowIndex) % 2 === 0;
           return (
-            <tr 
+            <tr
               style={{
-                backgroundColor: isEven 
+                backgroundColor: isEven
                   ? (isDark ? 'rgba(255, 255, 255, 0.05)' : '#f6f8fa')
                   : (isDark ? 'rgba(255, 255, 255, 0.03)' : '#fff'),
                 borderTop: `1px solid ${isDark ? '#4a5568' : '#c6cbd1'}`,
-              }} 
+              }}
               // @ts-ignore - Les props sont correctement typés par ReactMarkdown
-              {...props} 
+              {...props}
             />
           );
         },
@@ -155,7 +155,7 @@ const MarkdownRenderer = ({ content, isDark }: { content: string; isDark: boolea
 };
 
 // Styles personnalisés
-const ChatWindow = styled(motion.div)<{ $isDark: boolean }>`
+const ChatWindow = styled(motion.div) <{ $isDark: boolean }>`
   width: 380px;
   height: 600px;
   background: ${({ $isDark, theme }) => $isDark ? theme.token?.colorBgContainer : '#f2f2f'};
@@ -217,7 +217,7 @@ const ChatBody = styled.div<{ $isDark: boolean }>`
   line-height: 1.4;
 `;
 
-const MessageBubble = styled(motion.div)<{ $isUser: boolean }>`
+const MessageBubble = styled(motion.div) <{ $isUser: boolean }>`
   max-width: 80%;
   padding: 12px 16px;
   line-height: 1.4;
@@ -309,8 +309,8 @@ const SendButton = styled(Button)`
   }
   
   &:disabled {
-    background: #d9d9d9;
-    color: rgba(0, 0, 0, 0.25);
+    background: #1890ff;
+    color: rgba(0, 0, 0, 255);
     box-shadow: none;
   }
 `;
@@ -370,9 +370,9 @@ interface Message {
 const Chatbot: React.FC = () => {
   const { token } = theme.useToken();
   // Vérification du thème sombre basée sur la couleur de fond
-  const isDark = token.colorBgLayout === '#141414' || 
-                token.colorBgContainer === '#1f1f1f' ||
-                document.body.getAttribute('data-theme') === 'dark';
+  const isDark = token.colorBgLayout === '#141414' ||
+    token.colorBgContainer === '#1f1f1f' ||
+    document.body.getAttribute('data-theme') === 'dark';
   const { isOpen, setIsOpen, settings: chatbotSettings, updateSettings } = useChatbot();
   const { state } = useApp();
   // Utilisation explicite des propriétés nécessaires
@@ -383,24 +383,24 @@ const Chatbot: React.FC = () => {
   const [settingsVisible, setSettingsVisible] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<InputRef>(null);
-  
+
   // Vérifier si l'IA est correctement configurée
   const isAIConfigured = React.useMemo(() => {
     const aiSettings = state.appSettings?.aiSettings;
     if (!aiSettings) return false;
-    
+
     // Utiliser le flag isConfigured des paramètres existants
     if (aiSettings.isConfigured !== undefined) {
       return aiSettings.isConfigured;
     }
-    
+
     // Vérification de compatibilité pour les anciennes versions
     const hasOpenAI = aiSettings.provider === 'openai' && aiSettings.openaiApiKey;
     const hasOpenRouter = aiSettings.provider === 'openrouter';
-    
+
     return hasOpenAI || hasOpenRouter;
   }, [state.appSettings?.aiSettings]);
-  
+
   // Afficher un message si l'IA n'est pas configurée
   useEffect(() => {
     if (isOpen && !isAIConfigured) {
@@ -431,7 +431,7 @@ const Chatbot: React.FC = () => {
       setMessages([
         {
           id: '1',
-          content: 'Bonjour ! Je suis votre assistant IA. Comment puis-je vous aider avec votre projet aujourd\'hui ?',
+          content: "Bonjour ! Je suis **Nexus IA**, votre assistant personnel. \n\nJe peux vous aider à :\n- 🧭 **Naviguer** dans l'application (Où trouver le Kanban, le Calendrier...)\n- 📊 **Analyser** vos projets et tâches en cours\n- 💡 **Suggérer** des priorités et organiser votre travail\n\nComment puis-je vous assister aujourd'hui ?",
           sender: 'bot',
           timestamp: new Date()
         }
@@ -446,50 +446,27 @@ const Chatbot: React.FC = () => {
     }
   }, [messages]);
 
-  // Effet pour gérer le défilement automatique
-  useEffect(() => {
-    if (isOpen && messagesEndRef.current) {
-      // Créer un nouvel observer pour détecter les changements dans le contenu
-      const observer = new MutationObserver(() => {
-        if (messagesEndRef.current) {
-          messagesEndRef.current.scrollIntoView({
-            behavior: 'smooth',
-            block: 'end',
-            inline: 'nearest'
-          });
-        }
+  // Fonction pour scroller tout en bas
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({
+        behavior,
+        block: 'end',
+        inline: 'nearest'
       });
-
-      // Observer les changements dans le contenu du chat
-      const chatBody = messagesEndRef.current.parentElement;
-      if (chatBody) {
-        observer.observe(chatBody, {
-          childList: true,
-          subtree: true,
-          characterData: true
-        });
-      }
-
-      // Premier défilement immédiat
-      setTimeout(() => {
-        if (messagesEndRef.current) {
-          messagesEndRef.current.scrollIntoView({
-            behavior: 'auto',
-            block: 'end',
-            inline: 'nearest'
-          });
-        }
-      }, 0);
-
-      // Focus sur le champ de saisie
-      inputRef.current?.focus({ cursor: 'end' });
-
-      // Nettoyer l'observer lors du démontage
-      return () => {
-        observer.disconnect();
-      };
     }
-  }, [isOpen]);
+  }, []);
+
+  // Déclencher le scroll à l'ouverture ou quand les messages changent
+  useEffect(() => {
+    if (isOpen) {
+      // Un petit délai pour s'assurer que le DOM et les animations sont prêts
+      const timer = setTimeout(() => {
+        scrollToBottom(messages.length > 1 ? 'auto' : 'smooth');
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, messages.length, scrollToBottom]);
 
   // Gestionnaire d'envoi de message
   const handleSendMessage = useCallback(async () => {
@@ -527,7 +504,7 @@ const Chatbot: React.FC = () => {
         sender: 'bot',
         timestamp: new Date(),
       };
-      
+
       setMessages((prev) => [...prev, botResponse]);
 
       // Afficher une notification si activé dans les paramètres et si IA non configurée
@@ -587,7 +564,7 @@ const Chatbot: React.FC = () => {
       setMessages([
         {
           id: Date.now().toString(),
-          content: 'Bonjour ! Comment puis-je vous aider avec votre projet aujourd\'hui ?',
+          content: "Bonjour ! Je suis **Nexus IA**. Je peux vous aider à naviguer dans l'application ou à analyser vos projets. Que puis-je faire pour vous ?",
           sender: 'bot',
           timestamp: new Date()
         }
@@ -609,19 +586,19 @@ const Chatbot: React.FC = () => {
           >
             <ChatHeader>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Avatar 
-                  icon={<RobotOutlined style={{ transform: 'scale(1.2)' }} />} 
-                  style={{ 
+                <Avatar
+                  icon={<RobotOutlined style={{ transform: 'scale(1.2)' }} />}
+                  style={{
                     backgroundColor: 'rgba(255, 255, 255, 0.2)',
                     color: '#6e45e2',
                     border: '2px solid rgba(110, 69, 226, 0.5)',
                     boxShadow: '0 0 10px rgba(110, 69, 226, 0.3)'
-                  }} 
+                  }}
                 />
-                <span style={{ 
-                  fontWeight: 600, 
+                <span style={{
+                  fontWeight: 600,
                   fontSize: '16px',
-                  background: 'linear-gradient(135deg, #6e45e2, #89d4cf, #f77062)', 
+                  background: 'linear-gradient(135deg, #6e45e2, #89d4cf, #f77062)',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   backgroundSize: '200% 200%',
@@ -630,9 +607,9 @@ const Chatbot: React.FC = () => {
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <Tooltip title="Effacer la conversation">
-                  <Button 
-                    type="text" 
-                    icon={<DeleteOutlined style={{ color: 'red' }} />} 
+                  <Button
+                    type="text"
+                    icon={<DeleteOutlined style={{ color: 'red' }} />}
                     onClick={clearChat}
                     disabled={messages.length <= 1} // Disable if only welcome message or empty
                   />
@@ -648,21 +625,21 @@ const Chatbot: React.FC = () => {
                   />
                 </Tooltip> */}
                 <Tooltip title="Fermer">
-                  <Button 
-                    type="text" 
-                    icon={<CloseOutlined style={{ color: 'white' }} />} 
+                  <Button
+                    type="text"
+                    icon={<CloseOutlined style={{ color: 'white' }} />}
                     onClick={toggleChat}
                   />
                 </Tooltip>
               </div>
             </ChatHeader>
 
-            <ChatBody ref={messagesEndRef} $isDark={isDark}>
+            <ChatBody $isDark={isDark}>
               {messages.length === 0 ? (
-                <div style={{ 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  alignItems: 'center', 
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
                   justifyContent: 'center',
                   height: '100%',
                   textAlign: 'center',
@@ -680,14 +657,14 @@ const Chatbot: React.FC = () => {
                     marginBottom: '16px',
                     boxShadow: '0 4px 15px rgba(110, 69, 226, 0.3)'
                   }}>
-                    <RobotOutlined style={{ 
-                      fontSize: '40px', 
+                    <RobotOutlined style={{
+                      fontSize: '40px',
                       color: 'white',
                       filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
                     }} />
                   </div>
-                  <h3 style={{ 
-                    marginBottom: '8px', 
+                  <h3 style={{
+                    marginBottom: '8px',
                     background: 'linear-gradient(135deg, #6e45e2, #89d4cf, #f77062)',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
@@ -712,9 +689,9 @@ const Chatbot: React.FC = () => {
                   </MessageBubble>
                 ))
               )}
-              
+
               {isLoading && (
-                <MessageBubble 
+                <MessageBubble
                   $isUser={false}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -722,7 +699,7 @@ const Chatbot: React.FC = () => {
                 >
                   <div style={{ display: 'flex', gap: '6px', padding: '4px 0' }}>
                     {[0, 1, 2].map((i) => (
-                      <div 
+                      <div
                         key={i}
                         style={{
                           width: '8px',
@@ -730,20 +707,20 @@ const Chatbot: React.FC = () => {
                           borderRadius: '50%',
                           backgroundColor: '#999',
                           animation: `bounce 1.4s infinite ease-in-out ${i * 0.2}s`
-                        }} 
+                        }}
                       />
                     ))}
                   </div>
                 </MessageBubble>
               )}
-              <div 
-                ref={messagesEndRef} 
-                style={{ 
+              <div
+                ref={messagesEndRef}
+                style={{
                   float: 'left',
                   clear: 'both',
                   width: '100%',
-                  paddingBottom: '10px' 
-                }} 
+                  paddingBottom: '10px'
+                }}
               />
             </ChatBody>
 
@@ -764,8 +741,8 @@ const Chatbot: React.FC = () => {
                 style={{ flex: 1 }}
               />
               <Tooltip title="Envoyer">
-                <SendButton 
-                  icon={<SendOutlined />} 
+                <SendButton
+                  icon={<SendOutlined />}
                   onClick={handleSendMessage}
                   disabled={!inputValue.trim() || !isAIConfigured || isLoading}
                 />
