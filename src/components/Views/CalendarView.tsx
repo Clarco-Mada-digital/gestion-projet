@@ -239,142 +239,134 @@ export function CalendarView() {
           ))}
         </div>
 
-        {/* Grille du calendrier */}
-        <div className="grid grid-cols-7 gap-2">
-          {days.map((day, index) => {
-            const tasksForDay = getTasksForDate(day.date);
-            const overdueTasks = tasksForDay.filter((task) => {
-              const taskDueDate = new Date(task.dueDate);
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              return taskDueDate < today && task.status !== 'done';
-            });
+        {/* Grille du calendrier (Vue structurée par semaine avec barres continues) */}
+        <div className="space-y-3">
+          {(() => {
+            const weeks = [];
+            for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
 
-            return (
-              <div
-                key={index}
-                className={`
-                  min-h-[120px] p-3 border border-gray-200/50 dark:border-gray-700/50 rounded-2xl transition-all duration-200 hover:shadow-lg
-                  ${day.isCurrentMonth
-                    ? 'bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm'
-                    : 'bg-gray-50/40 dark:bg-gray-900/40'
-                  }
-                  ${isToday(day.date)
-                    ? 'ring-2 ring-blue-500 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 shadow-lg'
-                    : ''
-                  }
-                `}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <span className={`
-                    text-sm font-bold
-                    ${day.isCurrentMonth
-                      ? 'text-gray-900 dark:text-white'
-                      : 'text-gray-400 dark:text-gray-600'
-                    }
-                    ${isToday(day.date) ? 'text-blue-600 dark:text-blue-400' : ''}
-                  `}>
-                    {day.date.getDate()}
-                  </span>
+            return weeks.map((week, weekIndex) => {
+              const weekStart = new Date(week[0].date);
+              weekStart.setHours(0, 0, 0, 0);
+              const weekEnd = new Date(week[6].date);
+              weekEnd.setHours(23, 59, 59, 999);
 
-                  {tasksForDay.length > 0 && (
-                    <div className="flex items-center space-x-1">
-                      <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full shadow-sm" />
-                      <span className="text-xs text-gray-500 font-medium">
-                        {tasksForDay.length}
+              // 1. Collecter et trier les tâches de la semaine
+              const weekTasks = allTasks.filter(task => {
+                const s = new Date(task.startDate || task.dueDate);
+                const e = new Date(task.dueDate);
+                s.setHours(0, 0, 0, 0);
+                e.setHours(23, 59, 59, 999);
+                return s <= weekEnd && e >= weekStart;
+              }).sort((a, b) => {
+                const startA = new Date(a.startDate || a.dueDate).getTime();
+                const startB = new Date(b.startDate || b.dueDate).getTime();
+                if (startA !== startB) return startA - startB;
+                const endA = new Date(a.dueDate).getTime();
+                const endB = new Date(b.dueDate).getTime();
+                return endB - endA;
+              });
+
+              // 2. Assigner aux slots verticaux
+              const slots: Task[][] = [];
+              const maxSlots = 4;
+              const overflowByDay = new Array(7).fill(0);
+              const tasksWithLayout = [];
+
+              weekTasks.forEach(task => {
+                const s = new Date(task.startDate || task.dueDate);
+                const e = new Date(task.dueDate);
+                const startIdx = Math.max(0, Math.floor((s.getTime() - weekStart.getTime()) / (24 * 3600 * 1000)));
+                const endIdx = Math.min(6, Math.floor((e.getTime() - weekStart.getTime()) / (24 * 3600 * 1000)));
+
+                let assignedSlot = -1;
+                for (let i = 0; i < maxSlots; i++) {
+                  if (!slots[i]) slots[i] = [];
+                  const hasOverlap = slots[i].some(t => {
+                    const ts = new Date(t.startDate || t.dueDate);
+                    const te = new Date(t.dueDate);
+                    const tsIdx = Math.max(0, Math.floor((ts.getTime() - weekStart.getTime()) / (24 * 3600 * 1000)));
+                    const teIdx = Math.min(6, Math.floor((te.getTime() - weekStart.getTime()) / (24 * 3600 * 1000)));
+                    return !(endIdx < tsIdx || startIdx > teIdx);
+                  });
+                  if (!hasOverlap) { assignedSlot = i; slots[i].push(task); break; }
+                }
+
+                if (assignedSlot !== -1) {
+                  tasksWithLayout.push({ task, startIdx, endIdx, slot: assignedSlot });
+                } else {
+                  for (let col = startIdx; col <= endIdx; col++) overflowByDay[col]++;
+                }
+              });
+
+              return (
+                <div key={weekIndex} className="grid grid-cols-7 gap-1 relative min-h-[140px] last:mb-0">
+                  {/* Fond des jours */}
+                  {week.map((day, dayIdx) => (
+                    <div
+                      key={dayIdx}
+                      className={`
+                        min-h-[140px] p-2 border border-blue-200/20 dark:border-blue-800/20 rounded-xl transition-all
+                        ${day.isCurrentMonth ? 'bg-white/40 dark:bg-gray-800/40' : 'bg-gray-50/20 dark:bg-gray-900/20'}
+                        ${isToday(day.date) ? 'ring-2 ring-blue-500 bg-blue-50/30 dark:bg-blue-900/20' : ''}
+                      `}
+                      style={{ gridColumn: dayIdx + 1, gridRow: '1 / span 6' }}
+                    >
+                      <span className={`text-xs font-bold ${day.isCurrentMonth ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-600'} ${isToday(day.date) ? 'text-blue-600 dark:text-blue-400' : ''}`}>
+                        {day.date.getDate()}
                       </span>
                     </div>
-                  )}
+                  ))}
+
+                  {/* Barres de tâches (Layer horizontal) */}
+                  {tasksWithLayout.map((item, i) => {
+                    const { task, startIdx, endIdx, slot } = item;
+                    const project = state.projects.find(p => p.id === task.projectId);
+                    const isDone = task.status === 'done';
+                    const isOverdue = new Date(task.dueDate) < new Date(new Date().setHours(0, 0, 0, 0)) && !isDone;
+
+                    return (
+                      <div
+                        key={i}
+                        onClick={() => project && setSelectedTask({ task, project })}
+                        style={{
+                          gridColumn: `${startIdx + 1} / span ${endIdx - startIdx + 1}`,
+                          gridRow: slot + 2,
+                          marginTop: '4px'
+                        }}
+                        className={`
+                          h-6 mt-6 flex items-center justify-center px-4 text-[10px] font-bold cursor-pointer rounded-md shadow-sm transition-all hover:scale-[1.01] hover:brightness-110 z-10 truncate
+                          ${isDone
+                            ? 'bg-green-500/20 text-green-700 dark:text-green-300 border-l-4 border-green-500'
+                            : isOverdue
+                              ? 'bg-red-500/20 text-red-700 dark:text-red-300 border-l-4 border-red-500'
+                              : 'bg-blue-500/20 text-blue-700 dark:text-blue-300 border-l-4 border-blue-500'
+                          }
+                        `}
+                        title={`${task.title} (${project?.name})`}
+                      >
+                        {task.title}
+                      </div>
+                    );
+                  })}
+
+                  {/* Overflow */}
+                  {week.map((day, dayIdx) => (
+                    overflowByDay[dayIdx] > 0 && (
+                      <div
+                        key={`more-${dayIdx}`}
+                        onClick={() => setSelectedDayTasks({ date: day.date, tasks: getTasksForDate(day.date) })}
+                        style={{ gridColumn: dayIdx + 1, gridRow: 6 }}
+                        className="self-end mb-1 text-center text-[10px] text-gray-500 dark:text-gray-400 font-bold cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 py-1 rounded transition-colors z-20"
+                      >
+                        +{overflowByDay[dayIdx]} autres
+                      </div>
+                    )
+                  ))}
                 </div>
-
-                <div className="space-y-1">
-                  {tasksForDay
-                    .sort((a, b) => {
-                      // Tri stable pour que les tâches multi-jours restent à la même position verticale
-                      const startA = new Date(a.startDate || a.dueDate).getTime();
-                      const startB = new Date(b.startDate || b.dueDate).getTime();
-                      if (startA !== startB) return startA - startB;
-
-                      const endA = new Date(a.dueDate).getTime();
-                      const endB = new Date(b.dueDate).getTime();
-                      if (endA !== endB) return endB - endA; // Les plus longues en premier
-
-                      return a.id.localeCompare(b.id);
-                    })
-                    .slice(0, 3)
-                    .map((task: Task) => {
-                      const project = state.projects.find((p: Project) => p.id === task.projectId);
-                      const taskStartDate = new Date(task.startDate || task.dueDate);
-                      const taskDueDate = new Date(task.dueDate);
-                      const currentDate = new Date(day.date);
-
-                      taskStartDate.setHours(0, 0, 0, 0);
-                      taskDueDate.setHours(0, 0, 0, 0);
-                      currentDate.setHours(0, 0, 0, 0);
-
-                      const isStart = currentDate.getTime() === taskStartDate.getTime();
-                      const isEnd = currentDate.getTime() === taskDueDate.getTime();
-                      const isMiddle = currentDate > taskStartDate && currentDate < taskDueDate;
-                      const isMultiDay = taskStartDate.getTime() !== taskDueDate.getTime();
-
-                      return (
-                        <div
-                          key={task.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (project) {
-                              setSelectedTask({ task, project });
-                            }
-                          }}
-                          className={`
-                            text-[10px] p-1.5 truncate cursor-pointer transition-all duration-200 hover:scale-[1.02] shadow-sm relative z-10 font-medium
-                            ${(() => {
-                              if (task.status === 'done') {
-                                return 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 dark:from-green-900/30 dark:to-emerald-900/30 dark:text-green-300 border-l-4 border-green-500';
-                              }
-
-                              if (overdueTasks.includes(task)) {
-                                return 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 dark:from-red-900/30 dark:to-pink-900/30 dark:text-red-300 border-l-4 border-red-500';
-                              }
-
-                              let baseClass = 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 dark:from-blue-900/30 dark:to-cyan-900/30 dark:text-blue-300 border-l-4 border-blue-500';
-
-                              if (isMultiDay) {
-                                if (isStart) {
-                                  return `${baseClass} rounded-l-lg rounded-r-none mr-[-12px] pr-4`;
-                                }
-                                if (isEnd) {
-                                  return `${baseClass} rounded-r-lg rounded-l-none ml-[-12px] pl-4 border-l-0`;
-                                }
-                                if (isMiddle) {
-                                  return `${baseClass} rounded-none mx-[-12px] px-4 border-l-0`;
-                                }
-                              }
-
-                              return `${baseClass} rounded-lg`;
-                            })()}`}
-                          title={`${task.title} - ${project?.name}`}
-                        >
-                          {task.title}
-                        </div>
-                      );
-                    })}
-
-                  {tasksForDay.length > 3 && (
-                    <div
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedDayTasks({ date: day.date, tasks: tasksForDay });
-                      }}
-                      className="text-[10px] text-gray-500 dark:text-gray-400 text-center bg-gray-100/50 dark:bg-gray-700/50 rounded-lg py-1 font-bold cursor-pointer hover:bg-gray-200/50 dark:hover:bg-gray-600/50 transition-colors mt-1"
-                    >
-                      +{tasksForDay.length - 3} autres
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+              );
+            });
+          })()}
         </div>
       </Card>
 
