@@ -86,10 +86,28 @@ const TaskCardComponent = ({ task, className = '' }: TaskCardProps): JSX.Element
     return dueDateOnly < today;
   })();
 
-  const isToday = isValidDate(task.startDate) && isValidDate(task.dueDate) &&
-    new Date(task.startDate).toDateString() <= new Date().toDateString() &&
-    new Date(task.dueDate).toDateString() >= new Date().toDateString() &&
-    task.status !== 'done';
+  const isToday = (() => {
+    if (!isValidDate(task.dueDate) || task.status === 'done') return false;
+    const now = new Date();
+    const taskDueDate = new Date(task.dueDate);
+    return taskDueDate.toDateString() === now.toDateString();
+  })();
+
+  const isActive = (() => {
+    if (task.status === 'done') return false;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+    const start = task.startDate ? new Date(task.startDate) : (task.dueDate ? new Date(task.dueDate) : null);
+    const end = task.dueDate ? new Date(task.dueDate) : null;
+
+    if (!start || !end) return false;
+
+    const startTime = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
+    const endTime = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
+
+    return today >= startTime && today <= endTime;
+  })();
 
   const toggleStatus = useCallback(() => {
     const now = new Date().toISOString();
@@ -314,8 +332,13 @@ const TaskCardComponent = ({ task, className = '' }: TaskCardProps): JSX.Element
                 </span>
               )}
               {isToday && !isOverdue && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-pink-100 text-pink-800 dark:bg-pink-900/50 dark:text-pink-200 border border-pink-200 dark:border-pink-800">
+                  🔥 Échéance
+                </span>
+              )}
+              {isActive && !isToday && !isOverdue && (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
-                  Aujourd'hui
+                  En cours
                 </span>
               )}
             </div>

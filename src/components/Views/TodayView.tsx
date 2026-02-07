@@ -8,23 +8,23 @@ export function TodayView() {
   const { state } = useApp();
   const { appSettings } = state;
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
-  
+
   // Récupérer la taille de police depuis les paramètres
   const fontSize = appSettings?.fontSize || 'medium';
-  
+
   // Classes CSS pour les différentes tailles de police
   const textSizeClasses = {
     small: 'text-sm',
     medium: 'text-base',
     large: 'text-lg'
   };
-  
+
   const headingSizeClasses = {
     small: 'text-xl',
     medium: 'text-2xl',
     large: 'text-3xl'
   };
-  
+
   // Initialiser tous les projets comme étant repliés par défaut
   React.useEffect(() => {
     const initialExpanded: Record<string, boolean> = {};
@@ -33,33 +33,32 @@ export function TodayView() {
     });
     setExpandedProjects(initialExpanded);
   }, [state.projects]);
-  
+
   const toggleProject = (projectId: string) => {
     setExpandedProjects(prev => ({
       ...prev,
       [projectId]: !prev[projectId]
     }));
   };
-  
+
   // Fonction utilitaire pour vérifier si une date est dans la plage de la tâche
   const isTaskInDateRange = (task: any, targetDate: Date) => {
-    // Si la tâche n'a pas de date de début ni d'échéance, on la considère comme non concernée
+    // Si la tâche n'a pas de date de début ni d'échéance, on ne l'affiche pas ici
     if (!task.startDate && !task.dueDate) return false;
-    
-    // Exclure les tâches terminées de la liste des tâches d'aujourd'hui
+
+    // Exclure les tâches terminées
     if (task.status === 'done') return false;
-    
+
     const taskStartDate = new Date(task.startDate || task.dueDate);
     const taskDueDate = new Date(task.dueDate);
-    
-    // Réinitialiser les heures pour la comparaison
+
     const currentDate = new Date(targetDate);
     currentDate.setHours(0, 0, 0, 0);
-    
+
     taskStartDate.setHours(0, 0, 0, 0);
     taskDueDate.setHours(0, 0, 0, 0);
-    
-    // Vérifier si la date actuelle est dans la plage de la tâche
+
+    // La tâche est "active" aujourd'hui si on est entre le début et la fin
     return currentDate >= taskStartDate && currentDate <= taskDueDate;
   };
 
@@ -68,7 +67,7 @@ export function TodayView() {
     .filter(project => project.status === 'active') // Ne prendre que les projets actifs
     .map(project => ({
       ...project,
-      tasks: project.tasks.filter(task => 
+      tasks: project.tasks.filter(task =>
         isTaskInDateRange(task, new Date())
       )
     }))
@@ -78,15 +77,15 @@ export function TodayView() {
   const allTasks = state.projects
     .filter(project => project.status === 'active')
     .flatMap(p => p.tasks);
-  
+
   // Tâches en retard (uniquement des projets actifs)
   const overdueTasks = allTasks.filter(task => {
     const taskDueDate = new Date(task.dueDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     return (
-      taskDueDate < today && 
+      taskDueDate < today &&
       task.status !== 'done' &&
       !isTaskInDateRange(task, today)
     );
@@ -119,7 +118,7 @@ export function TodayView() {
             </div>
           </div>
         </div>
-        
+
         <Card className="w-full md:w-auto" gradient>
           <div className="grid grid-cols-2 gap-6">
             <div className="text-center p-4">
@@ -157,7 +156,7 @@ export function TodayView() {
               </p>
             </div>
           </div>
-          
+
           <div className="space-y-4">
             {overdueTasks.map(task => (
               <TaskCard key={task.id} task={task} showProject />
@@ -195,20 +194,20 @@ export function TodayView() {
               const isExpanded = expandedProjects[project.id] !== false;
               const completedTasks = project.tasks.filter(t => t.status === 'done').length;
               const progress = project.tasks.length > 0 ? (completedTasks / project.tasks.length) * 100 : 0;
-              
+
               return (
                 <div key={project.id} className="space-y-2">
-                  <div 
+                  <div
                     className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors"
                     onClick={() => toggleProject(project.id)}
-                    >
+                  >
                     <div className="flex items-center space-x-3 flex-1 min-w-0">
                       {isExpanded ? (
                         <ChevronDown className="w-5 h-5 text-gray-400 flex-shrink-0" />
                       ) : (
                         <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
                       )}
-                      <div 
+                      <div
                         className="w-3 h-3 rounded-full flex-shrink-0"
                         style={{ backgroundColor: project.color }}
                       />
@@ -219,12 +218,12 @@ export function TodayView() {
                         {project.tasks.length} tâche{project.tasks.length > 1 ? 's' : ''}
                       </span>
                     </div>
-                    
+
                     <div className="flex items-center space-x-2 ml-4">
                       <div className="w-16 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden flex-shrink-0">
-                        <div 
+                        <div
                           className="h-full rounded-full"
-                          style={{ 
+                          style={{
                             width: `${progress}%`,
                             backgroundColor: project.color,
                             transition: 'width 0.3s ease-in-out'
