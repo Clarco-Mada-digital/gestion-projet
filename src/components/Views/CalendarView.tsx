@@ -215,6 +215,29 @@ export function CalendarView() {
                     <div>
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 block">Personnel</label>
                       <div className="max-h-32 overflow-y-auto space-y-1 custom-scrollbar">
+                        {state.cloudUser && (
+                          <label className="flex items-center p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors bg-blue-50/50 dark:bg-blue-900/10 mb-1">
+                            <input
+                              type="checkbox"
+                              checked={selectedUserIds.includes(state.cloudUser.uid)}
+                              onChange={(e) => {
+                                if (e.target.checked) setSelectedUserIds([...selectedUserIds, state.cloudUser.uid]);
+                                else setSelectedUserIds(selectedUserIds.filter(id => id !== state.cloudUser.uid));
+                              }}
+                              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3"
+                            />
+                            <div className="flex items-center">
+                              {state.cloudUser.photoURL ? (
+                                <img src={state.cloudUser.photoURL} alt="Moi" className="w-6 h-6 rounded-full mr-2 object-cover" />
+                              ) : (
+                                <span className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-bold text-white mr-2 uppercase">
+                                  M
+                                </span>
+                              )}
+                              <span className="text-sm font-semibold text-blue-700 dark:text-blue-300 truncate">Moi (Utilisateur Connecté)</span>
+                            </div>
+                          </label>
+                        )}
                         {state.users.map(user => (
                           <label key={user.id} className="flex items-center p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors">
                             <input

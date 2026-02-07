@@ -543,6 +543,29 @@ export function KanbanView() {
                       Tout le personnel
                     </button>
                     <div className="h-px bg-gray-100 dark:bg-gray-700 my-1" />
+                    {state.cloudUser && (
+                      <label className="flex items-center px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors bg-blue-50/50 dark:bg-blue-900/10 mb-1">
+                        <input
+                          type="checkbox"
+                          checked={selectedUserIds.includes(state.cloudUser.uid)}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedUserIds([...selectedUserIds, state.cloudUser.uid]);
+                            else setSelectedUserIds(selectedUserIds.filter(id => id !== state.cloudUser.uid));
+                          }}
+                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3"
+                        />
+                        <div className="flex items-center truncate">
+                          {state.cloudUser.photoURL ? (
+                            <img src={state.cloudUser.photoURL} alt="Moi" className="w-5 h-5 rounded-full mr-2 object-cover" />
+                          ) : (
+                            <span className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-bold text-white mr-2 uppercase">
+                              M
+                            </span>
+                          )}
+                          <span className="text-sm font-semibold text-blue-700 dark:text-blue-300 truncate">Moi</span>
+                        </div>
+                      </label>
+                    )}
                     {state.users.map(user => (
                       <label key={user.id} className="flex items-center px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors">
                         <input
