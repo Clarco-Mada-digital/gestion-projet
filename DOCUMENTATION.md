@@ -33,17 +33,18 @@ Gestion de Projet est une application web moderne conçue pour vous aider à org
 - Tableau de bord analytique
 
 ### Gestion des Projets
-- Création et gestion de projets
-- Suivi de la progression
-- Gestion des membres d'équipe
-- Partage et collaboration
+- Création et gestion de projets avec codes couleurs
+- Suivi de la progression en temps réel
+- **Collaboration Cloud (Firebase)** : Partagez des projets avec votre équipe
+- **Gestion des membres** : Invitez des collaborateurs sur vos projets partagés
+- Archivage et gestion des projets terminés
 
 ### Fonctionnalités Avancées
-- Mode sombre/clair
+- **Nexus IA** : Votre assistant personnel pour la navigation et l'analyse
+- Mode sombre/clair automatique et manuel
 - Interface réactive (mobile, tablette, bureau)
-- Synchronisation en temps réel
-- Export/import de données
-- Intégration avec d'autres outils
+- **Synchronisation hybride** : Gardez vos projets personnels en local et partagez les autres
+- Export/import des données au format JSON
 
 ## 🤖 Intelligence Artificielle
 
@@ -140,22 +141,26 @@ src/
 
 ## 🚀 Guide d'Utilisation
 
+### Navigation (Sidebar)
+L'interface est structurée autour d'une barre latérale (Sidebar) à gauche :
+- **Aujourd'hui** : Votre tableau de bord quotidien avec les tâches urgentes.
+- **Projets** : La liste de tous vos projets. C'est ici que vous pouvez partager des projets.
+- **Kanban** : Un tableau visuel pour déplacer vos tâches entre les statuts.
+- **Calendrier** : Une vue temporelle de vos échéances.
+- **Rapports** : Analyse de votre productivité et statistiques.
+- **Paramètres** : Configuration du compte, de l'IA et des données.
+- **À propos** : Documentation et version.
+
 ### Créer une Nouvelle Tâche
-1. Cliquez sur le bouton "Nouvelle Tâche"
-2. Remplissez les détails de la tâche (titre, description, échéance, priorité)
-3. Ajoutez des sous-tâches si nécessaire
-4. Cliquez sur "Enregistrer"
+1. Utilisez le bouton **"+"** flottant ou le bouton "Nouvelle Tâche" dans la vue Aujourd'hui.
+2. Remplissez les détails (titre, description, échéance).
+3. L'IA peut vous aider à générer des sous-tâches une fois la tâche créée.
 
-### Gérer les Projets
-1. Accédez à la section "Projets"
-2. Créez un nouveau projet ou sélectionnez-en un existant
-3. Ajoutez des membres d'équipe si nécessaire
-4. Organisez vos tâches par projet
-
-### Utiliser la Vue Kanban
-1. Accédez à la vue "Tableau"
-2. Glissez-déposez les tâches entre les colonnes (À faire, En cours, Terminé)
-3. Personnalisez les colonnes selon vos besoins
+### Partager un Projet
+1. Allez dans l'onglet **"Projets"**.
+2. Sur la carte du projet, cliquez sur le bouton **"Partager"** (icône utilisateur).
+3. Si vous n'êtes pas connecté, l'app vous proposera de le faire via Google.
+4. Une fois partagé, vous pouvez ajouter des membres par leur email.
 
 ## 💻 Développement
 
