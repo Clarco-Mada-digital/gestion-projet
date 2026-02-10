@@ -186,8 +186,8 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
         payload: updatedTask
       });
 
-      // Fermer le formulaire
-      onClose();
+      // Passer en mode visualisation au lieu de fermer
+      setIsEditing(false);
     } catch (error) {
       console.error('Erreur lors de la modification de la tâche:', error);
       alert('Une erreur est survenue lors de la modification de la tâche. Veuillez vérifier les données.');
@@ -621,7 +621,7 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                 onClick={onClose}
                 className="px-5 py-2.5 text-sm font-medium text-red-700 dark:text-red-300 bg-white dark:bg-gray-800 border border-red-300 dark:border-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-700 transition-colors duration-200"
               >
-                Annuler
+                {isEditing ? 'Annuler' : 'Fermer'}
               </button>
               {isEditing && (
                 <button

@@ -8,6 +8,7 @@ import { Button } from '../UI/Button';
 import { Modal } from '../UI/Modal';
 import { Project, Task, AISettings as AISettingsType, DEFAULT_AI_SETTINGS } from '../../types';
 import { AISettings } from '../Settings/AISettings';
+import { EditTaskForm } from '../Tasks/EditTaskForm';
 import { Tabs, Form, Input, Select, Row, Col, InputNumber, message } from 'antd';
 
 // Types pour les composants Ant Design
@@ -598,6 +599,11 @@ export function ProjectsView() {
   };
 
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+
+  const openTaskModal = (task: Task) => {
+    setEditingTask(task);
+  };
 
   const resetNewProjectForm = () => {
     setNewProject({
@@ -1711,19 +1717,39 @@ export function ProjectsView() {
             {editingProject?.tasks?.length ? (
               <div className="space-y-3">
                 {editingProject.tasks.map((task) => (
-                  <div key={task.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <div>
-                      <h4 className="font-medium text-gray-900 dark:text-white">{task.title}</h4>
+                  <div 
+                    key={task.id} 
+                    className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 cursor-pointer transition-colors"
+                    onClick={() => openTaskModal(task)}
+                  >
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">{task.title}</h4>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
                         {task.startDate} → {task.endDate} • {task.estimatedHours}h estimées
                       </p>
                     </div>
-                    <button
-                      onClick={() => removeTask(task.id, true)}
-                      className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 p-1"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openTaskModal(task);
+                        }}
+                        className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 p-1"
+                        title="Modifier la tâche"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeTask(task.id, true);
+                        }}
+                        className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 p-1"
+                        title="Supprimer la tâche"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -2024,6 +2050,15 @@ export function ProjectsView() {
         onClose={() => setManagingMembersProject(null)}
         project={managingMembersProject}
       />
+
+      {/* Modal d'édition de tâche */}
+      {editingTask && editingProject && (
+        <EditTaskForm
+          task={editingTask}
+          onClose={() => setEditingTask(null)}
+          project={editingProject}
+        />
+      )}
     </div>
   );
 }

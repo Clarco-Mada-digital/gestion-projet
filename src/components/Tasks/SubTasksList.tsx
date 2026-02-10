@@ -378,20 +378,27 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
                                     </div>
                                   </div>
                                 ) : (
-                                  <span
-                                    className={`text-sm block truncate select-none ${task.completed ? 'line-through text-gray-400' : 'text-gray-700 dark:text-gray-200'} ${isEditing ? 'cursor-text hover:text-blue-600' : ''}`}
-                                    onClick={(e) => {
-                                      if (isEditing) {
-                                        e.stopPropagation();
-                                        startEditing(task);
-                                      } else {
-                                        toggleTask(task.id);
-                                      }
-                                    }}
-                                    title={isEditing ? "Cliquez pour modifier" : ""}
-                                  >
-                                    {task.title}
-                                  </span>
+                                  <div className="flex items-center justify-between group">
+                                    <span
+                                      className={`text-sm block truncate select-none flex-1 ${task.completed ? 'line-through text-gray-400' : 'text-gray-700 dark:text-gray-200'} ${isEditing ? 'cursor-text hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 px-1 rounded transition-all' : ''}`}
+                                      onClick={(e) => {
+                                        if (isEditing) {
+                                          e.stopPropagation();
+                                          startEditing(task);
+                                        } else {
+                                          toggleTask(task.id);
+                                        }
+                                      }}
+                                      title={isEditing ? "Cliquez pour modifier le titre et le groupe" : "Cliquez pour cocher/décocher"}
+                                    >
+                                      {task.title}
+                                    </span>
+                                    {isEditing && (
+                                      <div className="text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Edit2 className="w-3 h-3" />
+                                      </div>
+                                    )}
+                                  </div>
                                 )}
                               </div>
 
@@ -401,7 +408,7 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); startEditing(task); }}
                                     className="p-1.5 text-gray-400 hover:text-blue-500 transition-all rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/30"
-                                    title="Modifier"
+                                    title="Modifier le titre et le groupe"
                                   >
                                     <Edit2 className="w-4 h-4" />
                                   </button>
