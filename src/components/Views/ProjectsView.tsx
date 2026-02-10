@@ -10,6 +10,18 @@ import { Project, Task, AISettings as AISettingsType, DEFAULT_AI_SETTINGS } from
 import { AISettings } from '../Settings/AISettings';
 import { EditTaskForm } from '../Tasks/EditTaskForm';
 import { Tabs, Form, Input, Select, Row, Col, InputNumber, message } from 'antd';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
+// Fonction pour nettoyer le markdown mal formé
+const cleanMarkdown = (text: string): string => {
+  if (!text) return text;
+  
+  return text
+    .replace(/\*\*\*+/g, '**')
+    .replace(/\*\*(.*?)\*\*/g, '**$1**')
+    .replace(/\*\*([^*]*?)\*\*/g, '**$1**');
+};
 
 // Types pour les composants Ant Design
 const { TabPane } = Tabs;
@@ -328,11 +340,32 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
       </div>
 
       {project.description && (
-        <p className={`text-gray-600 dark:text-gray-400 mb-6 line-clamp-2 leading-relaxed ${state.appSettings?.fontSize === 'small' ? 'text-xs' :
+        <div className={`text-gray-600 dark:text-gray-400 mb-6 line-clamp-2 leading-relaxed markdown-body ${state.appSettings?.fontSize === 'small' ? 'text-xs' :
           state.appSettings?.fontSize === 'large' ? 'text-base' : 'text-sm'
           }`}>
-          {project.description}
-        </p>
+          <ReactMarkdown 
+            remarkPlugins={[remarkGfm]}
+            components={{
+              strong: ({children}) => <strong style={{fontWeight: 'bold', color: 'inherit'}}>{children}</strong>,
+              em: ({children}) => <em style={{fontStyle: 'italic', color: 'inherit'}}>{children}</em>,
+              code: ({className, children}) => {
+                const isInline = !className?.includes('language-');
+                return isInline 
+                  ? <code style={{backgroundColor: '#f3f4f6', padding: '0.1em 0.2em', borderRadius: '2px', fontSize: '0.8em', fontFamily: 'monospace'}}>{children}</code>
+                  : <code style={{backgroundColor: '#f3f4f6', padding: '0.5em', borderRadius: '4px', display: 'block', overflowX: 'auto', fontFamily: 'monospace', fontSize: '0.8em'}}>{children}</code>;
+              },
+              p: ({children}) => <p style={{margin: '0'}}>{children}</p>,
+              ul: ({children}) => <ul style={{margin: '0', paddingLeft: '1em'}}>{children}</ul>,
+              ol: ({children}) => <ol style={{margin: '0', paddingLeft: '1em'}}>{children}</ol>,
+              li: ({children}) => <li style={{marginBottom: '0'}}>{children}</li>,
+              h1: ({children}) => <h1 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h1>,
+              h2: ({children}) => <h2 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h2>,
+              h3: ({children}) => <h3 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h3>
+            }}
+          >
+            {cleanMarkdown(project.description)}
+          </ReactMarkdown>
+        </div>
       )}
 
 
@@ -1437,9 +1470,30 @@ export function ProjectsView() {
                         </div>
 
                         {project.description && (
-                          <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-2">
-                            {project.description}
-                          </p>
+                          <div className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-2 markdown-body">
+                            <ReactMarkdown 
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                strong: ({children}) => <strong style={{fontWeight: 'bold', color: 'inherit'}}>{children}</strong>,
+                                em: ({children}) => <em style={{fontStyle: 'italic', color: 'inherit'}}>{children}</em>,
+                                code: ({className, children}) => {
+                                  const isInline = !className?.includes('language-');
+                                  return isInline 
+                                    ? <code style={{backgroundColor: '#f3f4f6', padding: '0.1em 0.2em', borderRadius: '2px', fontSize: '0.8em', fontFamily: 'monospace'}}>{children}</code>
+                                    : <code style={{backgroundColor: '#f3f4f6', padding: '0.5em', borderRadius: '4px', display: 'block', overflowX: 'auto', fontFamily: 'monospace', fontSize: '0.8em'}}>{children}</code>;
+                                },
+                                p: ({children}) => <p style={{margin: '0'}}>{children}</p>,
+                                ul: ({children}) => <ul style={{margin: '0', paddingLeft: '1em'}}>{children}</ul>,
+                                ol: ({children}) => <ol style={{margin: '0', paddingLeft: '1em'}}>{children}</ol>,
+                                li: ({children}) => <li style={{marginBottom: '0'}}>{children}</li>,
+                                h1: ({children}) => <h1 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h1>,
+                                h2: ({children}) => <h2 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h2>,
+                                h3: ({children}) => <h3 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h3>
+                              }}
+                            >
+                              {cleanMarkdown(project.description)}
+                            </ReactMarkdown>
+                          </div>
                         )}
 
                         <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
@@ -1801,10 +1855,30 @@ export function ProjectsView() {
                       {/* Description (tronquée) */}
                       {task.description && (
                         <div className="mb-3">
-                          <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
-                            {task.description.replace(/\*\*(.*?)\*\*/g, '').replace(/\*(.*?)\*/g, '').substring(0, 120)}
-                            {task.description.length > 120 && '...'}
-                          </p>
+                          <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 leading-relaxed markdown-body">
+                            <ReactMarkdown 
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                strong: ({children}) => <strong style={{fontWeight: 'bold', color: 'inherit'}}>{children}</strong>,
+                                em: ({children}) => <em style={{fontStyle: 'italic', color: 'inherit'}}>{children}</em>,
+                                code: ({className, children}) => {
+                                  const isInline = !className?.includes('language-');
+                                  return isInline 
+                                    ? <code style={{backgroundColor: '#f3f4f6', padding: '0.1em 0.2em', borderRadius: '2px', fontSize: '0.8em', fontFamily: 'monospace'}}>{children}</code>
+                                    : <code style={{backgroundColor: '#f3f4f6', padding: '0.5em', borderRadius: '4px', display: 'block', overflowX: 'auto', fontFamily: 'monospace', fontSize: '0.8em'}}>{children}</code>;
+                                },
+                                p: ({children}) => <p style={{margin: '0'}}>{children}</p>,
+                                ul: ({children}) => <ul style={{margin: '0', paddingLeft: '1em'}}>{children}</ul>,
+                                ol: ({children}) => <ol style={{margin: '0', paddingLeft: '1em'}}>{children}</ol>,
+                                li: ({children}) => <li style={{marginBottom: '0'}}>{children}</li>,
+                                h1: ({children}) => <h1 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h1>,
+                                h2: ({children}) => <h2 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h2>,
+                                h3: ({children}) => <h3 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h3>
+                              }}
+                            >
+                              {cleanMarkdown(task.description)}
+                            </ReactMarkdown>
+                          </div>
                         </div>
                       )}
 
