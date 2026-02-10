@@ -8,16 +8,7 @@ const repositoryName = 'gestion-projet';
 const base = isGithubPages ? `/${repositoryName}/` : '/';
 
 export default defineConfig({
-  plugins: [react({
-    // Ignorer les avertissements spécifiques
-    babel: {
-      plugins: [
-        ['@babel/plugin-transform-react-jsx', {
-          runtime: 'automatic',
-        }],
-      ],
-    },
-  })],
+  plugins: [react()],
   optimizeDeps: {
     exclude: ['lucide-react'],
     include: ['@uiw/react-md-editor'],
@@ -33,7 +24,18 @@ export default defineConfig({
   define: {
     // Ignorer les avertissements de React
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
-    'import.meta.env.BASE_URL': JSON.stringify(base),
+    'import.meta.env.BASE_URL': JSON.stringify(base)
+  },
+  server: {
+    fs: {
+      // Autoriser l'accès aux fichiers en dehors du projet
+      allow: [
+        // Autoriser le dossier Téléchargements
+        '/home/programmeur/Téléchargements',
+        // Garder les autorisations par défaut
+        '..'
+      ]
+    }
   },
   build: {
     outDir: 'dist',

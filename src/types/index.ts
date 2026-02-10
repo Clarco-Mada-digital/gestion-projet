@@ -9,6 +9,16 @@ export interface SubTask {
   group?: string;
 }
 
+export interface Attachment {
+  id: string;
+  name: string;
+  type: 'image' | 'document' | 'other';
+  url: string;
+  size: number;
+  uploadedAt: string;
+  uploadedBy?: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -27,6 +37,7 @@ export interface Task {
   notes?: string;
   estimatedHours?: number;
   endDate?: string; // Ajouté pour compatibilité avec ProjectsView
+  attachments?: Attachment[]; // Fichiers joints (images, documents, etc.)
 }
 
 // Fonction utilitaire pour créer une tâche par défaut
@@ -74,6 +85,7 @@ export interface Project {
   tasks: Task[];
   aiSettings?: ProjectAISettings;
   estimatedDuration?: number; // Ajouté pour compatibilité avec ProjectsView
+  coverImage?: string; // URL de l'image de couverture
 
   // Champs pour la synchronisation Cloud (Firebase)
   source?: 'local' | 'firebase';

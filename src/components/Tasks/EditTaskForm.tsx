@@ -1,11 +1,12 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Calendar as CalendarIcon, Clock, Plus, X as XIcon, Edit2, Eye } from 'lucide-react';
-import { Task, Project, SubTask } from '../../types';
+import { Task, Project, SubTask, Attachment } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { SubTasksList } from './SubTasksList';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import MDEditor from '@uiw/react-md-editor';
+import MDEditorClient from '../UI/MDEditorClient';
+import { CompactAttachments } from '../UI/CompactAttachments';
 
 // Fonction pour nettoyer le markdown mal formé
 const cleanMarkdown = (text: string): string => {
@@ -319,7 +320,7 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Description</label>
             {isEditing ? (
               <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
-                <MDEditor
+                <MDEditorClient
                   value={editedTask.description || ''}
                   onChange={(value) => setEditedTask({ ...editedTask, description: value || '' })}
                   height={200}
@@ -357,6 +358,36 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
               </div>
             )}
           </div>
+
+          {/* Fichiers joints - Design compact */}
+          <CompactAttachments
+            attachments={editedTask.attachments || []}
+            isEditing={isEditing}
+            onAddFiles={(files) => {
+              Array.from(files).forEach(file => {
+                const attachment: Attachment = {
+                  id: file.name + '-' + Date.now(),
+                  name: file.name,
+                  type: file.type.includes('image') ? 'image' : 
+                        file.type.includes('pdf') || file.name.includes('.doc') ? 'document' : 'other',
+                  url: URL.createObjectURL(file),
+                  size: file.size,
+                  uploadedAt: new Date().toISOString(),
+                  uploadedBy: 'current-user'
+                };
+                setEditedTask(prev => ({
+                  ...prev,
+                  attachments: [...(prev.attachments || []), attachment]
+                }));
+              });
+            }}
+            onRemoveAttachment={(attachmentId) => {
+              setEditedTask(prev => ({
+                ...prev,
+                attachments: prev.attachments?.filter(a => a.id !== attachmentId) || []
+              }));
+            }}
+          />
 
           {/* Priorité et Statut sur la même ligne */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -6,6 +6,7 @@ import { firebaseService } from '../../services/collaboration/firebaseService';
 import { Card } from '../UI/Card';
 import { Button } from '../UI/Button';
 import { Modal } from '../UI/Modal';
+import { CoverImageUpload } from '../UI/CoverImageUpload';
 import { Project, Task, AISettings as AISettingsType, DEFAULT_AI_SETTINGS } from '../../types';
 import { AISettings } from '../Settings/AISettings';
 import { EditTaskForm } from '../Tasks/EditTaskForm';
@@ -165,26 +166,39 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
 
   return (
     <Card
-      className="p-6 group cursor-pointer relative"
+      className="p-6 group cursor-pointer relative overflow-hidden"
       hover
       gradient
       onClick={() => onEdit(project)}
     >
-      <div className="flex items-start justify-between mb-6">
-        <div className="flex items-center space-x-3 min-w-0">
-          <div
-            className="w-5 h-5 rounded-full shadow-lg flex-shrink-0"
-            style={{ backgroundColor: project.color }}
+      {/* Image de couverture */}
+      {project.coverImage && (
+        <div className="absolute inset-0 z-0">
+          <img
+            src={project.coverImage}
+            alt={`Image de couverture de ${project.name}`}
+            className="w-full h-full object-cover opacity-20"
           />
-          <div className="flex flex-col min-w-0">
-            <div className="flex items-center gap-2">
-              <h3 className={`font-bold text-gray-900 dark:text-white truncate ${state.appSettings?.fontSize === 'small' ? 'text-lg' :
-                state.appSettings?.fontSize === 'large' ? 'text-2xl' : 'text-xl'
-                }`}>
-                {project.name}
-              </h3>
-              {project.source === 'firebase' && (
-                <span className="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800 uppercase tracking-wider">
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-white/90 dark:to-gray-900/90"></div>
+        </div>
+      )}
+      
+      <div className="relative z-10">
+        <div className="flex items-start justify-between mb-6">
+          <div className="flex items-center space-x-3 min-w-0">
+            <div
+              className="w-5 h-5 rounded-full shadow-lg flex-shrink-0"
+              style={{ backgroundColor: project.color }}
+            />
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className={`font-bold text-gray-900 dark:text-white truncate ${state.appSettings?.fontSize === 'small' ? 'text-lg' :
+                  state.appSettings?.fontSize === 'large' ? 'text-2xl' : 'text-xl'
+                  }`}>
+                  {project.name}
+                </h3>
+                {project.source === 'firebase' && (
+                  <span className="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800 uppercase tracking-wider">
                   Cloud
                 </span>
               )}
@@ -392,6 +406,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
       </div>
 
       {children}
+      </div>
     </Card>
   );
 };
@@ -1760,6 +1775,17 @@ export function ProjectsView() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Image de couverture */}
+          <div>
+            <CoverImageUpload
+              currentImage={editingProject?.coverImage}
+              onImageUploaded={(imageUrl) => editingProject && setEditingProject({ ...editingProject, coverImage: imageUrl })}
+              onImageRemoved={() => editingProject && setEditingProject({ ...editingProject, coverImage: undefined })}
+              projectId={editingProject?.id}
+              projectSource={editingProject?.source || 'local'}
+            />
           </div>
 
           {/* Liste des tâches existantes */}
