@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Archive, AlertTriangle, Calendar, Cpu, ChevronDown, Loader2, LogOut } from 'lucide-react';
+import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Archive, AlertTriangle, Calendar, Cpu, ChevronDown, Loader2, LogOut, Clock } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { firebaseService } from '../../services/collaboration/firebaseService';
 import { Card } from '../UI/Card';
@@ -1710,53 +1710,180 @@ export function ProjectsView() {
 
           {/* Liste des tâches existantes */}
           <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-              Tâches du projet
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                Tâches du projet ({editingProject?.tasks?.length || 0})
+              </h3>
+              <button
+                onClick={generateTasksWithAI}
+                disabled={isGeneratingTasks}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors"
+              >
+                {isGeneratingTasks ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Génération...
+                  </>
+                ) : (
+                  <>
+                    <Cpu className="w-4 h-4" />
+                    Générer avec l'IA
+                  </>
+                )}
+              </button>
+            </div>
 
             {editingProject?.tasks?.length ? (
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {editingProject.tasks.map((task) => (
                   <div 
                     key={task.id} 
-                    className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 cursor-pointer transition-colors"
+                    className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 cursor-pointer transition-all hover:shadow-md"
                     onClick={() => openTaskModal(task)}
                   >
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">{task.title}</h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {task.startDate} → {task.endDate} • {task.estimatedHours}h estimées
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openTaskModal(task);
-                        }}
-                        className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 p-1"
-                        title="Modifier la tâche"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeTask(task.id, true);
-                        }}
-                        className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 p-1"
-                        title="Supprimer la tâche"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <div className="p-4">
+                      {/* En-tête de la tâche */}
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors line-clamp-2">
+                            {task.title}
+                          </h4>
+                          <div className="flex items-center gap-2 mt-1">
+                            {/* Statut */}
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              task.status === 'done' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' :
+                              task.status === 'in-progress' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200' :
+                              task.status === 'blocked' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' :
+                              'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                            }`}>
+                              {task.status === 'done' ? 'Terminé' :
+                               task.status === 'in-progress' ? 'En cours' :
+                               task.status === 'blocked' ? 'Bloqué' : 'À faire'}
+                            </span>
+                            
+                            {/* Priorité */}
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              task.priority === 'high' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200' :
+                              task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' :
+                              'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200'
+                            }`}>
+                              {task.priority === 'high' ? 'Haute' :
+                               task.priority === 'medium' ? 'Moyenne' : 'Faible'}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {/* Actions */}
+                        <div className="flex items-center gap-1 ml-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openTaskModal(task);
+                            }}
+                            className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                            title="Modifier la tâche"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeTask(task.id, true);
+                            }}
+                            className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            title="Supprimer la tâche"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Description (tronquée) */}
+                      {task.description && (
+                        <div className="mb-3">
+                          <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+                            {task.description.replace(/\*\*(.*?)\*\*/g, '').replace(/\*(.*?)\*/g, '').substring(0, 120)}
+                            {task.description.length > 120 && '...'}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Métadonnées */}
+                      <div className="space-y-2">
+                        {/* Dates et heures */}
+                        <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            <span>
+                              {task.dueDate ? new Date(task.dueDate).toLocaleDateString('fr-FR', {
+                                day: '2-digit',
+                                month: 'short'
+                              }) : 'Pas de date'}
+                            </span>
+                          </div>
+                          {task.estimatedHours && (
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {task.estimatedHours}h
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Tags et assignés */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex flex-wrap gap-1">
+                            {task.tags?.slice(0, 2).map((tag) => (
+                              <span
+                                key={tag}
+                                className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                            {task.tags?.length > 2 && (
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                +{task.tags.length - 2}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Sous-tâches */}
+                          {task.subTasks && task.subTasks.length > 0 && (
+                            <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                              <span>
+                                {task.subTasks.filter(st => st.completed).length}/{task.subTasks.length}
+                              </span>
+                              <span>sous-tâches</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-6 text-gray-500 dark:text-gray-400">
-                <FolderOpen className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                <p>Aucune tâche pour le moment</p>
+              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                <FolderOpen className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                <p className="text-lg font-medium mb-2">Aucune tâche pour le moment</p>
+                <p className="text-sm mb-4">Commencez par ajouter des tâches ou générez-les avec l'IA</p>
+                <button
+                  onClick={generateTasksWithAI}
+                  disabled={isGeneratingTasks}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors"
+                >
+                  {isGeneratingTasks ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Génération...
+                    </>
+                  ) : (
+                    <>
+                      <Cpu className="w-4 h-4" />
+                      Générer des tâches
+                    </>
+                  )}
+                </button>
               </div>
             )}
           </div>

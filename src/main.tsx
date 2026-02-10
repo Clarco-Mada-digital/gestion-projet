@@ -10,6 +10,7 @@ import App from './App';
 import { store } from './store/store';
 import AppInitializer from './components/AppInitializer';
 import './index.css';
+import './styles/markdown.css';
 
 // Composant wrapper pour initialiser le gestionnaire d'erreurs
 function ErrorBoundaryWrapper({ children }: { children: React.ReactNode }) {

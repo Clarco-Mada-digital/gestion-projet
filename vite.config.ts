@@ -19,7 +19,10 @@ export default defineConfig({
     },
   })],
   optimizeDeps: {
-    exclude: ['lucide-react'],
+    exclude: ['lucide-react', '@uiw/react-md-editor'],
+  },
+  ssr: {
+    external: ['@uiw/react-md-editor'],
   },
   base: base,
   // Ignorer les avertissements spécifiques
@@ -47,6 +50,6 @@ export default defineConfig({
           return 'assets/[name]-[hash][extname]';
         }
       }
-    },
+    }
   },
 });

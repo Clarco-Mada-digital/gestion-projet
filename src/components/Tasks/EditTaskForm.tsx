@@ -3,6 +3,23 @@ import { Calendar as CalendarIcon, Clock, Plus, X as XIcon, Edit2, Eye } from 'l
 import { Task, Project, SubTask } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { SubTasksList } from './SubTasksList';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import MDEditor from '@uiw/react-md-editor';
+
+// Fonction pour nettoyer le markdown mal formé
+const cleanMarkdown = (text: string): string => {
+  if (!text) return text;
+  
+  // Corrige les doubles astérisques mal placés
+  return text
+    // Remplace les ** finaux par un seul **
+    .replace(/\*\*\*+/g, '**')
+    // S'assure que les ** sont bien appariés
+    .replace(/\*\*(.*?)\*\*/g, '**$1**')
+    // Nettoie les ** orphelins
+    .replace(/\*\*([^*]*?)\*\*/g, '**$1**');
+};
 
 // Fonction de validation des données de la tâche
 const validateTaskData = (task: Task): Task => {
@@ -301,16 +318,42 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Description</label>
             {isEditing ? (
-              <textarea
-                value={editedTask.description}
-                onChange={(e) => setEditedTask({ ...editedTask, description: e.target.value })}
-                rows={4}
-                className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200 resize-y"
-                placeholder="Description détaillée de la tâche"
-              />
+              <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+                <MDEditor
+                  value={editedTask.description || ''}
+                  onChange={(value) => setEditedTask({ ...editedTask, description: value || '' })}
+                  height={200}
+                  preview="edit"
+                  className="w-full"
+                  textareaProps={{
+                    placeholder: "## Description en Markdown\n\nVous pouvez utiliser :\n- **Gras**\n- *Italique*\n- `Code inline`\n- [Liens](url)\n- Listes à puces\n\n### Exemple :\n\n**Tâche importante** à compléter avant la date limite.\n\n- [ ] Sous-tâche 1\n- [ ] Sous-tâche 2\n\n```javascript\n// Code exemple\nconsole.log('Hello World');\n```"
+                  }}
+                />
+              </div>
             ) : (
-              <div className="prose dark:prose-invert max-w-none bg-gray-50 dark:bg-gray-700/30 p-4 rounded-lg text-gray-700 dark:text-gray-300 min-h-[100px] whitespace-pre-wrap">
-                {editedTask.description || <span className="text-gray-400 italic">Aucune description</span>}
+              <div className="markdown-body bg-gray-50 dark:bg-gray-700/30 p-4 rounded-lg text-gray-700 dark:text-gray-300 min-h-[100px]">
+                <ReactMarkdown 
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    strong: ({children}) => <strong style={{fontWeight: 'bold', color: 'inherit'}}>{children}</strong>,
+                    em: ({children}) => <em style={{fontStyle: 'italic', color: 'inherit'}}>{children}</em>,
+                    code: ({className, children}) => {
+                      const isInline = !className?.includes('language-');
+                      return isInline 
+                        ? <code style={{backgroundColor: '#f3f4f6', padding: '0.2em 0.4em', borderRadius: '3px', fontSize: '0.85em', fontFamily: 'monospace'}}>{children}</code>
+                        : <code style={{backgroundColor: '#f3f4f6', padding: '1em', borderRadius: '6px', display: 'block', overflowX: 'auto', fontFamily: 'monospace'}}>{children}</code>;
+                    },
+                    p: ({children}) => <p style={{marginBottom: '1em'}}>{children}</p>,
+                    ul: ({children}) => <ul style={{marginBottom: '1em', paddingLeft: '1.5em'}}>{children}</ul>,
+                    ol: ({children}) => <ol style={{marginBottom: '1em', paddingLeft: '1.5em'}}>{children}</ol>,
+                    li: ({children}) => <li style={{marginBottom: '0.25em'}}>{children}</li>,
+                    h1: ({children}) => <h1 style={{fontSize: '1.5em', fontWeight: 'bold', marginTop: '1.5em', marginBottom: '0.5em', borderBottom: '2px solid #e5e7eb', paddingBottom: '0.5em'}}>{children}</h1>,
+                    h2: ({children}) => <h2 style={{fontSize: '1.25em', fontWeight: 'bold', marginTop: '1.5em', marginBottom: '0.5em', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.3em'}}>{children}</h2>,
+                    h3: ({children}) => <h3 style={{fontSize: '1.1em', fontWeight: 'bold', marginTop: '1.5em', marginBottom: '0.5em'}}>{children}</h3>
+                  }}
+                >
+                  {cleanMarkdown(editedTask.description) || "*Aucune description*"}
+                </ReactMarkdown>
               </div>
             )}
           </div>

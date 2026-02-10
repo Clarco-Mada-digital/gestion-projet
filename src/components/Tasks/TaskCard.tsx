@@ -1,16 +1,32 @@
-import { useState, useCallback, memo, useContext } from 'react';
+import { useState, useCallback, memo } from 'react';
 import { Clock, Users, MoreHorizontal, Edit, CheckCircle2 } from 'lucide-react';
 import { Task } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { useModal } from '../../context/ModalContext';
 import { Card } from '../UI/Card';
 import { EditTaskForm } from './EditTaskForm';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface TaskCardProps {
   task: Task;
   showProject?: boolean;
   className?: string;
 }
+
+// Fonction pour nettoyer le markdown mal formé
+const cleanMarkdown = (text: string): string => {
+  if (!text) return text;
+  
+  // Corrige les doubles astérisques mal placés
+  return text
+    // Remplace les ** finaux par un seul **
+    .replace(/\*\*\*+/g, '**')
+    // S'assure que les ** sont bien appariés
+    .replace(/\*\*(.*?)\*\*/g, '**$1**')
+    // Nettoie les ** orphelins
+    .replace(/\*\*([^*]*?)\*\*/g, '**$1**');
+};
 
 // Fonction utilitaire pour formater la date
 const formatDate = (date?: string): string => {
@@ -258,9 +274,30 @@ const TaskCardComponent = ({ task, className = '' }: TaskCardProps): JSX.Element
         <div className="space-y-3">
           {/* Description */}
           {task.description && (
-            <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 leading-relaxed break-all">
-              {task.description}
-            </p>
+            <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 leading-relaxed break-all markdown-body">
+              <ReactMarkdown 
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  strong: ({children}) => <strong style={{fontWeight: 'bold', color: 'inherit'}}>{children}</strong>,
+                  em: ({children}) => <em style={{fontStyle: 'italic', color: 'inherit'}}>{children}</em>,
+                  code: ({className, children}) => {
+                    const isInline = !className?.includes('language-');
+                    return isInline 
+                      ? <code style={{backgroundColor: '#f3f4f6', padding: '0.1em 0.2em', borderRadius: '2px', fontSize: '0.8em', fontFamily: 'monospace'}}>{children}</code>
+                      : <code style={{backgroundColor: '#f3f4f6', padding: '0.5em', borderRadius: '4px', display: 'block', overflowX: 'auto', fontFamily: 'monospace', fontSize: '0.8em'}}>{children}</code>;
+                  },
+                  p: ({children}) => <p style={{margin: '0'}}>{children}</p>,
+                  ul: ({children}) => <ul style={{margin: '0', paddingLeft: '1em'}}>{children}</ul>,
+                  ol: ({children}) => <ol style={{margin: '0', paddingLeft: '1em'}}>{children}</ol>,
+                  li: ({children}) => <li style={{marginBottom: '0'}}>{children}</li>,
+                  h1: ({children}) => <h1 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h1>,
+                  h2: ({children}) => <h2 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h2>,
+                  h3: ({children}) => <h3 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h3>
+                }}
+              >
+                {cleanMarkdown(task.description)}
+              </ReactMarkdown>
+            </div>
           )}
           {/* Métadonnées */}
           <div className="space-y-2">
