@@ -29,9 +29,16 @@ jobs:
           rm -rf node_modules
           rm -f package-lock.json
           
-          # Installer les dépendances principales sans les scripts
+          # Installer les dépendances avec legacy-peer-deps mais sans ignorer tous les scripts
           echo "=== Installation des dépendances principales ==="
-          npm install --legacy-peer-deps --ignore-scripts
+          npm install --legacy-peer-deps
+          
+          # Vérifier si React est correctement installé
+          echo "=== Vérification de React ==="
+          if [ ! -d "node_modules/react" ] || [ ! -d "node_modules/react-dom" ]; then
+            echo "❌ React non trouvé, réinstallation forcée..."
+            npm install react react-dom --legacy-peer-deps
+          fi
           
           # Installer les dépendances optionnelles nécessaires pour Rollup
           echo "=== Installation des dépendances optionnelles pour Rollup ==="
@@ -45,6 +52,8 @@ jobs:
           # Vérifier que les dépendances sont correctement installées
           echo "=== Vérification des dépendances installées ==="
           npm list --depth=0
+          echo "=== Vérification spécifique de React ==="
+          npm list react react-dom
           echo "=== Vérification spécifique de @uiw/react-md-editor ==="
           ls -la node_modules/@uiw/react-md-editor/
 
@@ -64,6 +73,30 @@ jobs:
             echo "❌ Échec de la désactivation du script postinstall"
             exit 1
           fi
+
+      - name: Validate dependencies before build
+        run: |
+          echo "=== Validation finale des dépendances ==="
+          
+          # Vérifier que les modules critiques existent
+          CRITICAL_MODULES=("react" "react-dom" "@uiw/react-md-editor")
+          
+          for module in "${CRITICAL_MODULES[@]}"; do
+            if [ ! -d "node_modules/$module" ]; then
+              echo "❌ Module critique manquant: $module"
+              exit 1
+            else
+              echo "✅ Module trouvé: $module"
+            fi
+          done
+          
+          # Vérifier que les fichiers principaux existent
+          if [ ! -f "node_modules/react/index.js" ] || [ ! -f "node_modules/react-dom/index.js" ]; then
+            echo "❌ Fichiers principaux React manquants"
+            exit 1
+          fi
+          
+          echo "✅ Tous les modules critiques sont présents"
 
       - name: Build
         run: |
