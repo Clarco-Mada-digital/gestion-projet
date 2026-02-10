@@ -22,6 +22,13 @@ export default defineConfig({
     inlineStylesheets: 'never'
   },
   vite: {
-    base: base === '/' ? '' : base
+    base: base === '/' ? '' : base,
+    ssr: {
+      noExternal: [
+        '@uiw/react-md-editor',
+        '@uiw/react-markdown-preview',
+        '@uiw/react-markdown-preview/esm/preview'
+      ]
+    }
   }
 });
