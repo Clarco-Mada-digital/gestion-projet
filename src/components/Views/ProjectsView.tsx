@@ -166,7 +166,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
 
   return (
     <Card
-      className="p-6 group cursor-pointer relative overflow-hidden"
+      className="p-6 group cursor-pointer relative"
       hover
       gradient
       onClick={() => onEdit(project)}
@@ -219,7 +219,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
           </button>
 
           {showMenu && (
-            <div className="absolute right-0 top-10 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl py-1 z-[100] border border-gray-200 dark:border-gray-700 animate-in fade-in zoom-in duration-200">
+            <div className="absolute right-0 top-10 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-xl py-2 z-[100] border border-gray-200 dark:border-gray-700 animate-in fade-in zoom-in duration-200 max-h-96 overflow-y-auto">
               {/* Option de Sync / Partage */}
               <button
                 onClick={async (e) => {
@@ -307,6 +307,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
+                  setShowMenu(false);
                   onEdit(project);
                 }}
                 className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -315,14 +316,9 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                 Modifier
               </button>
               <button
-                onClick={() => setIsEditing(!isEditing)}
-                className="p-2 px-3 py-1.5 text-sm font-medium text-red-700 dark:text-red-300 bg-white dark:bg-gray-800 border border-red-300 dark:border-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-700 transition-colors duration-200"
-              >
-                {isEditing ? 'Annuler' : 'Fermer'}
-              </button>
-              <button
                 onClick={(e) => {
                   e.stopPropagation();
+                  setShowMenu(false);
                   onArchive(project);
                 }}
                 className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -335,6 +331,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
+                    setShowMenu(false);
                     onDelete(project);
                   }}
                   className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
@@ -346,6 +343,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
+                    setShowMenu(false);
                     onDelete(project); // Réutilise le même flux de confirmation
                   }}
                   className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
