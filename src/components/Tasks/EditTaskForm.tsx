@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Calendar as CalendarIcon, Clock, Plus, X as XIcon, Edit2, Eye } from 'lucide-react';
 import { Task, Project, SubTask } from '../../types';
 import { useApp } from '../../context/AppContext';
@@ -194,7 +194,6 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
     }
   };
 
-<<<<<<< HEAD
   // Gestion des utilisateurs assignables (Membres du projet uniquement pour Cloud)
   const [assignableUsers, setAssignableUsers] = useState<User[]>(state.users);
 
@@ -249,12 +248,10 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
 
     loadProjectMembers();
   }, [project, state.users, state.cloudUser]);
-=======
   // Filtrer les utilisateurs disponibles pour l'assignation (variable for future use if needed, commenting out to clear lint)
   // const availableUsers = state.users.filter(
   //   (user: User) => !editedTask.assignees.includes(user.id)
   // );
->>>>>>> dd1f5a9 (Update modal tache)
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -283,17 +280,6 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Titre */}
           <div>
-<<<<<<< HEAD
-            <label className="block text-sm font-medium mb-1">Titre</label>
-            <input
-              type="text"
-              value={editedTask.title}
-              onChange={(e) => setEditedTask({ ...editedTask, title: e.target.value })}
-              className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
-              placeholder="Titre de la tâche"
-              required
-            />
-=======
             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Titre</label>
             {isEditing ? (
               <input
@@ -309,21 +295,10 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                 {editedTask.title}
               </div>
             )}
->>>>>>> dd1f5a9 (Update modal tache)
           </div>
 
           {/* Description */}
           <div>
-<<<<<<< HEAD
-            <label className="block text-sm font-medium mb-1">Description</label>
-            <textarea
-              value={editedTask.description}
-              onChange={(e) => setEditedTask({ ...editedTask, description: e.target.value })}
-              rows={4}
-              className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200 resize-y"
-              placeholder="Description détaillée de la tâche"
-            />
-=======
             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Description</label>
             {isEditing ? (
               <textarea
@@ -338,26 +313,12 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                 {editedTask.description || <span className="text-gray-400 italic">Aucune description</span>}
               </div>
             )}
->>>>>>> dd1f5a9 (Update modal tache)
           </div>
 
           {/* Priorité et Statut sur la même ligne */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Priorité */}
             <div>
-<<<<<<< HEAD
-              <label className="block text-sm font-medium mb-1">Priorité</label>
-              <select
-                value={editedTask.priority}
-                onChange={(e) => setEditedTask({ ...editedTask, priority: e.target.value })}
-                className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
-              >
-                <option value="low">Faible</option>
-                <option value="medium">Moyenne</option>
-                <option value="high">Haute</option>
-                <option value="urgent">Urgente</option>
-              </select>
-=======
               <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Priorité</label>
               {isEditing ? (
                 <select
@@ -379,24 +340,10 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                     editedTask.priority === 'medium' ? 'Moyenne' : 'Faible'}
                 </div>
               )}
->>>>>>> dd1f5a9 (Update modal tache)
             </div>
 
             {/* Statut */}
             <div>
-<<<<<<< HEAD
-              <label className="block text-sm font-medium mb-1">Statut</label>
-              <select
-                value={editedTask.status}
-                onChange={(e) => setEditedTask({ ...editedTask, status: e.target.value })}
-                className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
-              >
-                <option value="todo">À faire</option>
-                <option value="in-progress">En cours</option>
-                <option value="done">Terminé</option>
-                <option value="blocked">Bloqué</option>
-              </select>
-=======
               <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Statut</label>
               {isEditing ? (
                 <select
@@ -421,13 +368,12 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                       editedTask.status === 'done' ? 'Terminé' : 'Bloqué'}
                 </div>
               )}
->>>>>>> dd1f5a9 (Update modal tache)
             </div>
           </div>
 
           {/* Sous-tâches */}
           <div>
-            <label className="block text-sm font-medium mb-1">Sous-tâches</label>
+            <label className="block text-sm font-medium mb-1 text-black dark:text-white">Sous-tâches</label>
             <div className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
               <SubTasksList
                 subTasks={editedTask.subTasks || []}
@@ -448,14 +394,6 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <CalendarIcon className="h-5 w-5 text-gray-400" />
                 </div>
-<<<<<<< HEAD
-                <input
-                  type="date"
-                  value={editedTask.startDate ? editedTask.startDate.split('T')[0] : ''}
-                  onChange={(e) => setEditedTask({ ...editedTask, startDate: e.target.value })}
-                  className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
-                />
-=======
                 {isEditing ? (
                   <input
                     type="date"
@@ -468,7 +406,6 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                     {editedTask.startDate ? new Date(editedTask.startDate).toLocaleDateString() : '-'}
                   </div>
                 )}
->>>>>>> dd1f5a9 (Update modal tache)
               </div>
             </div>
 
@@ -479,15 +416,6 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <CalendarIcon className="h-5 w-5 text-gray-400" />
                 </div>
-<<<<<<< HEAD
-                <input
-                  type="date"
-                  value={editedTask.dueDate ? editedTask.dueDate.split('T')[0] : ''}
-                  min={editedTask.startDate || undefined}
-                  onChange={(e) => setEditedTask({ ...editedTask, dueDate: e.target.value })}
-                  className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
-                />
-=======
                 {isEditing ? (
                   <input
                     type="date"
@@ -501,7 +429,6 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                     {editedTask.dueDate ? new Date(editedTask.dueDate).toLocaleDateString() : '-'}
                   </div>
                 )}
->>>>>>> dd1f5a9 (Update modal tache)
               </div>
             </div>
 
@@ -512,16 +439,6 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Clock className="h-5 w-5 text-gray-400" />
                 </div>
-<<<<<<< HEAD
-                <input
-                  type="number"
-                  min="0"
-                  value={editedTask.estimatedHours || ''}
-                  onChange={(e) => setEditedTask({ ...editedTask, estimatedHours: parseInt(e.target.value) || 0 })}
-                  className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
-                  placeholder="0"
-                />
-=======
                 {isEditing ? (
                   <input
                     type="number"
@@ -536,7 +453,6 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                     {editedTask.estimatedHours || 0} h
                   </div>
                 )}
->>>>>>> dd1f5a9 (Update modal tache)
               </div>
             </div>
           </div>
@@ -563,25 +479,6 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                 ))}
 
               {/* Menu déroulant pour ajouter un assigné */}
-<<<<<<< HEAD
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsAddingAssignee(!isAddingAssignee);
-                  }}
-                  className="flex items-center px-3 py-1.5 text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors duration-200"
-                >
-                  <Plus className="w-4 h-4 mr-1.5" />
-                  Ajouter un membre
-                </button>
-
-                {isAddingAssignee && (
-                  <div
-                    className="absolute z-10 mt-1 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
-                    onClick={(e) => e.stopPropagation()}
-=======
               {isEditing && (
                 <div className="relative">
                   <button
@@ -591,7 +488,6 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                       setIsAddingAssignee(!isAddingAssignee);
                     }}
                     className="flex items-center px-3 py-1.5 text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors duration-200"
->>>>>>> dd1f5a9 (Update modal tache)
                   >
                     <Plus className="w-4 h-4 mr-1.5" />
                     Ajouter un membre
@@ -615,7 +511,7 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                         </div>
                       </div>
                       <div className="max-h-60 overflow-y-auto">
-                        {state.users
+                        {assignableUsers
                           .filter(user =>
                             !editedTask.assignees.includes(user.id) &&
                             (assigneeSearch === '' ||
@@ -637,7 +533,7 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                               </div>
                             </div>
                           ))}
-                        {state.users.filter(user =>
+                        {assignableUsers.filter(user =>
                           !editedTask.assignees.includes(user.id) &&
                           (assigneeSearch === '' ||
                             user.name?.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
@@ -649,49 +545,9 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                           )}
                       </div>
                     </div>
-<<<<<<< HEAD
-                    <div className="max-h-60 overflow-y-auto">
-                      {assignableUsers
-                        .filter(user =>
-                          !editedTask.assignees.includes(user.id) &&
-                          (assigneeSearch === '' ||
-                            user.name?.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
-                            user.email?.toLowerCase().includes(assigneeSearch.toLowerCase()))
-                        )
-                        .map(user => (
-                          <div
-                            key={user.id}
-                            onClick={(e) => handleAddAssignee(e, user.id)}
-                            className="px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center"
-                          >
-                            <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-sm font-medium text-blue-800 dark:text-blue-200 mr-3">
-                              {user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <div className="font-medium">{user.name || 'Utilisateur sans nom'}</div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400">{user.email}</div>
-                            </div>
-                          </div>
-                        ))}
-                      {assignableUsers.filter(user =>
-                        !editedTask.assignees.includes(user.id) &&
-                        (assigneeSearch === '' ||
-                          user.name?.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
-                          user.email?.toLowerCase().includes(assigneeSearch.toLowerCase()))
-                      ).length === 0 && (
-                          <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-center">
-                            Aucun membre trouvé
-                          </div>
-                        )}
-                    </div>
-                  </div>
-                )}
-              </div>
-=======
                   )}
                 </div>
               )}
->>>>>>> dd1f5a9 (Update modal tache)
             </div>
           </div>
 
@@ -700,18 +556,18 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
             <label className="block text-sm font-medium mb-1">Tags</label>
             <div className="flex flex-wrap gap-2">
               {isAddingTag ? (
-                <form className="flex items-center">
+                <div className="flex items-center">
                   <input
                     type="text"
                     value={newTag}
                     onChange={(e) => setNewTag(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddTag(e)}
                     className="flex-1 px-3 py-1.5 rounded-l-full border border-r-0 border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white bg-white dark:bg-gray-800"
                     placeholder="Nouveau tag"
                   />
                   <button
                     type="button"
-                    onClick={handleAddTag}
+                    onClick={(e) => handleAddTag(e)}
                     className="px-4 py-1.5 bg-blue-600 text-white rounded-r-full hover:bg-blue-700 transition-colors duration-200"
                   >
                     <Plus className="w-4 h-4" />
@@ -726,7 +582,7 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                   >
                     <XIcon className="w-4 h-4" />
                   </button>
-                </form>
+                </div>
               ) : (
                 <button
                   onClick={() => setIsAddingTag(true)}
