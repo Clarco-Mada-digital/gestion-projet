@@ -315,6 +315,12 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                 Modifier
               </button>
               <button
+                onClick={() => setIsEditing(!isEditing)}
+                className="p-2 px-3 py-1.5 text-sm font-medium text-red-700 dark:text-red-300 bg-white dark:bg-gray-800 border border-red-300 dark:border-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-700 transition-colors duration-200"
+              >
+                {isEditing ? 'Annuler' : 'Fermer'}
+              </button>
+              <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onArchive(project);
