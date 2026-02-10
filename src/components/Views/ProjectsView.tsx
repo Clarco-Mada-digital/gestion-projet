@@ -1687,6 +1687,17 @@ export function ProjectsView() {
         size="lg"
       >
         <div className="space-y-6">
+          {/* Image de couverture - déplacé en haut */}
+          <div className="mb-4">
+            <CoverImageUpload
+              currentImage={editingProject?.coverImage}
+              onImageUploaded={(imageUrl) => editingProject && setEditingProject({ ...editingProject, coverImage: imageUrl })}
+              onImageRemoved={() => editingProject && setEditingProject({ ...editingProject, coverImage: undefined })}
+              projectId={editingProject?.id}
+              projectSource={editingProject?.source || 'local'}
+            />
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1775,17 +1786,6 @@ export function ProjectsView() {
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Image de couverture */}
-          <div>
-            <CoverImageUpload
-              currentImage={editingProject?.coverImage}
-              onImageUploaded={(imageUrl) => editingProject && setEditingProject({ ...editingProject, coverImage: imageUrl })}
-              onImageRemoved={() => editingProject && setEditingProject({ ...editingProject, coverImage: undefined })}
-              projectId={editingProject?.id}
-              projectSource={editingProject?.source || 'local'}
-            />
           </div>
 
           {/* Liste des tâches existantes */}
