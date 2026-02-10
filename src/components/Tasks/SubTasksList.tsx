@@ -24,6 +24,8 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
   const { state } = useApp();
 
+  console.log('SubTasksList render - isEditing:', isEditing, 'subTasks count:', subTasks.length);
+
   const aiSettings = state.appSettings?.aiSettings;
 
   // Calculer les tâches groupées
@@ -160,10 +162,23 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
   };
 
   const onDragEnd = (result: DropResult) => {
-    if (!result.destination || !isEditing) return;
+    console.log('DragEnd triggered:', result);
+    console.log('isEditing:', isEditing);
+    
+    if (!result.destination) {
+      console.log('No destination, returning');
+      return;
+    }
+
+    if (!isEditing) {
+      console.log('Not in editing mode, returning');
+      return;
+    }
 
     const sourceGroup = result.source.droppableId;
     const destGroup = result.destination.droppableId;
+    
+    console.log('Moving from', sourceGroup, 'to', destGroup);
 
     // Si on déplace dans le même groupe
     if (sourceGroup === destGroup) {
@@ -172,7 +187,9 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
       const [reorderedItem] = items.splice(result.source.index, 1);
       items.splice(result.destination.index, 0, reorderedItem);
 
-      // Reconstruire la liste complète
+      console.log('Reordered items in group:', items);
+
+      // Reconstruire la liste complète en préservant l'ordre des groupes
       const newSubTasks: SubTask[] = [];
       groupNames.forEach(gName => {
         if (gName === sourceGroup) {
@@ -182,6 +199,7 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
         }
       });
 
+      console.log('New subtasks order:', newSubTasks);
       onSubTasksChange(newSubTasks);
     } else {
       // Déplacement entre groupes
@@ -194,7 +212,9 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
 
       destItems.splice(result.destination.index, 0, updatedItem);
 
-      // Reconstruire la liste complète
+      console.log('Moved item between groups:', updatedItem);
+
+      // Reconstruire la liste complète en préservant l'ordre des groupes
       const newSubTasks: SubTask[] = [];
       groupNames.forEach(gName => {
         if (gName === sourceGroup) {
@@ -206,6 +226,7 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
         }
       });
 
+      console.log('New subtasks after group change:', newSubTasks);
       onSubTasksChange(newSubTasks);
     }
   };
@@ -239,20 +260,30 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
 
   return (
     <div className="mt-4 space-y-4">
-      <div className="flex justify-between items-center mb-2">
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Sous-tâches</h3>
-        {/* Afficher le bouton IA si dispo et mode edit */}
-        {isEditing && (aiSettings?.isConfigured) && (
-          <button
-            type="button"
-            onClick={generateWithAI}
-            disabled={isGenerating}
-            className="text-xs flex items-center text-blue-600 hover:text-blue-700 disabled:opacity-50 transition-colors"
-          >
-            {isGenerating ? 'Génération...' : 'Suggérer avec IA'}
-          </button>
-        )}
-      </div>
+      {isEditing ? (
+        <div className="flex items-center justify-between mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+          <div className="flex items-center space-x-2">
+            <GripVertical className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+              Mode édition : Glissez-déposez les sous-tâches pour les réorganiser
+            </span>
+          </div>
+          {aiSettings?.isConfigured && (
+            <button
+              type="button"
+              onClick={generateWithAI}
+              disabled={isGenerating}
+              className="text-xs flex items-center text-blue-600 hover:text-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {isGenerating ? 'Génération...' : 'Suggérer avec IA'}
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="flex justify-between items-center mb-2">
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Sous-tâches</h3>
+        </div>
+      )}
 
       <div className="space-y-4">
         <DragDropContext onDragEnd={onDragEnd}>
@@ -281,7 +312,7 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
                     <div
                       {...provided.droppableProps}
                       ref={provided.innerRef}
-                      className={`space-y-1 min-h-[10px] rounded-lg transition-colors ${snapshot.isDraggingOver ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''}`}
+                      className={`space-y-1 min-h-[10px] rounded-lg transition-all ${snapshot.isDraggingOver ? 'bg-blue-100/60 dark:bg-blue-900/40 border-2 border-blue-300 dark:border-blue-600' : isEditing ? 'bg-gray-50/30 dark:bg-gray-700/20 border-2 border-dashed border-gray-200 dark:border-gray-600' : ''}`}
                     >
                       {tasks.map((task, index) => (
                         <Draggable key={task.id} draggableId={task.id} index={index} isDragDisabled={!isEditing || editingSubTaskId === task.id}>
@@ -290,12 +321,13 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               className={`flex items-center p-2 rounded-md group transition-all ${task.completed ? 'opacity-60 bg-gray-50 dark:bg-gray-800/50' : 'bg-white dark:bg-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700'
-                                } border border-transparent ${snapshot.isDragging ? 'shadow-lg border-blue-200 z-10' : 'hover:border-gray-200 dark:hover:border-gray-600'}`}
+                                } border border-transparent ${snapshot.isDragging ? 'shadow-lg border-blue-200 z-10' : 'hover:border-gray-200 dark:hover:border-gray-600'} ${!isEditing ? 'cursor-not-allowed' : ''}`}
                             >
                               {isEditing && editingSubTaskId !== task.id && (
                                 <div
                                   {...provided.dragHandleProps}
-                                  className="mr-2 text-gray-300 hover:text-gray-500 cursor-move"
+                                  className="mr-2 text-gray-300 hover:text-gray-500 cursor-move opacity-50 group-hover:opacity-100 transition-all"
+                                  title="Glisser pour réorganiser"
                                 >
                                   <GripVertical className="w-4 h-4" />
                                 </div>
@@ -436,8 +468,8 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
               </button>
             </div>
           </div>
-          <p className="text-xs text-gray-400 mt-2 ml-1">
-            Astuce: Glissez-déposez les tâches pour les changer de groupe.
+          <p className="text-xs text-blue-600 dark:text-blue-400 mt-2 ml-1 font-medium">
+            💡 Glissez les poignées :: pour réorganiser • Cliquez sur une tâche pour modifier
           </p>
         </div>
       )}
