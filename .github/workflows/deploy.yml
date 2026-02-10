@@ -37,9 +37,16 @@ jobs:
           echo "=== Installation des dépendances optionnelles pour Rollup ==="
           npm install @rollup/rollup-linux-x64-gnu --no-save
           
+          # Forcer la réinstallation de @uiw/react-md-editor avec les bonnes options
+          echo "=== Réinstallation de @uiw/react-md-editor ==="
+          npm uninstall @uiw/react-md-editor
+          npm install @uiw/react-md-editor --legacy-peer-deps
+          
           # Vérifier que les dépendances sont correctement installées
           echo "=== Vérification des dépendances installées ==="
           npm list --depth=0
+          echo "=== Vérification spécifique de @uiw/react-md-editor ==="
+          ls -la node_modules/@uiw/react-md-editor/
 
       - name: Désactiver le script postinstall de react-beautiful-dnd
         run: |

@@ -19,10 +19,11 @@ export default defineConfig({
     },
   })],
   optimizeDeps: {
-    exclude: ['lucide-react', '@uiw/react-md-editor'],
+    exclude: ['lucide-react'],
+    include: ['@uiw/react-md-editor'],
   },
   ssr: {
-    external: ['@uiw/react-md-editor'],
+    noExternal: ['@uiw/react-md-editor'],
   },
   base: base,
   // Ignorer les avertissements spécifiques
@@ -48,6 +49,10 @@ export default defineConfig({
           }
           // Conserver le comportement par défaut pour les autres assets
           return 'assets/[name]-[hash][extname]';
+        },
+        manualChunks: {
+          // Isoler les packages problématiques
+          'md-editor': ['@uiw/react-md-editor'],
         }
       }
     }
