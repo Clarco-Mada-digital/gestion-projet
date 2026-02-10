@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Download, Trash2, Eye, FileText, Image, Music, Video, File, Calendar, User } from 'lucide-react';
-import { UploadedFile } from '../../services/collaboration/firebaseStorageService';
-import { firebaseStorageService } from '../../services/collaboration/firebaseStorageService';
+import { UploadedFile, cloudinaryService } from '../../services/collaboration/cloudinaryService';
 
 interface FileListProps {
   files: UploadedFile[];
@@ -33,7 +32,10 @@ export function FileList({ files, onFileDelete, showProjectInfo = false, classNa
 
   const getFileIcon = (file: UploadedFile) => {
     const size = 20;
-    switch (file.type) {
+    // Vérification du type (Cloudinary catégorise souvent par extension ou type MIME)
+    const category = cloudinaryService.categorizeFile(file.type || '', file.name || '');
+
+    switch (category) {
       case 'image':
         return <Image className="w-5 h-5 text-green-500" />;
       case 'audio':
@@ -48,7 +50,8 @@ export function FileList({ files, onFileDelete, showProjectInfo = false, classNa
   };
 
   const handlePreview = (file: UploadedFile) => {
-    if (file.type === 'image') {
+    const category = cloudinaryService.categorizeFile(file.type || '', file.name || '');
+    if (category === 'image') {
       setPreviewFile(file);
     } else {
       // Pour les non-images, ouvrir dans un nouvel onglet
@@ -68,11 +71,7 @@ export function FileList({ files, onFileDelete, showProjectInfo = false, classNa
   const handleDelete = async (file: UploadedFile) => {
     if (window.confirm(`Êtes-vous sûr de vouloir supprimer "${file.name}" ?`)) {
       try {
-        // Extraire le chemin du fichier de l'URL
-        const filePath = file.url.split('/').pop()?.split('?')[0];
-        if (filePath) {
-          await firebaseStorageService.deleteFile(filePath);
-        }
+        await cloudinaryService.deleteFile(file.projectId || '', file.taskId, file.url);
         onFileDelete?.(file);
       } catch (error) {
         console.error('Erreur lors de la suppression:', error);

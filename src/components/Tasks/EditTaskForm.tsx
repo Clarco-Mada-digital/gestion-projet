@@ -7,11 +7,13 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import MDEditorClient from '../UI/MDEditorClient';
 import { CompactAttachments } from '../UI/CompactAttachments';
+import { cloudinaryService } from '../../services/collaboration/cloudinaryService';
+import { localAttachmentService } from '../../services/localAttachmentService';
 
 // Fonction pour nettoyer le markdown mal formé
 const cleanMarkdown = (text: string): string => {
   if (!text) return text;
-  
+
   // Corrige les doubles astérisques mal placés
   return text
     // Remplace les ** finaux par un seul **
@@ -333,24 +335,24 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
               </div>
             ) : (
               <div className="markdown-body bg-gray-50 dark:bg-gray-700/30 p-4 rounded-lg text-gray-700 dark:text-gray-300 min-h-[100px]">
-                <ReactMarkdown 
+                <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{
-                    strong: ({children}) => <strong style={{fontWeight: 'bold', color: 'inherit'}}>{children}</strong>,
-                    em: ({children}) => <em style={{fontStyle: 'italic', color: 'inherit'}}>{children}</em>,
-                    code: ({className, children}) => {
+                    strong: ({ children }) => <strong style={{ fontWeight: 'bold', color: 'inherit' }}>{children}</strong>,
+                    em: ({ children }) => <em style={{ fontStyle: 'italic', color: 'inherit' }}>{children}</em>,
+                    code: ({ className, children }) => {
                       const isInline = !className?.includes('language-');
-                      return isInline 
-                        ? <code style={{backgroundColor: '#f3f4f6', padding: '0.2em 0.4em', borderRadius: '3px', fontSize: '0.85em', fontFamily: 'monospace'}}>{children}</code>
-                        : <code style={{backgroundColor: '#f3f4f6', padding: '1em', borderRadius: '6px', display: 'block', overflowX: 'auto', fontFamily: 'monospace'}}>{children}</code>;
+                      return isInline
+                        ? <code style={{ backgroundColor: '#f3f4f6', padding: '0.2em 0.4em', borderRadius: '3px', fontSize: '0.85em', fontFamily: 'monospace' }}>{children}</code>
+                        : <code style={{ backgroundColor: '#f3f4f6', padding: '1em', borderRadius: '6px', display: 'block', overflowX: 'auto', fontFamily: 'monospace' }}>{children}</code>;
                     },
-                    p: ({children}) => <p style={{marginBottom: '1em'}}>{children}</p>,
-                    ul: ({children}) => <ul style={{marginBottom: '1em', paddingLeft: '1.5em'}}>{children}</ul>,
-                    ol: ({children}) => <ol style={{marginBottom: '1em', paddingLeft: '1.5em'}}>{children}</ol>,
-                    li: ({children}) => <li style={{marginBottom: '0.25em'}}>{children}</li>,
-                    h1: ({children}) => <h1 style={{fontSize: '1.5em', fontWeight: 'bold', marginTop: '1.5em', marginBottom: '0.5em', borderBottom: '2px solid #e5e7eb', paddingBottom: '0.5em'}}>{children}</h1>,
-                    h2: ({children}) => <h2 style={{fontSize: '1.25em', fontWeight: 'bold', marginTop: '1.5em', marginBottom: '0.5em', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.3em'}}>{children}</h2>,
-                    h3: ({children}) => <h3 style={{fontSize: '1.1em', fontWeight: 'bold', marginTop: '1.5em', marginBottom: '0.5em'}}>{children}</h3>
+                    p: ({ children }) => <p style={{ marginBottom: '1em' }}>{children}</p>,
+                    ul: ({ children }) => <ul style={{ marginBottom: '1em', paddingLeft: '1.5em' }}>{children}</ul>,
+                    ol: ({ children }) => <ol style={{ marginBottom: '1em', paddingLeft: '1.5em' }}>{children}</ol>,
+                    li: ({ children }) => <li style={{ marginBottom: '0.25em' }}>{children}</li>,
+                    h1: ({ children }) => <h1 style={{ fontSize: '1.5em', fontWeight: 'bold', marginTop: '1.5em', marginBottom: '0.5em', borderBottom: '2px solid #e5e7eb', paddingBottom: '0.5em' }}>{children}</h1>,
+                    h2: ({ children }) => <h2 style={{ fontSize: '1.25em', fontWeight: 'bold', marginTop: '1.5em', marginBottom: '0.5em', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.3em' }}>{children}</h2>,
+                    h3: ({ children }) => <h3 style={{ fontSize: '1.1em', fontWeight: 'bold', marginTop: '1.5em', marginBottom: '0.5em' }}>{children}</h3>
                   }}
                 >
                   {cleanMarkdown(editedTask.description) || "*Aucune description*"}
@@ -359,27 +361,56 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
             )}
           </div>
 
-          {/* Fichiers joints - Design compact */}
           <CompactAttachments
             attachments={editedTask.attachments || []}
             isEditing={isEditing}
-            onAddFiles={(files) => {
-              Array.from(files).forEach(file => {
-                const attachment: Attachment = {
-                  id: file.name + '-' + Date.now(),
-                  name: file.name,
-                  type: file.type.includes('image') ? 'image' : 
-                        file.type.includes('pdf') || file.name.includes('.doc') ? 'document' : 'other',
-                  url: URL.createObjectURL(file),
-                  size: file.size,
-                  uploadedAt: new Date().toISOString(),
-                  uploadedBy: 'current-user'
-                };
-                setEditedTask(prev => ({
-                  ...prev,
-                  attachments: [...(prev.attachments || []), attachment]
-                }));
-              });
+            onAddFiles={async (files) => {
+              const filesArray = Array.from(files);
+              const isCloudProject = project.source === 'firebase' || project.source === 'cloud';
+
+              for (const file of filesArray) {
+                try {
+                  let attachment: Attachment;
+
+                  if (isCloudProject) {
+                    // Upload vers Cloudinary pour les projets cloud
+                    const uploadedFile = await cloudinaryService.uploadFile(file, {
+                      taskId: editedTask.id,
+                      projectId: editedTask.projectId,
+                      uploadedBy: state.cloudUser?.displayName || 'Utilisateur'
+                    });
+
+                    attachment = {
+                      id: uploadedFile.publicId || (file.name + '-' + Date.now()),
+                      name: uploadedFile.name,
+                      type: uploadedFile.type.includes('image') ? 'image' :
+                        uploadedFile.type.includes('pdf') || uploadedFile.name.includes('.doc') ? 'document' : 'other',
+                      url: uploadedFile.url,
+                      size: uploadedFile.size,
+                      uploadedAt: uploadedFile.uploadedAt,
+                      uploadedBy: uploadedFile.uploadedBy
+                    };
+                  } else {
+                    // Stockage local (Base64) pour les projets locaux
+                    const validation = localAttachmentService.validateFile(file);
+                    if (!validation.isValid) {
+                      alert(validation.error);
+                      continue;
+                    }
+                    const base64Url = await localAttachmentService.convertFileToBase64(file);
+                    attachment = localAttachmentService.createLocalAttachment(file, base64Url);
+                  }
+
+                  setEditedTask(prev => ({
+                    ...prev,
+                    attachments: [...(prev.attachments || []), attachment]
+                  }));
+                } catch (error) {
+                  console.error("Erreur lors de l'ajout d'une pièce jointe:", error);
+                  const message = error instanceof Error ? error.message : 'Erreur inconnue';
+                  alert(`Erreur lors de l'ajout du fichier ${file.name} : ${message}`);
+                }
+              }
             }}
             onRemoveAttachment={(attachmentId) => {
               setEditedTask(prev => ({

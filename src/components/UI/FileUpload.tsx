@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Upload, X, FileText, Image, Music, Video, File } from 'lucide-react';
-import { firebaseStorageService, UploadedFile } from '../../services/collaboration/firebaseStorageService';
+import { cloudinaryService, UploadedFile } from '../../services/collaboration/cloudinaryService';
 
 interface FileUploadProps {
   onFileUploaded: (file: UploadedFile) => void;
@@ -16,7 +16,7 @@ export function FileUpload({
   onFileUploaded,
   taskId,
   projectId,
-  maxSize = 10 * 1024 * 1024, // 10MB par défaut
+  maxSize = 25 * 1024 * 1024, // Augmenté à 25MB pour Cloudinary
   acceptedTypes = ['image/*', 'audio/*', 'video/*', '.pdf', '.doc', '.docx', '.txt'],
   multiple = false,
   className = ''
@@ -35,7 +35,7 @@ export function FileUpload({
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        
+
         // Vérification de la taille
         if (file.size > maxSize) {
           alert(`Le fichier ${file.name} est trop volumineux. Taille maximale: ${maxSize / 1024 / 1024}MB`);
@@ -43,13 +43,12 @@ export function FileUpload({
         }
 
         // Vérification du type
-        const fileType = firebaseStorageService.getFileType(file);
-        console.log(`Upload du fichier: ${file.name} (${fileType.category})`);
+        const category = cloudinaryService.categorizeFile(file.type, file.name);
+        console.log(`Upload du fichier: ${file.name} (${category})`);
 
-        // Upload vers Firebase Storage
-        const uploadedFile = await firebaseStorageService.uploadFile(
+        // Upload vers Cloudinary
+        const uploadedFile = await cloudinaryService.uploadFile(
           file,
-          `uploads/${fileType.category}`,
           {
             taskId,
             projectId,

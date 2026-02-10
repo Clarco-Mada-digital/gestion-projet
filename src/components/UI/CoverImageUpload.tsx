@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Image as ImageIcon } from 'lucide-react';
-import { firebaseStorageService } from '../../services/collaboration/firebaseStorageService';
+import { cloudinaryService } from '../../services/collaboration/cloudinaryService';
 import { localImageService } from '../../services/localImageService';
 
 interface CoverImageUploadProps {
@@ -36,16 +36,16 @@ export function CoverImageUpload({
     setUploadProgress(0);
 
     try {
-      if (projectSource === 'firebase') {
-        // Pour les projets Firebase, utiliser le service Firebase
-        const maxSize = 5 * 1024 * 1024; // 5MB pour Firebase
+      const isCloudProject = projectSource === 'firebase' || projectSource === 'cloud';
+      if (isCloudProject) {
+        // Pour les projets Firebase/Cloudinary, utiliser le service Cloudinary
+        const maxSize = 10 * 1024 * 1024; // Augmenté à 10MB pour Cloudinary
         if (file.size > maxSize) {
-          throw new Error('L\'image est trop volumineuse. Taille maximale: 5MB');
+          throw new Error('L\'image est trop volumineuse. Taille maximale: 10MB');
         }
 
-        const uploadedFile = await firebaseStorageService.uploadFile(
+        const uploadedFile = await cloudinaryService.uploadFile(
           file,
-          'project-covers',
           {
             projectId,
             uploadedBy: 'current-user' // À remplacer avec l'ID utilisateur réel
@@ -146,7 +146,7 @@ export function CoverImageUpload({
               </div>
             </div>
           </div>
-          
+
           {isUploading && (
             <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center">
               <div className="text-center">
@@ -160,8 +160,8 @@ export function CoverImageUpload({
         // Zone d'upload quand il n'y a pas d'image
         <div
           className={`
-            border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all
-            ${isDragging ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'}
+            relative border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all duration-300
+            ${isDragging ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 scale-[1.01]' : 'border-gray-300 dark:border-gray-600 hover:border-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-800/50'}
             ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}
           `}
           onDrop={handleDrop}
@@ -179,44 +179,43 @@ export function CoverImageUpload({
           />
 
           {isUploading ? (
-            <div className="space-y-4">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Upload en cours... {Math.round(uploadProgress)}%
-              </p>
-              {uploadProgress > 0 && (
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div className="py-4 space-y-3">
+              <div className="flex justify-center">
+                <div className="relative w-10 h-10">
+                  <div className="absolute inset-0 border-2 border-indigo-200 dark:border-indigo-900 rounded-full"></div>
                   <div
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${uploadProgress}%` }}
+                    className="absolute inset-0 border-2 border-indigo-600 rounded-full animate-spin border-t-transparent"
                   ></div>
                 </div>
-              )}
+              </div>
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                Optimisation et upload... {Math.round(uploadProgress)}%
+              </p>
             </div>
           ) : (
-            <div className="space-y-4">
-              <ImageIcon className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto" />
-              <div>
-                <p className="text-lg font-medium text-gray-700 dark:text-gray-300">
-                  {isDragging ? 'Relâchez l\'image ici' : 'Ajouter une image de couverture'}
+            <div className="flex flex-col items-center py-2">
+              <div className="p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-full mb-3 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform">
+                <ImageIcon className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                  {isDragging ? 'Déposez l\'image' : 'Image de couverture'}
                 </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Glissez-déposez ou cliquez pour sélectionner
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  PNG, JPG ou WebP jusqu'à {maxSizeText}
                 </p>
               </div>
-              <div className="text-xs text-gray-400 dark:text-gray-500 space-y-1">
-                <p>Formats acceptés: JPG, PNG, GIF, WebP</p>
-                <p>Taille maximale: {maxSizeText}</p>
-                <p>Dimensions recommandées: 1920x1080px</p>
-                {projectSource === 'local' && (
-                  <p className="text-amber-600 dark:text-amber-400">
-                    💾 Stockage local (base64)
-                  </p>
-                )}
-                {projectSource === 'firebase' && (
-                  <p className="text-blue-600 dark:text-blue-400">
-                    ☁️ Stockage cloud (Firebase)
-                  </p>
+
+              {/* Badges de statut discrets */}
+              <div className="mt-3 flex items-center gap-2">
+                {projectSource === 'local' ? (
+                  <span className="flex items-center px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-[10px] font-medium text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-900/30">
+                    💾 Local (Base64)
+                  </span>
+                ) : (
+                  <span className="flex items-center px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/20 text-[10px] font-medium text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/30">
+                    ☁️ Cloud (Cloudinary)
+                  </span>
                 )}
               </div>
             </div>
