@@ -321,7 +321,7 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               className={`flex items-center p-2 rounded-md group transition-all ${task.completed ? 'opacity-60 bg-gray-50 dark:bg-gray-800/50' : 'bg-white dark:bg-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700'
-                                } border border-transparent ${snapshot.isDragging ? 'shadow-lg border-blue-200 z-10' : 'hover:border-gray-200 dark:hover:border-gray-600'} ${!isEditing ? 'cursor-not-allowed' : ''}`}
+                                } border border-transparent ${snapshot.isDragging ? 'shadow-lg border-blue-200 z-10' : 'hover:border-gray-200 dark:hover:border-gray-600'} ${!isEditing ? 'cursor-pointer' : ''}`}
                             >
                               {isEditing && editingSubTaskId !== task.id && (
                                 <div
