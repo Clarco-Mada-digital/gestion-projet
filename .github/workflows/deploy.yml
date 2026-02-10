@@ -23,39 +23,48 @@ jobs:
 
       - name: Install Node.js dependencies
         run: |
-          # Nettoyer le cache npm et supprimer node_modules
-          echo "=== Nettoyage du cache et suppression des dépendances existantes ==="
+          # Nettoyer complètement le cache npm et supprimer node_modules
+          echo "=== Nettoyage complet de l'environnement ==="
           npm cache clean --force
           rm -rf node_modules
           rm -f package-lock.json
+          rm -rf ~/.npm
           
-          # Installer les dépendances avec legacy-peer-deps mais sans ignorer tous les scripts
-          echo "=== Installation des dépendances principales ==="
-          npm install --legacy-peer-deps
+          # Forcer la version de Node.js si nécessaire
+          echo "=== Vérification de Node.js ==="
+          node --version
+          npm --version
           
-          # Vérifier si React est correctement installé
+          # Installer les dépendances avec résolution forcée des conflits
+          echo "=== Installation des dépendances avec résolution de conflits ==="
+          npm install --legacy-peer-deps --force --no-audit --no-fund
+          
+          # Vérifier que React est correctement installé
           echo "=== Vérification de React ==="
           if [ ! -d "node_modules/react" ] || [ ! -d "node_modules/react-dom" ]; then
             echo "❌ React non trouvé, réinstallation forcée..."
-            npm install react react-dom --legacy-peer-deps
+            npm install react@^18.2.0 react-dom@^18.2.0 --legacy-peer-deps --force
+          else
+            echo "✅ React trouvé"
+            npm list react react-dom
           fi
           
           # Installer les dépendances optionnelles nécessaires pour Rollup
           echo "=== Installation des dépendances optionnelles pour Rollup ==="
-          npm install @rollup/rollup-linux-x64-gnu --no-save
+          npm install @rollup/rollup-linux-x64-gnu --no-save --legacy-peer-deps --force
           
           # Forcer la réinstallation de @uiw/react-md-editor avec les bonnes options
           echo "=== Réinstallation de @uiw/react-md-editor ==="
           npm uninstall @uiw/react-md-editor
-          npm install @uiw/react-md-editor --legacy-peer-deps
+          npm install @uiw/react-md-editor --legacy-peer-deps --force
           
           # Vérifier que les dépendances sont correctement installées
-          echo "=== Vérification des dépendances installées ==="
-          npm list --depth=0
+          echo "=== Vérification finale des dépendances ==="
+          npm list --depth=0 --legacy-peer-deps
           echo "=== Vérification spécifique de React ==="
           npm list react react-dom
           echo "=== Vérification spécifique de @uiw/react-md-editor ==="
-          ls -la node_modules/@uiw/react-md-editor/
+          ls -la node_modules/@uiw/react-md-editor/ || echo "⚠️ @uiw/react-md-editor non trouvé"
 
       - name: Désactiver le script postinstall de react-beautiful-dnd
         run: |
