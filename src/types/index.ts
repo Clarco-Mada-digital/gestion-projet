@@ -6,6 +6,7 @@ export interface SubTask {
   updatedAt: string;
   completedAt?: string; // Date de complétion de la sous-tâche (définie uniquement quand la case est cochée)
   notes?: string;
+  group?: string;
 }
 
 export interface Task {

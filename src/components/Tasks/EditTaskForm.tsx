@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { X, Calendar as CalendarIcon, Clock, Tag as TagIcon, Users, Plus, X as XIcon } from 'lucide-react';
-import { Task, User, Project, SubTask } from '../../types';
+import React, { useState, useCallback } from 'react';
+import { Calendar as CalendarIcon, Clock, Plus, X as XIcon, Edit2, Eye } from 'lucide-react';
+import { Task, Project, SubTask } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { SubTasksList } from './SubTasksList';
-import type { SubTasksListProps } from './SubTasksList';
 
 // Fonction de validation des données de la tâche
 const validateTaskData = (task: Task): Task => {
@@ -62,12 +61,29 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
 
   // Gérer les changements des sous-tâches
   const handleSubTasksChange = useCallback((newSubTasks: SubTask[]) => {
-    setEditedTask(prev => ({
-      ...prev,
-      subTasks: newSubTasks,
-      updatedAt: new Date().toISOString()
-    }));
-  }, []);
+    // Mise à jour de l'état local
+    setEditedTask(prev => {
+      const updated = {
+        ...prev,
+        subTasks: newSubTasks,
+        updatedAt: new Date().toISOString()
+      };
+
+      // Sauvegarde immédiate (Ajax-like) pour ne pas perdre les données
+      // On utilise un timeout pour éviter de bloquer le rendu et s'assurer que c'est traité hors du cycle de rendu immédiat
+      setTimeout(() => {
+        dispatch({
+          type: 'UPDATE_TASK',
+          payload: updated
+        });
+      }, 0);
+
+      return updated;
+    });
+  }, [dispatch]);
+
+  // Mode édition/visualisation
+  const [isEditing, setIsEditing] = useState(false);
 
   // Gérer l'ajout d'un tag
   const [isAddingTag, setIsAddingTag] = useState(false);
@@ -178,6 +194,7 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
     }
   };
 
+<<<<<<< HEAD
   // Gestion des utilisateurs assignables (Membres du projet uniquement pour Cloud)
   const [assignableUsers, setAssignableUsers] = useState<User[]>(state.users);
 
@@ -232,6 +249,12 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
 
     loadProjectMembers();
   }, [project, state.users, state.cloudUser]);
+=======
+  // Filtrer les utilisateurs disponibles pour l'assignation (variable for future use if needed, commenting out to clear lint)
+  // const availableUsers = state.users.filter(
+  //   (user: User) => !editedTask.assignees.includes(user.id)
+  // );
+>>>>>>> dd1f5a9 (Update modal tache)
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -240,17 +263,27 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
             Modifier la tâche
           </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
-          >
-            <XIcon className="h-6 w-6" />
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setIsEditing(!isEditing)}
+              className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              title={isEditing ? "Passer en mode lecture" : "Passer en mode édition"}
+            >
+              {isEditing ? <Eye className="w-5 h-5" /> : <Edit2 className="w-5 h-5" />}
+            </button>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+            >
+              <XIcon className="h-6 w-6" />
+            </button>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Titre */}
           <div>
+<<<<<<< HEAD
             <label className="block text-sm font-medium mb-1">Titre</label>
             <input
               type="text"
@@ -260,10 +293,28 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
               placeholder="Titre de la tâche"
               required
             />
+=======
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Titre</label>
+            {isEditing ? (
+              <input
+                type="text"
+                value={editedTask.title}
+                onChange={(e) => setEditedTask({ ...editedTask, title: e.target.value })}
+                className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
+                placeholder="Titre de la tâche"
+                required
+              />
+            ) : (
+              <div className="text-xl font-semibold text-gray-900 dark:text-white py-2">
+                {editedTask.title}
+              </div>
+            )}
+>>>>>>> dd1f5a9 (Update modal tache)
           </div>
 
           {/* Description */}
           <div>
+<<<<<<< HEAD
             <label className="block text-sm font-medium mb-1">Description</label>
             <textarea
               value={editedTask.description}
@@ -272,12 +323,29 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
               className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200 resize-y"
               placeholder="Description détaillée de la tâche"
             />
+=======
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Description</label>
+            {isEditing ? (
+              <textarea
+                value={editedTask.description}
+                onChange={(e) => setEditedTask({ ...editedTask, description: e.target.value })}
+                rows={4}
+                className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200 resize-y"
+                placeholder="Description détaillée de la tâche"
+              />
+            ) : (
+              <div className="prose dark:prose-invert max-w-none bg-gray-50 dark:bg-gray-700/30 p-4 rounded-lg text-gray-700 dark:text-gray-300 min-h-[100px] whitespace-pre-wrap">
+                {editedTask.description || <span className="text-gray-400 italic">Aucune description</span>}
+              </div>
+            )}
+>>>>>>> dd1f5a9 (Update modal tache)
           </div>
 
           {/* Priorité et Statut sur la même ligne */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Priorité */}
             <div>
+<<<<<<< HEAD
               <label className="block text-sm font-medium mb-1">Priorité</label>
               <select
                 value={editedTask.priority}
@@ -289,10 +357,34 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                 <option value="high">Haute</option>
                 <option value="urgent">Urgente</option>
               </select>
+=======
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Priorité</label>
+              {isEditing ? (
+                <select
+                  value={editedTask.priority}
+                  onChange={(e) => setEditedTask({ ...editedTask, priority: e.target.value as 'low' | 'medium' | 'high' })}
+                  className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
+                >
+                  <option value="low">Faible</option>
+                  <option value="medium">Moyenne</option>
+                  <option value="high">Haute</option>
+                </select>
+              ) : (
+                <div className="px-4 py-2.5 bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white flex items-center">
+                  <span className={`w-3 h-3 rounded-full mr-2 ${editedTask.priority === 'high' ? 'bg-orange-500' :
+                    editedTask.priority === 'medium' ? 'bg-yellow-500' :
+                      'bg-green-500'
+                    }`} />
+                  {editedTask.priority === 'high' ? 'Haute' :
+                    editedTask.priority === 'medium' ? 'Moyenne' : 'Faible'}
+                </div>
+              )}
+>>>>>>> dd1f5a9 (Update modal tache)
             </div>
 
             {/* Statut */}
             <div>
+<<<<<<< HEAD
               <label className="block text-sm font-medium mb-1">Statut</label>
               <select
                 value={editedTask.status}
@@ -304,6 +396,32 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                 <option value="done">Terminé</option>
                 <option value="blocked">Bloqué</option>
               </select>
+=======
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Statut</label>
+              {isEditing ? (
+                <select
+                  value={editedTask.status}
+                  onChange={(e) => setEditedTask({ ...editedTask, status: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
+                >
+                  <option value="todo">À faire</option>
+                  <option value="in-progress">En cours</option>
+                  <option value="done">Terminé</option>
+                  <option value="blocked">Bloqué</option>
+                </select>
+              ) : (
+                <div className="px-4 py-2.5 bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white flex items-center">
+                  <span className={`w-3 h-3 rounded-full mr-2 ${editedTask.status === 'done' ? 'bg-green-500' :
+                    editedTask.status === 'in-progress' ? 'bg-blue-500' :
+                      editedTask.status === 'blocked' ? 'bg-red-500' :
+                        'bg-gray-500'
+                    }`} />
+                  {editedTask.status === 'todo' ? 'À faire' :
+                    editedTask.status === 'in-progress' ? 'En cours' :
+                      editedTask.status === 'done' ? 'Terminé' : 'Bloqué'}
+                </div>
+              )}
+>>>>>>> dd1f5a9 (Update modal tache)
             </div>
           </div>
 
@@ -316,6 +434,7 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                 onSubTasksChange={handleSubTasksChange}
                 project={project}
                 task={editedTask}
+                isEditing={isEditing}
               />
             </div>
           </div>
@@ -324,27 +443,43 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Date de début */}
             <div>
-              <label className="block text-sm font-medium mb-1">Date de début</label>
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Date de début</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <CalendarIcon className="h-5 w-5 text-gray-400" />
                 </div>
+<<<<<<< HEAD
                 <input
                   type="date"
                   value={editedTask.startDate ? editedTask.startDate.split('T')[0] : ''}
                   onChange={(e) => setEditedTask({ ...editedTask, startDate: e.target.value })}
                   className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
                 />
+=======
+                {isEditing ? (
+                  <input
+                    type="date"
+                    value={editedTask.startDate ? editedTask.startDate.split('T')[0] : ''}
+                    onChange={(e) => setEditedTask({ ...editedTask, startDate: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
+                  />
+                ) : (
+                  <div className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white">
+                    {editedTask.startDate ? new Date(editedTask.startDate).toLocaleDateString() : '-'}
+                  </div>
+                )}
+>>>>>>> dd1f5a9 (Update modal tache)
               </div>
             </div>
 
             {/* Date d'échéance */}
             <div>
-              <label className="block text-sm font-medium mb-1">Date d'échéance</label>
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Date d'échéance</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <CalendarIcon className="h-5 w-5 text-gray-400" />
                 </div>
+<<<<<<< HEAD
                 <input
                   type="date"
                   value={editedTask.dueDate ? editedTask.dueDate.split('T')[0] : ''}
@@ -352,16 +487,32 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                   onChange={(e) => setEditedTask({ ...editedTask, dueDate: e.target.value })}
                   className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
                 />
+=======
+                {isEditing ? (
+                  <input
+                    type="date"
+                    value={editedTask.dueDate ? editedTask.dueDate.split('T')[0] : ''}
+                    min={editedTask.startDate || undefined}
+                    onChange={(e) => setEditedTask({ ...editedTask, dueDate: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
+                  />
+                ) : (
+                  <div className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white">
+                    {editedTask.dueDate ? new Date(editedTask.dueDate).toLocaleDateString() : '-'}
+                  </div>
+                )}
+>>>>>>> dd1f5a9 (Update modal tache)
               </div>
             </div>
 
             {/* Heures estimées */}
             <div>
-              <label className="block text-sm font-medium mb-1">Heures estimées</label>
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Heures estimées</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Clock className="h-5 w-5 text-gray-400" />
                 </div>
+<<<<<<< HEAD
                 <input
                   type="number"
                   min="0"
@@ -370,6 +521,22 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                   className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
                   placeholder="0"
                 />
+=======
+                {isEditing ? (
+                  <input
+                    type="number"
+                    min="0"
+                    value={editedTask.estimatedHours || ''}
+                    onChange={(e) => setEditedTask({ ...editedTask, estimatedHours: parseInt(e.target.value) || 0 })}
+                    className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
+                    placeholder="0"
+                  />
+                ) : (
+                  <div className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white">
+                    {editedTask.estimatedHours || 0} h
+                  </div>
+                )}
+>>>>>>> dd1f5a9 (Update modal tache)
               </div>
             </div>
           </div>
@@ -396,6 +563,7 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                 ))}
 
               {/* Menu déroulant pour ajouter un assigné */}
+<<<<<<< HEAD
               <div className="relative">
                 <button
                   type="button"
@@ -413,19 +581,75 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                   <div
                     className="absolute z-10 mt-1 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
                     onClick={(e) => e.stopPropagation()}
+=======
+              {isEditing && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsAddingAssignee(!isAddingAssignee);
+                    }}
+                    className="flex items-center px-3 py-1.5 text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors duration-200"
+>>>>>>> dd1f5a9 (Update modal tache)
                   >
-                    <div className="p-2 border-b border-gray-100 dark:border-gray-700">
-                      <div className="relative">
-                        <input
-                          type="text"
-                          placeholder="Rechercher un membre..."
-                          className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          value={assigneeSearch}
-                          onChange={(e) => setAssigneeSearch(e.target.value)}
-                          autoFocus
-                        />
+                    <Plus className="w-4 h-4 mr-1.5" />
+                    Ajouter un membre
+                  </button>
+
+                  {isAddingAssignee && (
+                    <div
+                      className="absolute z-10 mt-1 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="p-2 border-b border-gray-100 dark:border-gray-700">
+                        <div className="relative">
+                          <input
+                            type="text"
+                            placeholder="Rechercher un membre..."
+                            className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            value={assigneeSearch}
+                            onChange={(e) => setAssigneeSearch(e.target.value)}
+                            autoFocus
+                          />
+                        </div>
+                      </div>
+                      <div className="max-h-60 overflow-y-auto">
+                        {state.users
+                          .filter(user =>
+                            !editedTask.assignees.includes(user.id) &&
+                            (assigneeSearch === '' ||
+                              user.name?.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
+                              user.email?.toLowerCase().includes(assigneeSearch.toLowerCase()))
+                          )
+                          .map(user => (
+                            <div
+                              key={user.id}
+                              onClick={(e) => handleAddAssignee(e, user.id)}
+                              className="px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center"
+                            >
+                              <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-sm font-medium text-blue-800 dark:text-blue-200 mr-3">
+                                {user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="font-medium">{user.name || 'Utilisateur sans nom'}</div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">{user.email}</div>
+                              </div>
+                            </div>
+                          ))}
+                        {state.users.filter(user =>
+                          !editedTask.assignees.includes(user.id) &&
+                          (assigneeSearch === '' ||
+                            user.name?.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
+                            user.email?.toLowerCase().includes(assigneeSearch.toLowerCase()))
+                        ).length === 0 && (
+                            <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-center">
+                              Aucun membre trouvé
+                            </div>
+                          )}
                       </div>
                     </div>
+<<<<<<< HEAD
                     <div className="max-h-60 overflow-y-auto">
                       {assignableUsers
                         .filter(user =>
@@ -463,6 +687,11 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                   </div>
                 )}
               </div>
+=======
+                  )}
+                </div>
+              )}
+>>>>>>> dd1f5a9 (Update modal tache)
             </div>
           </div>
 
@@ -538,12 +767,14 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
               >
                 Annuler
               </button>
-              <button
-                type="submit"
-                className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200"
-              >
-                Enregistrer les modifications
-              </button>
+              {isEditing && (
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200"
+                >
+                  Enregistrer les modifications
+                </button>
+              )}
             </div>
           </div>
         </form>
