@@ -748,6 +748,16 @@ export function ProjectsView() {
       const aiConfig = state.appSettings?.aiSettings || DEFAULT_AI_SETTINGS;
       const apiKey = aiConfig.openrouterApiKey || '';
 
+      // Débogage - à supprimer après résolution
+      console.log('🔍 Debug IA Settings:', {
+        hasAppSettings: !!state.appSettings,
+        hasAISettings: !!state.appSettings?.aiSettings,
+        aiConfig,
+        apiKey: apiKey ? '***CONFIGURED***' : 'NOT_SET',
+        provider: aiConfig.provider,
+        model: aiConfig.openrouterModel
+      });
+
       // Mode anonyme supporté par OpenRouter pour les modèles gratuits
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
