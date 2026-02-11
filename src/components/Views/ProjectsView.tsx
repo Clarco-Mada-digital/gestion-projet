@@ -748,19 +748,22 @@ export function ProjectsView() {
       const aiConfig = state.appSettings?.aiSettings || DEFAULT_AI_SETTINGS;
       const apiKey = aiConfig.openrouterApiKey || '';
 
-      if (!apiKey) {
-        throw new Error('Clé API OpenRouter non configurée. Veuillez configurer les paramètres IA dans les paramètres de l\'application.');
+      // Mode anonyme supporté par OpenRouter pour les modèles gratuits
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'HTTP-Referer': window.location.origin,
+        'X-Title': 'Gestion de Projet App',
+      };
+
+      // Ajouter l'authentification seulement si une clé est disponible
+      if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
       }
 
       // Appeler le service IA
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'HTTP-Referer': window.location.origin,
-          'X-Title': 'Gestion de Projet App',
-          'Authorization': `Bearer ${apiKey}`
-        },
+        headers: headers,
         body: JSON.stringify({
           model: aiConfig.openrouterModel || 'openrouter/auto',
           messages: [
