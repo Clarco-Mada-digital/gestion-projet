@@ -96,8 +96,8 @@ function AppContent() {
   // Effet pour suivre les changements de vue
   useEffect(() => {
     if (hasLoaded && !isLoading) {
-      console.log('=== CHANGEMENT DE VUE DETECTE ===');
-      console.log('Nouvelle vue:', currentView);
+      
+      
     }
   }, [currentView, hasLoaded, isLoading]);
 

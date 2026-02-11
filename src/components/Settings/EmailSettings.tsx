@@ -46,7 +46,7 @@ export function EmailSettings() {
 
   // Charger les paramètres email au chargement du composant
   useEffect(() => {
-    console.log('=== CHARGEMENT DES PARAMÈTRES EMAIL ===');
+    
     
     try {
       // Charger directement depuis le localStorage
@@ -54,11 +54,11 @@ export function EmailSettings() {
       
       if (savedData) {
         const data = JSON.parse(savedData);
-        console.log('Données brutes du localStorage:', data);
+        
         
         // Vérifier si on a des paramètres email
         if (data.emailSettings) {
-          console.log('Paramètres email trouvés:', data.emailSettings);
+          
           
           // Mettre à jour le formulaire avec les données du localStorage
           const settings = data.emailSettings;
@@ -72,7 +72,7 @@ export function EmailSettings() {
             isEnabled: settings.isEnabled !== false
           };
           
-          console.log('Mise à jour du formulaire avec:', formSettings);
+          
           setFormData(formSettings);
           
           // Mettre à jour le state global si nécessaire
@@ -87,7 +87,7 @@ export function EmailSettings() {
       }
       
       // Si on arrive ici, c'est qu'il n'y a pas de paramètres sauvegardés
-      console.log('Aucun paramètre email trouvé, utilisation des valeurs par défaut');
+      
       const defaultSettings = {
         serviceId: '',
         templateId: 'template_default',
@@ -119,7 +119,7 @@ export function EmailSettings() {
     setSaveStatus({ type: null, message: '' });
 
     try {
-      console.log('Données du formulaire avant validation:', formData);
+      
       
       // Valider les champs requis
       if (!formData.serviceId || !formData.userId) {
@@ -141,7 +141,7 @@ export function EmailSettings() {
         isEnabled: formData.isEnabled
       };
       
-      console.log('Envoi des paramètres email au contexte:', settingsToSave);
+      
       
       // Mettre à jour les paramètres dans le state global
       dispatch({ 
@@ -154,7 +154,7 @@ export function EmailSettings() {
         message: 'Paramètres email enregistrés avec succès !' 
       });
       
-      console.log('Paramètres email enregistrés avec succès');
+      
     } catch (error) {
       console.error('Erreur lors de la sauvegarde des paramètres email:', error);
       setSaveStatus({ 
@@ -267,7 +267,7 @@ export function EmailSettings() {
           isEnabled: formData.isEnabled
         };
         
-        console.log('Test réussi - Enregistrement des paramètres:', settingsToSave);
+        
         
         // Mettre à jour le statut du test
         setTestStatus({

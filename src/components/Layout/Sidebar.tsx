@@ -15,14 +15,14 @@ export function Sidebar() {
     { id: 'about' as ViewMode, label: 'À propos', icon: Info, color: 'text-pink-500', gradient: 'from-pink-500 to-rose-500' },
   ];
 
-  console.log('Menu Items:', menuItems);
+  
 
   const toggleTheme = () => {
     dispatch({ type: 'SET_THEME', payload: state.theme === 'light' ? 'dark' : 'light' });
   };
 
   // Log de l'état actuel de la vue
-  console.log('Sidebar - Vue actuelle:', state.currentView);
+  
 
   return (
     <div className="w-72 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-700/50 flex flex-col shadow-2xl">
@@ -56,10 +56,10 @@ export function Sidebar() {
             <button
               key={item.id}
               onClick={() => {
-                console.log('Click sur le menu:', item.id);
-                console.log('Avant dispatch - Vue actuelle:', state.currentView);
+                
+                
                 dispatch({ type: 'SET_VIEW', payload: item.id });
-                console.log('Après dispatch - Nouvelle vue:', item.id);
+                
               }}
               className={`w-full group relative overflow-hidden flex items-center space-x-3 px-4 py-4 rounded-2xl transition-all duration-300 transform hover:scale-105 ${isActive
                   ? 'bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-cyan-500/20 text-blue-600 dark:text-blue-400 shadow-xl border border-blue-200/50 dark:border-blue-700/50'
@@ -103,10 +103,10 @@ export function Sidebar() {
             <button
               onClick={() => {
                 if (window.confirm('Êtes-vous sûr de vouloir réinitialiser toutes les données ? Cette action est irréversible.')) {
-                  console.log('=== RÉINITIALISATION DES DONNÉES ===');
-                  console.log('Suppression des données du localStorage...');
+                  
+                  
                   localStorage.removeItem('astroProjectManagerData');
-                  console.log('Rechargement de la page...');
+                  
                   window.location.reload();
                 }
               }}
@@ -126,7 +126,7 @@ export function Sidebar() {
             {/* Bouton de débogage pour forcer la vue des paramètres */}
             <button
               onClick={() => {
-                console.log('=== FORCAGE DE LA VUE SETTINGS ===');
+                
                 localStorage.setItem('debug_force_settings', 'true');
                 window.location.reload();
               }}

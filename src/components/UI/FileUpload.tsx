@@ -44,7 +44,7 @@ export function FileUpload({
 
         // Vérification du type
         const category = cloudinaryService.categorizeFile(file.type, file.name);
-        console.log(`Upload du fichier: ${file.name} (${category})`);
+        
 
         // Upload vers Cloudinary
         const uploadedFile = await cloudinaryService.uploadFile(

@@ -329,7 +329,7 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                   preview="edit"
                   className="w-full"
                   textareaProps={{
-                    placeholder: "## Description en Markdown\n\nVous pouvez utiliser :\n- **Gras**\n- *Italique*\n- `Code inline`\n- [Liens](url)\n- Listes à puces\n\n### Exemple :\n\n**Tâche importante** à compléter avant la date limite.\n\n- [ ] Sous-tâche 1\n- [ ] Sous-tâche 2\n\n```javascript\n// Code exemple\nconsole.log('Hello World');\n```"
+                    placeholder: "## Description en Markdown\n\nVous pouvez utiliser :\n- **Gras**\n- *Italique*\n- `Code inline`\n- [Liens](url)\n- Listes à puces\n\n### Exemple :\n\n**Tâche importante** à compléter avant la date limite.\n\n- [ ] Sous-tâche 1\n- [ ] Sous-tâche 2\n\n```javascript\n// Code exemple\n\n```"
                   }}
                 />
               </div>

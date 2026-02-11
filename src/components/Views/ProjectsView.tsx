@@ -1076,7 +1076,7 @@ export function ProjectsView() {
   const confirmDeleteProject = async () => {
     if (!projectToDelete) return;
 
-    console.log('Tentative de suppression du projet:', projectToDelete.name, projectToDelete.id);
+    
 
     try {
       // Si c'est un projet Cloud
@@ -1084,13 +1084,13 @@ export function ProjectsView() {
         const isOwner = state.cloudUser?.uid === projectToDelete.ownerId;
 
         if (isOwner) {
-          console.log('Suppression Cloud en cours (Propriétaire)...');
+          
           await firebaseService.deleteProject(projectToDelete.id);
-          console.log('Suppression Cloud réussie');
+          
         } else {
-          console.log('Sortie du projet Cloud en cours (Collaborateur)...');
+          
           await firebaseService.leaveProject(projectToDelete.id);
-          console.log('Sortie du projet Cloud réussie');
+          
         }
       }
 

@@ -1,6 +1,7 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { DragDropContext, RBDDroppable as Droppable, RBDDraggable as Draggable, RBDDropResult as DropResult } from '../DnDWrapper';
-import { Plus, BarChart3, GripVertical, ChevronDown, ChevronUp, X, Trash2 } from 'lucide-react';
+import { Plus, BarChart3, GripVertical, ChevronDown, X, Trash2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Task } from '../../types';
 import { TaskCard } from '../Tasks/TaskCard';
@@ -547,10 +548,11 @@ export function KanbanView() {
                       <label className="flex items-center px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors bg-blue-50/50 dark:bg-blue-900/10 mb-1">
                         <input
                           type="checkbox"
-                          checked={selectedUserIds.includes(state.cloudUser.uid)}
+                          checked={!!state.cloudUser && selectedUserIds.includes(state.cloudUser.uid)}
                           onChange={(e) => {
-                            if (e.target.checked) setSelectedUserIds([...selectedUserIds, state.cloudUser.uid]);
-                            else setSelectedUserIds(selectedUserIds.filter(id => id !== state.cloudUser.uid));
+                            if (!state.cloudUser) return;
+                            if (e.target.checked) setSelectedUserIds([...selectedUserIds, state.cloudUser!.uid]);
+                            else setSelectedUserIds(selectedUserIds.filter(id => id !== state.cloudUser!.uid));
                           }}
                           className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3"
                         />
@@ -658,18 +660,17 @@ export function KanbanView() {
                       <div
                         ref={provided.innerRef}
                         {...provided.draggableProps}
-                        className={`flex-shrink-0 w-[450px] h-full ${!snapshot.isDragging ? 'transition-all duration-200' : ''} ${snapshot.isDragging ? 'shadow-2xl scale-105 z-10' : 'shadow-md hover:shadow-lg'
+                        className={`flex-shrink-0 w-[450px] h-full ${snapshot.isDragging ? 'shadow-2xl z-10' : 'shadow-md hover:shadow-lg'
                           }`}
                         style={{
                           ...provided.draggableProps.style,
                           opacity: snapshot.isDragging ? 0.9 : 1,
-                          transform: `${provided.draggableProps.style?.transform || ''} ${snapshot.isDragging ? 'rotate(1deg)' : ''
-                            }`,
                         }}
                       >
                         <Card
                           className={`bg-gradient-to-br ${column.gradient} p-4 h-full flex flex-col`}
                           gradient
+                          blur={!snapshot.isDragging}
                         >
                           <div className="flex items-center justify-between mb-6">
                             <div className="flex items-center group">
@@ -718,7 +719,7 @@ export function KanbanView() {
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    console.log('Bouton de suppression cliqué pour la colonne:', column.id);
+
                                     handleDeleteColumn(column.id);
                                   }}
                                   className="p-1.5 rounded-lg transition-all duration-200 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 cursor-pointer"
@@ -761,35 +762,35 @@ export function KanbanView() {
                                       draggableId={task.id}
                                       index={index}
                                     >
-                                      {(provided, snapshot) => (
-                                        <div
-                                          ref={provided.innerRef}
-                                          {...provided.draggableProps}
-                                          className={`mb-2 group ${snapshot.isDragging ? 'opacity-80' : 'opacity-100'}`}
-                                        >
-                                          <div className="flex items-start">
-                                            <div
-                                              className="p-1 -ml-1 mr-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                              {...provided.dragHandleProps}
-                                            >
-                                              <GripVertical
-                                                size={16}
-                                                className="text-gray-400 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300 transition-colors"
-                                              />
-                                            </div>
-                                            <div className="flex-1">
-                                              <TaskCard
-                                                task={task}
-                                                showProject
-                                                className={` ${!snapshot.isDragging ? 'transition-transform duration-200' : ''} ${snapshot.isDragging
-                                                  ? 'shadow-lg scale-[1.02] rotate-1'
-                                                  : 'shadow-sm hover:shadow-md hover:-translate-y-0.5'
-                                                  }`}
-                                              />
-                                            </div>
+                                      {(provided, snapshot) => {
+                                        const draggableContent = (
+                                          <div
+                                            ref={provided.innerRef}
+                                            {...provided.draggableProps}
+                                            {...provided.dragHandleProps}
+                                            className={`mb-3 outline-none ${snapshot.isDragging ? 'z-[9999]' : ''}`}
+                                            style={{
+                                              ...provided.draggableProps.style,
+                                              cursor: snapshot.isDragging ? 'grabbing' : 'pointer',
+                                              // Assure que la largeur est préservée pendant le portail
+                                              width: snapshot.isDragging ? '400px' : (provided.draggableProps.style as any)?.width,
+                                            }}
+                                          >
+                                            <TaskCard
+                                              task={task}
+                                              showProject
+                                              isDragging={snapshot.isDragging}
+                                              className={snapshot.isDragging ? 'ring-2 ring-blue-500 shadow-2xl opacity-90' : ''}
+                                            />
                                           </div>
-                                        </div>
-                                      )}
+                                        );
+
+                                        if (snapshot.isDragging) {
+                                          return createPortal(draggableContent, document.body);
+                                        }
+
+                                        return draggableContent;
+                                      }}
                                     </Draggable>
                                   ))
                                 ) : (

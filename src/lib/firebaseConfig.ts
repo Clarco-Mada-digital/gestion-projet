@@ -20,11 +20,5 @@ export const isFirebaseConfigured = () => {
   const isConfigured = firebaseConfig.apiKey !== "[GCP_API_KEY]" &&
     firebaseConfig.projectId !== "[GCP_PROJECT_ID]";
 
-  console.log('🔥 Firebase Config Check:', {
-    apiKey: firebaseConfig.apiKey,
-    projectId: firebaseConfig.projectId,
-    isConfigured
-  });
-
   return isConfigured;
 };

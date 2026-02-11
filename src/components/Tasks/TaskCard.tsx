@@ -12,12 +12,13 @@ interface TaskCardProps {
   task: Task;
   showProject?: boolean;
   className?: string;
+  isDragging?: boolean;
 }
 
 // Fonction pour nettoyer le markdown mal formé
 const cleanMarkdown = (text: string): string => {
   if (!text) return text;
-  
+
   // Corrige les doubles astérisques mal placés
   return text
     // Remplace les ** finaux par un seul **
@@ -57,7 +58,7 @@ const areEqual = (prevProps: TaskCardProps, nextProps: TaskCardProps): boolean =
   return taskPropsEqual;
 };
 
-const TaskCardComponent = ({ task, className = '' }: TaskCardProps): JSX.Element | null => {
+const TaskCardComponent = ({ task, className = '', isDragging = false }: TaskCardProps): JSX.Element | null => {
   const { state, dispatch } = useApp();
   const { openModal, closeModal } = useModal();
   const [showMenu, setShowMenu] = useState(false);
@@ -142,7 +143,7 @@ const TaskCardComponent = ({ task, className = '' }: TaskCardProps): JSX.Element
         ...task,
         status: newStatus,
         updatedAt: now,
-        completedAt: newStatus === 'done' ? now : null
+        completedAt: newStatus === 'done' ? now : undefined
       }
     });
   }, [dispatch, task]);
@@ -189,200 +190,199 @@ const TaskCardComponent = ({ task, className = '' }: TaskCardProps): JSX.Element
   }, [dispatch, task.id]);
 
   return (
-    <div className="relative group">
-      <Card
-        className={`p-4 transition-all duration-200 cursor-pointer ${isOverdue ? 'border-l-4 border-red-500 dark:border-red-700' : ''
-          } ${isToday ? 'ring-1 ring-blue-500/30 dark:ring-blue-500/50' : ''
-          } ${className} hover:shadow-md`}
-        hover
-        gradient
-        onClick={handleEdit}
-      >
-        {/* En-tête de la carte avec titre et actions */}
-        <div className="flex justify-between items-start gap-3 mb-3">
-          <div className="flex-1 min-w-0">
-            <h3 className="text-base font-medium text-gray-900 dark:text-gray-100 line-clamp-1 break-words">
-              {task.title}
-            </h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 truncate" title={projectName}>
-              {projectName}
-            </p>
-          </div>
+    <Card
+      className={`relative group p-4 cursor-pointer ${!isDragging ? 'transition-all duration-200' : 'bg-white dark:bg-gray-800'} ${isOverdue ? 'border-l-4 border-red-500 dark:border-red-700' : ''
+        } ${isToday ? 'ring-1 ring-blue-500/30 dark:ring-blue-500/50' : ''
+        } ${className} ${!isDragging ? 'hover:shadow-md' : ''}`}
+      hover={!isDragging}
+      gradient={!isDragging}
+      blur={!isDragging}
+      onClick={handleEdit}
+    >
+      {/* En-tête de la carte avec titre et actions */}
+      <div className="flex justify-between items-start gap-3 mb-3">
+        <div className="flex-1 min-w-0">
+          <h3 className="text-base font-medium text-gray-900 dark:text-gray-100 line-clamp-1 break-words">
+            {task.title}
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 truncate" title={projectName}>
+            {projectName}
+          </p>
+        </div>
 
-          {/* Boutons d'action */}
-          <div className="flex items-center space-x-1">
-            {/* Bouton d'édition rapide */}
+        {/* Boutons d'action */}
+        <div className="flex items-center space-x-1">
+          {/* Bouton d'édition rapide */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEdit();
+            }}
+            className="p-1.5 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+            aria-label="Modifier la tâche"
+          >
+            <Edit className="w-4 h-4" />
+          </button>
+
+          {/* Menu contextuel */}
+          <div className="relative">
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                handleEdit();
+                setShowMenu(!showMenu);
               }}
-              className="p-1.5 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-              aria-label="Modifier la tâche"
+              className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+              aria-label="Options"
             >
-              <Edit className="w-4 h-4" />
+              <MoreHorizontal className="w-4 h-4" />
             </button>
 
-            {/* Menu contextuel */}
-            <div className="relative">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowMenu(!showMenu);
-                }}
-                className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-                aria-label="Options"
+            {showMenu && (
+              <div
+                className="absolute right-0 z-10 mt-1 w-40 origin-top-right rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+                onClick={(e) => e.stopPropagation()}
               >
-                <MoreHorizontal className="w-4 h-4" />
-              </button>
-
-              {showMenu && (
-                <div
-                  className="absolute right-0 z-10 mt-1 w-40 origin-top-right rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="py-1">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEdit();
-                        setShowMenu(false);
-                      }}
-                      className="flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    >
-                      <Edit className="mr-2 h-4 w-4" />
-                      <span>Modifier</span>
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete();
-                        setShowMenu(false);
-                      }}
-                      className="flex w-full items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/50"
-                    >
-                      <span>Supprimer</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Contenu principal */}
-        <div className="space-y-3">
-          {/* Description */}
-          {task.description && (
-            <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 leading-relaxed break-all markdown-body">
-              <ReactMarkdown 
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  strong: ({children}) => <strong style={{fontWeight: 'bold', color: 'inherit'}}>{children}</strong>,
-                  em: ({children}) => <em style={{fontStyle: 'italic', color: 'inherit'}}>{children}</em>,
-                  code: ({className, children}) => {
-                    const isInline = !className?.includes('language-');
-                    return isInline 
-                      ? <code style={{backgroundColor: '#f3f4f6', padding: '0.1em 0.2em', borderRadius: '2px', fontSize: '0.8em', fontFamily: 'monospace'}}>{children}</code>
-                      : <code style={{backgroundColor: '#f3f4f6', padding: '0.5em', borderRadius: '4px', display: 'block', overflowX: 'auto', fontFamily: 'monospace', fontSize: '0.8em'}}>{children}</code>;
-                  },
-                  p: ({children}) => <p style={{margin: '0'}}>{children}</p>,
-                  ul: ({children}) => <ul style={{margin: '0', paddingLeft: '1em'}}>{children}</ul>,
-                  ol: ({children}) => <ol style={{margin: '0', paddingLeft: '1em'}}>{children}</ol>,
-                  li: ({children}) => <li style={{marginBottom: '0'}}>{children}</li>,
-                  h1: ({children}) => <h1 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h1>,
-                  h2: ({children}) => <h2 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h2>,
-                  h3: ({children}) => <h3 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h3>
-                }}
-              >
-                {cleanMarkdown(task.description)}
-              </ReactMarkdown>
-            </div>
-          )}
-          {/* Métadonnées */}
-          <div className="space-y-2">
-            {/* Dates */}
-            <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
-              <Clock className="w-3.5 h-3.5 mr-1.5 flex-shrink-0 opacity-75" />
-              <div className="flex flex-wrap items-center gap-x-1">
-                <span className="whitespace-nowrap">{formatDate(task.dueDate)}</span>
-              </div>
-            </div>
-
-            {/* Assignés */}
-            {assignedUsers.length > 0 && (
-              <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
-                <Users className="w-3.5 h-3.5 mr-1.5 flex-shrink-0 opacity-75" />
-                <div className="flex items-center flex-wrap gap-1">
-                  {assignedUsers.map((user, index) => (
-                    <div
-                      key={user.id}
-                      className={`w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/80 flex items-center justify-center text-xs font-medium text-blue-700 dark:text-blue-200 border-2 border-white dark:border-gray-800 ${index > 0 ? '-ml-2' : ''
-                        }`}
-                      title={user.name || user.email}
-                    >
-                      {user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
-                    </div>
-                  ))}
+                <div className="py-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEdit();
+                      setShowMenu(false);
+                    }}
+                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <Edit className="mr-2 h-4 w-4" />
+                    <span>Modifier</span>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete();
+                      setShowMenu(false);
+                    }}
+                    className="flex w-full items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/50"
+                  >
+                    <span>Supprimer</span>
+                  </button>
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      </div>
 
-            {/* Tags */}
-            {task.tags && task.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1 pt-1">
-                {task.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100/80 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border border-blue-200/50 dark:border-blue-800/50"
+      {/* Contenu principal */}
+      <div className="space-y-3">
+        {/* Description */}
+        {task.description && (
+          <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 leading-relaxed break-all markdown-body">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                strong: ({ children }) => <strong style={{ fontWeight: 'bold', color: 'inherit' }}>{children}</strong>,
+                em: ({ children }) => <em style={{ fontStyle: 'italic', color: 'inherit' }}>{children}</em>,
+                code: ({ className, children }) => {
+                  const isInline = !className?.includes('language-');
+                  return isInline
+                    ? <code style={{ backgroundColor: '#f3f4f6', padding: '0.1em 0.2em', borderRadius: '2px', fontSize: '0.8em', fontFamily: 'monospace' }}>{children}</code>
+                    : <code style={{ backgroundColor: '#f3f4f6', padding: '0.5em', borderRadius: '4px', display: 'block', overflowX: 'auto', fontFamily: 'monospace', fontSize: '0.8em' }}>{children}</code>;
+                },
+                p: ({ children }) => <p style={{ margin: '0' }}>{children}</p>,
+                ul: ({ children }) => <ul style={{ margin: '0', paddingLeft: '1em' }}>{children}</ul>,
+                ol: ({ children }) => <ol style={{ margin: '0', paddingLeft: '1em' }}>{children}</ol>,
+                li: ({ children }) => <li style={{ marginBottom: '0' }}>{children}</li>,
+                h1: ({ children }) => <h1 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h1>,
+                h2: ({ children }) => <h2 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h2>,
+                h3: ({ children }) => <h3 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h3>
+              }}
+            >
+              {cleanMarkdown(task.description)}
+            </ReactMarkdown>
+          </div>
+        )}
+        {/* Métadonnées */}
+        <div className="space-y-2">
+          {/* Dates */}
+          <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+            <Clock className="w-3.5 h-3.5 mr-1.5 flex-shrink-0 opacity-75" />
+            <div className="flex flex-wrap items-center gap-x-1">
+              <span className="whitespace-nowrap">{formatDate(task.dueDate)}</span>
+            </div>
+          </div>
+
+          {/* Assignés */}
+          {assignedUsers.length > 0 && (
+            <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+              <Users className="w-3.5 h-3.5 mr-1.5 flex-shrink-0 opacity-75" />
+              <div className="flex items-center flex-wrap gap-1">
+                {assignedUsers.map((user, index) => (
+                  <div
+                    key={user.id}
+                    className={`w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/80 flex items-center justify-center text-xs font-medium text-blue-700 dark:text-blue-200 border-2 border-white dark:border-gray-800 ${index > 0 ? '-ml-2' : ''
+                      }`}
+                    title={user.name || user.email}
                   >
-                    {tag}
-                  </span>
+                    {user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
+                  </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Tags */}
+          {task.tags && task.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 pt-1">
+              {task.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100/80 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border border-blue-200/50 dark:border-blue-800/50"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Pied de carte avec statut et actions */}
+        <div className="pt-2 flex items-center justify-between border-t border-gray-100 dark:border-gray-700/50">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleStatus();
+            }}
+            className={`flex items-center text-xs font-medium transition-colors ${task.status === 'done'
+              ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300'
+              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+              }`}
+          >
+            <CheckCircle2
+              className={`w-3.5 h-3.5 mr-1.5 ${task.status === 'done' ? 'fill-current' : ''
+                }`}
+            />
+            {task.status === 'done' ? 'Terminée' : 'Marquer comme terminée'}
+          </button>
+
+          <div className="flex space-x-2">
+            {isOverdue && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200">
+                En retard
+              </span>
+            )}
+            {isToday && !isOverdue && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-pink-100 text-pink-800 dark:bg-pink-900/50 dark:text-pink-200 border border-pink-200 dark:border-pink-800">
+                🔥 Échéance
+              </span>
+            )}
+            {isActive && !isToday && !isOverdue && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
+                En cours
+              </span>
             )}
           </div>
-
-          {/* Pied de carte avec statut et actions */}
-          <div className="pt-2 flex items-center justify-between border-t border-gray-100 dark:border-gray-700/50">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleStatus();
-              }}
-              className={`flex items-center text-xs font-medium transition-colors ${task.status === 'done'
-                ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300'
-                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                }`}
-            >
-              <CheckCircle2
-                className={`w-3.5 h-3.5 mr-1.5 ${task.status === 'done' ? 'fill-current' : ''
-                  }`}
-              />
-              {task.status === 'done' ? 'Terminée' : 'Marquer comme terminée'}
-            </button>
-
-            <div className="flex space-x-2">
-              {isOverdue && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200">
-                  En retard
-                </span>
-              )}
-              {isToday && !isOverdue && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-pink-100 text-pink-800 dark:bg-pink-900/50 dark:text-pink-200 border border-pink-200 dark:border-pink-800">
-                  🔥 Échéance
-                </span>
-              )}
-              {isActive && !isToday && !isOverdue && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
-                  En cours
-                </span>
-              )}
-            </div>
-          </div>
         </div>
-      </Card>
-    </div>
+      </div>
+    </Card>
   );
 };
 

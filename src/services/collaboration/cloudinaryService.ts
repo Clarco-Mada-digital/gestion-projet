@@ -105,7 +105,7 @@ export const cloudinaryService = {
         reason, // ex: "replaced_cover", "removed_attachment"
         status: 'pending_manual_deletion'
       });
-      console.log(`Fichier tracé pour suppression manuelle : ${publicId}`);
+      
     } catch (error) {
       console.error("Erreur lors du log vers la corbeille:", error);
     }

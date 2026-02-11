@@ -73,7 +73,7 @@ export function SettingsView() {
     }
 
     return () => {
-      console.log('=== SETTINGS VIEW UNMOUNTED ===');
+      
     };
   }, [state.users, state.currentView]);
 
@@ -200,12 +200,12 @@ export function SettingsView() {
 
   // Effet pour suivre le cycle de vie du composant
   useEffect(() => {
-    console.log('=== SETTINGS VIEW MOUNTED ===');
+    
 
-    console.log('Current view:', state.currentView);
+    
 
     return () => {
-      console.log('=== SETTINGS VIEW UNMOUNTED ===');
+      
     };
   }, [state.users, state.currentView]);
 

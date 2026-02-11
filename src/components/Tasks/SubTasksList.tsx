@@ -24,7 +24,7 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
   const { state } = useApp();
 
-  console.log('SubTasksList render - isEditing:', isEditing, 'subTasks count:', subTasks.length);
+  
 
   const aiSettings = state.appSettings?.aiSettings;
 
@@ -162,23 +162,23 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
   };
 
   const onDragEnd = (result: DropResult) => {
-    console.log('DragEnd triggered:', result);
-    console.log('isEditing:', isEditing);
+    
+    
     
     if (!result.destination) {
-      console.log('No destination, returning');
+      
       return;
     }
 
     if (!isEditing) {
-      console.log('Not in editing mode, returning');
+      
       return;
     }
 
     const sourceGroup = result.source.droppableId;
     const destGroup = result.destination.droppableId;
     
-    console.log('Moving from', sourceGroup, 'to', destGroup);
+    
 
     // Si on déplace dans le même groupe
     if (sourceGroup === destGroup) {
@@ -187,7 +187,7 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
       const [reorderedItem] = items.splice(result.source.index, 1);
       items.splice(result.destination.index, 0, reorderedItem);
 
-      console.log('Reordered items in group:', items);
+      
 
       // Reconstruire la liste complète en préservant l'ordre des groupes
       const newSubTasks: SubTask[] = [];
@@ -199,7 +199,7 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
         }
       });
 
-      console.log('New subtasks order:', newSubTasks);
+      
       onSubTasksChange(newSubTasks);
     } else {
       // Déplacement entre groupes
@@ -212,7 +212,7 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
 
       destItems.splice(result.destination.index, 0, updatedItem);
 
-      console.log('Moved item between groups:', updatedItem);
+      
 
       // Reconstruire la liste complète en préservant l'ordre des groupes
       const newSubTasks: SubTask[] = [];
@@ -226,7 +226,7 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
         }
       });
 
-      console.log('New subtasks after group change:', newSubTasks);
+      
       onSubTasksChange(newSubTasks);
     }
   };

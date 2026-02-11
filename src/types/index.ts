@@ -265,3 +265,21 @@ export interface AppSettings {
 export type Theme = 'light' | 'dark';
 
 export type FontSize = 'small' | 'medium' | 'large';
+export interface ReportEntry {
+  id: string;
+  title: string;
+  content: string;
+  generatedAt: string;
+  period: {
+    start: string;
+    end: string;
+  };
+  projectIds: string[];
+  type: 'standard' | 'ai';
+  metadata?: {
+    emailSent?: boolean;
+    lastSentTo?: string[];
+    emailSubject?: string;
+    messageId?: string;
+  };
+}

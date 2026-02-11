@@ -4,18 +4,31 @@ import { DragDropContext as RBDDragDropContext, DragDropContextProps } from 'rea
 // Supprimer les avertissements spécifiques de la console
 const patchConsoleWarnings = () => {
   const originalWarn = console.warn;
-  
-  console.warn = (...args) => {
-    // Ignorer l'avertissement spécifique à react-beautiful-dnd
-    if (args[0] && typeof args[0] === 'string' && 
-        args[0].includes('Support for defaultProps will be removed from memo components')) {
-      return;
+  const originalError = console.error;
+
+  const filterWarning = (...args: any[]) => {
+    if (args[0] && typeof args[0] === 'string' &&
+      (args[0].includes('Support for defaultProps will be removed from memo components') ||
+        args[0].includes('Connect(Droppable)') ||
+        args[0].includes('Connect(Draggable)'))) {
+      return true;
     }
+    return false;
+  };
+
+  console.warn = (...args) => {
+    if (filterWarning(...args)) return;
     originalWarn.apply(console, args);
+  };
+
+  console.error = (...args) => {
+    if (filterWarning(...args)) return;
+    originalError.apply(console, args);
   };
 
   return () => {
     console.warn = originalWarn;
+    console.error = originalError;
   };
 };
 
@@ -31,13 +44,13 @@ export const DragDropContext: React.FC<DragDropContextProps> = (props) => {
 };
 
 // Réexporter les autres composants nécessaires depuis react-beautiful-dnd
-export { 
+export {
   Droppable as RBDDroppable,
   Draggable as RBDDraggable,
   resetServerContext
 } from 'react-beautiful-dnd';
 
-export type { 
+export type {
   DroppableProps as RBDDroppableProps,
   DraggableProps as RBDDraggableProps,
   DropResult as RBDDropResult,

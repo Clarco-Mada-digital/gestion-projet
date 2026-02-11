@@ -197,7 +197,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
         lastTested: new Date().toISOString(),
       };
 
-      console.log('Sauvegarde des paramètres IA:', settings);
+      
 
       if (onChange) {
         onChange(settings);

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { Project, Task, User, UserSettings, ViewMode, Theme, EmailSettings, AppSettings, DEFAULT_AI_SETTINGS, FontSize, AISettings } from '../types';
+import { Project, Task, ReportEntry, User, UserSettings, ViewMode, Theme, EmailSettings, AppSettings, DEFAULT_AI_SETTINGS, FontSize, AISettings } from '../types';
 import { firebaseService } from '../services/collaboration/firebaseService';
 import { User as FirebaseUser } from 'firebase/auth';
 
@@ -18,6 +18,7 @@ export interface AppState {
   isLoading: boolean;
   error: string | null;
   selectedProject: string | null;
+  reports: ReportEntry[];
   // L'utilisateur principal est le premier utilisateur du tableau users
 }
 
@@ -44,7 +45,12 @@ type AppAction =
   | { type: 'IMPORT_DATA'; payload: any }
   | { type: 'EXPORT_DATA' }
   | { type: 'SET_CLOUD_USER'; payload: FirebaseUser | null }
-  | { type: 'SYNC_PROJECTS'; payload: Project[] };
+  | { type: 'SYNC_PROJECTS'; payload: Project[] }
+  | { type: 'ADD_REPORT'; payload: ReportEntry }
+  | { type: 'DELETE_REPORT'; payload: string }
+  | { type: 'UPDATE_REPORT'; payload: ReportEntry }
+  | { type: 'SET_ACCENT_COLOR'; payload: string }
+  | { type: 'UPDATE_BRANDING'; payload: any };
 
 // Type pour les données exportables
 export interface ExportableData {
@@ -340,7 +346,8 @@ const initialState: AppState = {
   notifications: [],
   isLoading: false,
   error: null,
-  selectedProject: null
+  selectedProject: null,
+  reports: []
 };
 
 // Fonction utilitaire pour extraire toutes les tâches des projets
@@ -575,11 +582,13 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       return { ...state, isLoading: action.payload };
     case 'SET_ERROR':
       return { ...state, error: action.payload };
-    case 'INIT_STATE':
-      const { users, ...rest } = action.payload;
-      // S'assurer qu'il y a toujours au moins un utilisateur
+    case 'INIT_STATE': {
+      const { users, reports, ...rest } = action.payload;
+      // S'assurer qu'il y a toujours au moins un utilisateur et des rapports valides
       const validUsers = users && users.length > 0 ? users : [defaultUser];
-      return { ...state, ...rest, users: validUsers };
+      const validReports = reports || [];
+      return { ...state, ...rest, users: validUsers, reports: validReports };
+    }
     case 'SET_ACCENT_COLOR':
       return {
         ...state,
@@ -590,9 +599,14 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         users: state.users.map(user => ({
           ...user,
           settings: {
+            theme: 'light',
+            language: 'fr',
+            timezone: 'UTC',
+            notifications: true,
+            emailNotifications: true,
             ...user.settings,
             accentColor: action.payload
-          }
+          } as UserSettings
         }))
       };
     case 'UPDATE_BRANDING':
@@ -650,6 +664,23 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         tasks: extractAllTasks(updatedProjects)
       };
     }
+    case 'ADD_REPORT':
+      return {
+        ...state,
+        reports: [action.payload, ...state.reports]
+      };
+    case 'DELETE_REPORT':
+      return {
+        ...state,
+        reports: state.reports.filter(report => report.id !== action.payload)
+      };
+    case 'UPDATE_REPORT':
+      return {
+        ...state,
+        reports: state.reports.map(report =>
+          report.id === action.payload.id ? action.payload : report
+        )
+      };
     default:
       return state;
   }
