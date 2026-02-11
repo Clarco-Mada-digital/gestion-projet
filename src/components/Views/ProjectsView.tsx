@@ -1646,9 +1646,6 @@ export function ProjectsView() {
                 {state.projects
                   .filter(project => project.status === 'archived')
                   .map(project => {
-                    const stats = getProjectStats(project);
-                    const progress = stats.totalTasks > 0 ? (stats.completedTasks / stats.totalTasks) * 100 : 0;
-
                     return (
                       <Card
                         key={project.id}

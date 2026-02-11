@@ -49,12 +49,19 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
   }, [subTasks]);
 
   const groupNames = useMemo(() => {
-    return Object.keys(groupedTasks).sort((a, b) => {
-      if (a === '') return 1; // Sans groupe à la fin
-      if (b === '') return -1;
-      return a.localeCompare(b);
+    const names: string[] = [];
+    const seen = new Set<string>();
+
+    subTasks.forEach(st => {
+      const g = st.group || '';
+      if (!seen.has(g)) {
+        seen.add(g);
+        names.push(g);
+      }
     });
-  }, [groupedTasks]);
+
+    return names;
+  }, [subTasks]);
 
   const addTask = (e: React.SyntheticEvent) => {
     e.preventDefault();
@@ -178,54 +185,59 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
     const sourceGroup = result.source.droppableId;
     const destGroup = result.destination.droppableId;
 
+    // Mapper les IDs de droppable vers les clés réelles des groupes
+    // Format attendu: group-NomDuGroupe ou group-ungrouped
+    const getGroupKey = (id: string) => {
+      const g = id.replace('group-', '');
+      return g === 'ungrouped' ? '' : g;
+    };
 
+    const sourceGroupKey = getGroupKey(sourceGroup);
+    const destGroupKey = getGroupKey(destGroup);
 
     // Si on déplace dans le même groupe
     if (sourceGroup === destGroup) {
-      const groupTasks = groupedTasks[sourceGroup] || [];
+      const groupTasks = groupedTasks[sourceGroupKey] || [];
       const items = Array.from(groupTasks);
       const [reorderedItem] = items.splice(result.source.index, 1);
+      if (!reorderedItem) return;
       items.splice(result.destination.index, 0, reorderedItem);
-
-
 
       // Reconstruire la liste complète en préservant l'ordre des groupes
       const newSubTasks: SubTask[] = [];
       groupNames.forEach(gName => {
-        if (gName === sourceGroup) {
+        if (gName === sourceGroupKey) {
           newSubTasks.push(...items);
         } else {
           newSubTasks.push(...(groupedTasks[gName] || []));
         }
       });
 
-
       onSubTasksChange(newSubTasks);
     } else {
       // Déplacement entre groupes
-      const sourceItems = Array.from(groupedTasks[sourceGroup] || []);
-      const destItems = Array.from(groupedTasks[destGroup] || []);
+      const sourceItems = Array.from(groupedTasks[sourceGroupKey] || []);
+      const destItems = Array.from(groupedTasks[destGroupKey] || []);
 
       const [movedItem] = sourceItems.splice(result.source.index, 1);
+      if (!movedItem) return;
+
       // Mettre à jour le groupe de l'item
-      const updatedItem = { ...movedItem, group: destGroup || undefined };
+      const updatedItem = { ...movedItem, group: destGroupKey === '' ? undefined : destGroupKey };
 
       destItems.splice(result.destination.index, 0, updatedItem);
-
-
 
       // Reconstruire la liste complète en préservant l'ordre des groupes
       const newSubTasks: SubTask[] = [];
       groupNames.forEach(gName => {
-        if (gName === sourceGroup) {
+        if (gName === sourceGroupKey) {
           newSubTasks.push(...sourceItems);
-        } else if (gName === destGroup) {
+        } else if (gName === destGroupKey) {
           newSubTasks.push(...destItems);
         } else {
           newSubTasks.push(...(groupedTasks[gName] || []));
         }
       });
-
 
       onSubTasksChange(newSubTasks);
     }
@@ -293,7 +305,7 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
             if (tasks.length === 0 && groupName === '' && groupNames.length > 1) return null;
 
             // Identifiant unique pour le droppable (ne doit pas être une chaîne vide)
-            const droppableId = groupName || 'ungrouped-tasks';
+            const droppableId = `group-${groupName || 'ungrouped'}`;
 
             return (
               <div key={groupName || 'ungrouped'} className="relative group/section">
