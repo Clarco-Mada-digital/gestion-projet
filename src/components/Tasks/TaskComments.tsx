@@ -20,14 +20,46 @@ export function TaskComments({ taskId, projectId, project }: TaskCommentsProps) 
   const [showMentions, setShowMentions] = useState(false);
   const [mentionSearch, setMentionSearch] = useState('');
   const [cursorPos, setCursorPos] = useState(0);
+  const [projectMembers, setProjectMembers] = useState<User[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const unsubscribe = commentService.subscribeToTaskComments(taskId, (fetchedComments) => {
       setComments(fetchedComments);
     });
+
+    const loadProjectMembers = async () => {
+      if (project.source === 'firebase' && project.members && project.members.length > 0) {
+        try {
+          const { firebaseService } = await import('../../services/collaboration/firebaseService');
+          const membersData: User[] = [];
+          for (const uid of project.members) {
+            const profile = await firebaseService.getUserProfile(uid);
+            if (profile) {
+              membersData.push({
+                id: profile.uid,
+                name: profile.displayName || 'Utilisateur',
+                email: profile.email || '',
+                avatar: profile.photoURL || '',
+                role: 'member',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              });
+            }
+          }
+          setProjectMembers(membersData);
+        } catch (e) {
+          console.error("Erreur chargement membres pour mentions:", e);
+        }
+      } else {
+        setProjectMembers(state.users);
+      }
+    };
+
+    loadProjectMembers();
+
     return () => unsubscribe();
-  }, [taskId]);
+  }, [taskId, project, state.users]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
@@ -183,10 +215,10 @@ export function TaskComments({ taskId, projectId, project }: TaskCommentsProps) 
             {showMentions && (
               <div className="absolute bottom-full left-0 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 mb-2 overflow-hidden">
                 <div className="p-2 border-b border-gray-100 dark:border-gray-700 text-xs font-medium text-gray-500">
-                  Mentionner un membre
+                  Mentionner un membre du projet
                 </div>
                 <div className="max-h-40 overflow-y-auto">
-                  {state.users
+                  {projectMembers
                     .filter(u => u.name?.toLowerCase().includes(mentionSearch.toLowerCase()) || u.email?.toLowerCase().includes(mentionSearch.toLowerCase()))
                     .map(user => (
                       <button
@@ -201,6 +233,11 @@ export function TaskComments({ taskId, projectId, project }: TaskCommentsProps) 
                         <span className="truncate">{user.name || user.email}</span>
                       </button>
                     ))}
+                  {projectMembers.filter(u => u.name?.toLowerCase().includes(mentionSearch.toLowerCase()) || u.email?.toLowerCase().includes(mentionSearch.toLowerCase())).length === 0 && (
+                    <div className="p-3 text-center text-xs text-gray-500 italic">
+                      Aucun membre du projet trouvé
+                    </div>
+                  )}
                 </div>
               </div>
             )}

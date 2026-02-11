@@ -18,6 +18,8 @@ export interface AppState {
   isLoading: boolean;
   error: string | null;
   selectedProject: string | null;
+  targetProjectId?: string | null;
+  targetTaskId?: string | null;
   reports: ReportEntry[];
   // L'utilisateur principal est le premier utilisateur du tableau users
 }
@@ -50,7 +52,9 @@ type AppAction =
   | { type: 'DELETE_REPORT'; payload: string }
   | { type: 'UPDATE_REPORT'; payload: ReportEntry }
   | { type: 'SET_ACCENT_COLOR'; payload: string }
-  | { type: 'UPDATE_BRANDING'; payload: any };
+  | { type: 'UPDATE_BRANDING'; payload: any }
+  | { type: 'NAVIGATE_TO_TASK'; payload: { projectId: string; taskId: string } }
+  | { type: 'CLEAR_NAVIGATION_REQUEST' };
 
 // Type pour les données exportables
 export interface ExportableData {
@@ -347,6 +351,8 @@ const initialState: AppState = {
   isLoading: false,
   error: null,
   selectedProject: null,
+  targetProjectId: null,
+  targetTaskId: null,
   reports: []
 };
 
@@ -680,6 +686,19 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         reports: state.reports.map(report =>
           report.id === action.payload.id ? action.payload : report
         )
+      };
+    case 'NAVIGATE_TO_TASK':
+      return {
+        ...state,
+        currentView: 'projects',
+        targetProjectId: action.payload.projectId,
+        targetTaskId: action.payload.taskId
+      };
+    case 'CLEAR_NAVIGATION_REQUEST':
+      return {
+        ...state,
+        targetProjectId: null,
+        targetTaskId: null
       };
     default:
       return state;

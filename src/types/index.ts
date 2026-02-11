@@ -96,6 +96,7 @@ export interface Project {
   source?: 'local' | 'firebase';
   ownerId?: string;
   members?: string[]; // Liste des IDs des utilisateurs ayant accès
+  memberRoles?: Record<string, 'admin' | 'member' | 'viewer'>; // Rôles par utilisateur
   isShared?: boolean;
   lastSyncedAt?: string;
   kanbanSettings?: {

@@ -5,7 +5,7 @@ import { notificationService } from '../../services/collaboration/notificationSe
 import { useApp } from '../../context/AppContext';
 
 export function NotificationCenter() {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -39,6 +39,42 @@ export function NotificationCenter() {
   const handleMarkAllAsRead = async () => {
     if (notifications.length > 0) {
       await notificationService.markAllAsRead(notifications);
+    }
+  };
+
+  const handleNotificationClick = (n: Notification) => {
+    if (!n.link) return;
+
+    // Marquer comme lu
+    if (!n.isRead) {
+      notificationService.markAsRead(n.id);
+    }
+
+    // Parser le lien : /projects/${projectId}?task=${taskId}
+    try {
+      // Pour les chemins relatifs, on ajoute l'origine
+      const link = n.link.startsWith('/') ? `${window.location.origin}${n.link}` : n.link;
+      const url = new URL(link);
+      const pathParts = url.pathname.split('/');
+
+      // Format attendu: /projects/:projectId
+      const projectIndex = pathParts.indexOf('projects');
+      const projectId = projectIndex !== -1 ? pathParts[projectIndex + 1] : null;
+      const taskId = url.searchParams.get('task');
+
+      if (projectId && taskId) {
+        dispatch({
+          type: 'NAVIGATE_TO_TASK',
+          payload: { projectId, taskId }
+        });
+        setIsOpen(false);
+      } else {
+        // Fallback pour les liens simples
+        window.location.href = n.link;
+      }
+    } catch (e) {
+      console.error("Erreur lors de la navigation depuis notification:", e);
+      window.location.href = n.link;
     }
   };
 
@@ -94,12 +130,12 @@ export function NotificationCenter() {
                 <div className="flex justify-between items-center">
                   <span className="text-[10px] text-gray-400">{new Date(n.createdAt).toLocaleString()}</span>
                   {n.link && (
-                    <a
-                      href={n.link}
-                      className="text-[10px] text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline"
+                    <button
+                      onClick={() => handleNotificationClick(n)}
+                      className="text-[10px] text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline font-medium"
                     >
                       Voir <ExternalLink className="w-2 h-2" />
-                    </a>
+                    </button>
                   )}
                 </div>
               </div>

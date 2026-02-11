@@ -58,8 +58,8 @@ interface EditTaskFormProps {
 
 export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
   const { state, dispatch } = useApp();
-
-  // Le projet est déjà passé en props, pas besoin de le chercher
+  const currentUserRole = project.memberRoles?.[state.cloudUser?.uid || ''] || 'member';
+  const canEdit = project.source !== 'firebase' || project.ownerId === state.cloudUser?.uid || currentUserRole === 'admin' || currentUserRole === 'member';
 
   // State initial avec validation
   const [editedTask, setEditedTask] = useState<Task>(() => {
@@ -282,13 +282,15 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
             {project.name}
           </h2>
           <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setIsEditing(!isEditing)}
-              className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              title={isEditing ? "Passer en mode lecture" : "Passer en mode édition"}
-            >
-              {isEditing ? <Eye className="w-5 h-5" /> : <Edit2 className="w-5 h-5" />}
-            </button>
+            {canEdit && (
+              <button
+                onClick={() => setIsEditing(!isEditing)}
+                className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title={isEditing ? "Passer en mode lecture" : "Passer en mode édition"}
+              >
+                {isEditing ? <Eye className="w-5 h-5" /> : <Edit2 className="w-5 h-5" />}
+              </button>
+            )}
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"

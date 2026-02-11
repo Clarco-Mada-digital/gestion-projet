@@ -385,16 +385,74 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
 // Composant pour la gestion des membres
 const MembersModal = ({ isOpen, onClose, project }: { isOpen: boolean; onClose: () => void; project: Project | null }) => {
   const [email, setEmail] = useState('');
+  const [selectedRole, setSelectedRole] = useState<'member' | 'viewer' | 'admin'>('member');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const { state, dispatch } = useApp();
-  // Chargement des profils (Vraie implémentation)
-  useEffect(() => {
-    // Profils logic to be implemented if needed
-  }, [project]);
 
   if (!project) return null;
+
+  const isOwner = state.cloudUser?.uid === project.ownerId;
+  const isAdmin = isOwner || project.memberRoles?.[state.cloudUser?.uid || ''] === 'admin';
+
+  const handleUpdateRole = async (memberId: string, newRole: 'admin' | 'member' | 'viewer') => {
+    if (!isAdmin) return;
+
+    setLoading(true);
+    try {
+      const { firebaseService } = await import('../../services/collaboration/firebaseService');
+      const updatedProject = {
+        ...project,
+        memberRoles: {
+          ...(project.memberRoles || {}),
+          [memberId]: newRole
+        },
+        updatedAt: new Date().toISOString()
+      };
+
+      await firebaseService.syncProject(updatedProject);
+      dispatch({ type: 'UPDATE_PROJECT', payload: updatedProject });
+      message.success("Rôle mis à jour");
+    } catch (err) {
+      message.error("Erreur lors de la mise à jour du rôle");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    if (!isAdmin) return;
+    if (memberId === project.ownerId) {
+      message.error("Impossible de supprimer le propriétaire");
+      return;
+    }
+
+    if (!window.confirm("Retirer ce membre du projet ?")) return;
+
+    setLoading(true);
+    try {
+      const { firebaseService } = await import('../../services/collaboration/firebaseService');
+      const updatedMembers = (project.members || []).filter(id => id !== memberId);
+      const updatedRoles = { ...(project.memberRoles || {}) };
+      delete updatedRoles[memberId];
+
+      const updatedProject = {
+        ...project,
+        members: updatedMembers,
+        memberRoles: updatedRoles,
+        updatedAt: new Date().toISOString()
+      };
+
+      await firebaseService.syncProject(updatedProject);
+      dispatch({ type: 'UPDATE_PROJECT', payload: updatedProject });
+      message.success("Membre retiré du projet");
+    } catch (err) {
+      message.error("Erreur lors de la suppression du membre");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleInvite = async (emailToInvite: string) => {
     const cleanEmail = emailToInvite.trim();
@@ -414,6 +472,10 @@ const MembersModal = ({ isOpen, onClose, project }: { isOpen: boolean; onClose: 
           const updatedProject = {
             ...project,
             members: [...(project.members || []), user.uid],
+            memberRoles: {
+              ...(project.memberRoles || {}),
+              [user.uid]: selectedRole
+            },
             updatedAt: new Date().toISOString()
           };
 
@@ -493,15 +555,30 @@ const MembersModal = ({ isOpen, onClose, project }: { isOpen: boolean; onClose: 
             );
           })()}
 
-          <div className="flex space-x-2">
-            <Input
-              placeholder="Email du collaborateur"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <Button onClick={() => handleInvite(email)} disabled={loading}>
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-            </Button>
+          <div className="flex flex-col space-y-2">
+            <div className="flex space-x-2">
+              <Input
+                placeholder="Email du collaborateur"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="flex-1"
+              />
+              <Select
+                value={selectedRole}
+                onChange={(val) => setSelectedRole(val as any)}
+                style={{ width: 120 }}
+              >
+                <Select.Option value="viewer">Lecteur</Select.Option>
+                <Select.Option value="member">Membre</Select.Option>
+                <Select.Option value="admin">Admin</Select.Option>
+              </Select>
+              <Button onClick={() => handleInvite(email)} disabled={loading} className="shrink-0">
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              </Button>
+            </div>
+            <p className="text-[10px] text-gray-500">
+              <b>Lecteur:</b> Voir uniquement | <b>Membre:</b> Gérer les tâches | <b>Admin:</b> Gérer l'équipe et le projet
+            </p>
           </div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
           {success && <p className="text-green-500 text-sm">{success}</p>}
@@ -513,11 +590,19 @@ const MembersModal = ({ isOpen, onClose, project }: { isOpen: boolean; onClose: 
             <MemberListItem
               uid={project.ownerId || ''}
               role="Propriétaire"
-              isAdmin
+              isOwner={true}
               currentUserUid={state.cloudUser?.uid}
+              canManage={false}
             />
             {project.members?.filter(id => id !== project.ownerId).map(memberId => (
-              <MemberListItem key={memberId} uid={memberId} role="Membre" />
+              <MemberListItem
+                key={memberId}
+                uid={memberId}
+                role={project.memberRoles?.[memberId] || 'member'}
+                canManage={isAdmin}
+                onUpdateRole={(role) => handleUpdateRole(memberId, role)}
+                onRemove={() => handleRemoveMember(memberId)}
+              />
             ))}
           </ul>
         </div>
@@ -527,8 +612,24 @@ const MembersModal = ({ isOpen, onClose, project }: { isOpen: boolean; onClose: 
 };
 
 // Sous-composant pour afficher un membre avec récupération de ses infos
-const MemberListItem = ({ uid, role, isAdmin, currentUserUid }: { uid: string, role: string, isAdmin?: boolean, currentUserUid?: string }) => {
-  const [userData, setUserData] = useState<{ displayName?: string, email?: string } | null>(null);
+const MemberListItem = ({
+  uid,
+  role,
+  isOwner,
+  currentUserUid,
+  canManage,
+  onUpdateRole,
+  onRemove
+}: {
+  uid: string,
+  role: string,
+  isOwner?: boolean,
+  currentUserUid?: string,
+  canManage?: boolean,
+  onUpdateRole?: (role: 'admin' | 'member' | 'viewer') => void,
+  onRemove?: () => void
+}) => {
+  const [userData, setUserData] = useState<{ displayName?: string | null, email?: string | null, photoURL?: string | null } | null>(null);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -542,16 +643,57 @@ const MemberListItem = ({ uid, role, isAdmin, currentUserUid }: { uid: string, r
   }, [uid]);
 
   return (
-    <li className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
-      <div className="flex flex-col">
-        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-          {uid === currentUserUid ? 'Vous' : (userData?.displayName || 'Utilisateur inconnu')}
-        </span>
-        <span className="text-xs text-gray-500">{userData?.email || uid}</span>
+    <li className="flex items-center justify-between p-3 bg-white dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl hover:shadow-sm transition-all duration-200">
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-300 shrink-0 overflow-hidden border border-blue-200 dark:border-blue-800">
+          {userData?.photoURL ? (
+            <img src={userData.photoURL} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <span className="font-bold">{(userData?.displayName?.[0] || userData?.email?.[0] || '?').toUpperCase()}</span>
+          )}
+        </div>
+        <div className="flex flex-col min-w-0">
+          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+            {uid === currentUserUid ? 'Vous' : (userData?.displayName || 'Utilisateur inconnu')}
+            {isOwner && <span className="ml-2 text-[10px] text-amber-600 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded uppercase">Proprio</span>}
+          </span>
+          <span className="text-[10px] text-gray-500 truncate">{userData?.email || uid}</span>
+        </div>
       </div>
-      <span className={`text-xs px-2 py-1 rounded ${isAdmin ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-800'}`}>
-        {role}
-      </span>
+
+      <div className="flex items-center gap-2">
+        {canManage && !isOwner ? (
+          <div className="flex items-center gap-2">
+            <Select
+              size="small"
+              value={role}
+              onChange={(val) => onUpdateRole?.(val as any)}
+              className="w-24 text-xs"
+              dropdownStyle={{ minWidth: 100 }}
+            >
+              <Select.Option value="viewer">Lecteur</Select.Option>
+              <Select.Option value="member">Membre</Select.Option>
+              <Select.Option value="admin">Admin</Select.Option>
+            </Select>
+            <button
+              onClick={onRemove}
+              className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+              title="Retirer du projet"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider ${role === 'admin' || isOwner
+            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200'
+            : role === 'member'
+              ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200'
+              : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
+            }`}>
+            {role === 'admin' ? 'Admin' : role === 'member' ? 'Membre' : role === 'viewer' ? 'Lecteur' : role}
+          </span>
+        )}
+      </div>
     </li>
   );
 };
@@ -675,6 +817,27 @@ export function ProjectsView() {
   useEffect(() => {
     checkForUnsavedChanges();
   }, [editingProject, newTask.title, state.projects]);
+
+  // Gérer la navigation automatique depuis les notifications
+  useEffect(() => {
+    if (state.targetProjectId && state.targetTaskId) {
+      const targetProject = state.projects.find(p => p.id === state.targetProjectId);
+      if (targetProject) {
+        // Optionnel : s'assurer que le projet est celui que nous éditons actuellement
+        setEditingProject({
+          ...targetProject,
+          tasks: targetProject.tasks || []
+        });
+
+        const targetTask = (targetProject.tasks || []).find(t => t.id === state.targetTaskId);
+        if (targetTask) {
+          setEditingTask(targetTask);
+          // Nettoyer la requête de navigation pour ne pas la déclencher à nouveau
+          dispatch({ type: 'CLEAR_NAVIGATION_REQUEST' });
+        }
+      }
+    }
+  }, [state.targetProjectId, state.targetTaskId, state.projects, dispatch]);
 
   // Fonction pour vérifier s'il y a des modifications non enregistrées
   const checkForUnsavedChanges = () => {
@@ -1611,8 +1774,8 @@ export function ProjectsView() {
                   rows={4}
                 />
               </Form.Item>
-              <Row gutter={16 as unknown as string}>
-                <Col span={12 as unknown as string}>
+              <Row gutter={16}>
+                <Col span={12}>
                   <Form.Item label="Couleur">
                     <Select
                       value={newProject.color}
@@ -1687,8 +1850,8 @@ export function ProjectsView() {
           >
             {editingProject ? (
               <AISettings
-                value={aiSettings}
-                onChange={(settings) => setAISettings(settings)}
+                value={aiSettings as any}
+                onChange={(settings) => setAISettings(settings as any)}
                 showTitle={false}
               />
             ) : (
