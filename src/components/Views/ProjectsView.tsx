@@ -25,43 +25,7 @@ const cleanMarkdown = (text: string): string => {
 };
 
 // Types pour les composants Ant Design
-const { TabPane } = Tabs;
-const { Option } = Select;
 const { TextArea } = Input;
-
-// Types pour les props personnalisées
-interface FormItemProps {
-  label: React.ReactNode;
-  required?: boolean;
-  children: React.ReactNode;
-}
-
-interface SelectOptionProps {
-  value: string | number;
-  children: React.ReactNode;
-  disabled?: boolean;
-}
-
-interface CustomFormItemProps {
-  children: React.ReactNode;
-  label: React.ReactNode;
-  required?: boolean;
-  className?: string;
-}
-
-const CustomFormItem: React.FC<CustomFormItemProps> = ({
-  children,
-  label,
-  required = false,
-  className = '',
-  ...props
-}) => {
-  return (
-    <Form.Item label={label} required={required} className={className} {...props}>
-      {children}
-    </Form.Item>
-  );
-};
 
 interface CustomSelectOptionProps {
   children: React.ReactNode;
@@ -653,8 +617,36 @@ export function ProjectsView() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
+  // Synchroniser editingProject avec le store global quand les tâches sont modifiées
+  useEffect(() => {
+    if (editingProject) {
+      const updatedProject = state.projects.find(p => p.id === editingProject.id);
+      if (updatedProject) {
+        // Vérifier si les tâches ont été modifiées en comparant les updatedAt ou les IDs
+        const storeTasks = updatedProject.tasks || [];
+        const localTasks = editingProject.tasks || [];
+        
+        // Si le nombre de tâches est différent ou si une tâche a été mise à jour
+        const hasTaskChanges = storeTasks.length !== localTasks.length || 
+          storeTasks.some(storeTask => {
+            const localTask = localTasks.find(t => t.id === storeTask.id);
+            return !localTask || localTask.updatedAt !== storeTask.updatedAt;
+          });
+
+        if (hasTaskChanges) {
+          setEditingProject({
+            ...updatedProject,
+            tasks: storeTasks
+          });
+        }
+      }
+    }
+  }, [state.projects, editingProject?.id]);
+
   const openTaskModal = (task: Task) => {
-    setEditingTask(task);
+    // Récupérer la version la plus récente de la tâche depuis le store global
+    const latestTask = state.tasks.find(t => t.id === task.id) || task;
+    setEditingTask(latestTask);
   };
 
   const resetNewProjectForm = () => {
@@ -687,6 +679,12 @@ export function ProjectsView() {
   const [showArchivedProjects, setShowArchivedProjects] = useState(false);
   const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
 
+  // États pour suivre les modifications non enregistrées
+  const [hasUnsavedProjectChanges, setHasUnsavedProjectChanges] = useState(false);
+  const [hasUnsavedTaskChanges, setHasUnsavedTaskChanges] = useState(false);
+  const [showUnsavedChangesWarning, setShowUnsavedChangesWarning] = useState(false);
+  const [pendingCloseAction, setPendingCloseAction] = useState<() => void>(() => {});
+
   const [newProject, setNewProject] = useState<Omit<Project, 'id' | 'createdAt' | 'updatedAt'>>({
     name: '',
     description: '',
@@ -713,6 +711,47 @@ export function ProjectsView() {
     endDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     estimatedHours: 1,
   });
+
+  // Vérifier les modifications non enregistrées
+  useEffect(() => {
+    checkForUnsavedChanges();
+  }, [editingProject, newTask.title, state.projects]);
+
+  // Fonction pour vérifier s'il y a des modifications non enregistrées
+  const checkForUnsavedChanges = () => {
+    // Vérifier les modifications du projet
+    if (editingProject) {
+      const originalProject = state.projects.find(p => p.id === editingProject.id);
+      if (originalProject) {
+        const projectChanged = originalProject.name !== editingProject.name ||
+          originalProject.description !== editingProject.description ||
+          originalProject.color !== editingProject.color ||
+          originalProject.status !== editingProject.status ||
+          originalProject.estimatedDuration !== editingProject.estimatedDuration;
+        
+        setHasUnsavedProjectChanges(projectChanged);
+      }
+    }
+
+    // Vérifier s'il y a une nouvelle tâche non enregistrée
+    const hasNewTask = newTask.title.trim() !== '';
+    setHasUnsavedTaskChanges(hasNewTask);
+  };
+
+  // Fonction pour gérer la fermeture avec confirmation
+  const handleCloseWithConfirmation = (closeAction: () => void) => {
+    if (hasUnsavedProjectChanges || hasUnsavedTaskChanges) {
+      setPendingCloseAction(() => {
+        closeAction();
+        setShowUnsavedChangesWarning(false);
+        setHasUnsavedProjectChanges(false);
+        setHasUnsavedTaskChanges(false);
+      });
+      setShowUnsavedChangesWarning(true);
+    } else {
+      closeAction();
+    }
+  };
 
   // Fonction pour générer des tâches avec l'IA
   const generateTasksWithAI = async () => {
@@ -864,19 +903,29 @@ export function ProjectsView() {
       estimatedHours: newTask.estimatedHours || 0,
     };
 
-    if (editingProject) {
-      // Ajouter la tâche au projet en cours d'édition
-      setEditingProject({
-        ...editingProject,
-        tasks: [...(editingProject.tasks || []), task]
-      });
-    } else {
-      // Ajouter la tâche au nouveau projet
-      setNewProject({
-        ...newProject,
-        tasks: [...newProject.tasks, task]
-      });
-    }
+    // Ajouter la tâche au store global IMMÉDIATEMENT
+    dispatch({
+      type: 'ADD_TASK',
+      payload: {
+        projectId: editingProject.id,
+        task: task
+      }
+    });
+
+    // Mettre à jour le projet en cours d'édition avec la nouvelle tâche
+    const updatedProject = {
+      ...editingProject,
+      tasks: [...(editingProject.tasks || []), task],
+      updatedAt: new Date().toISOString()
+    };
+
+    setEditingProject(updatedProject);
+
+    // Mettre à jour le projet dans le store aussi
+    dispatch({
+      type: 'UPDATE_PROJECT',
+      payload: updatedProject
+    });
 
     // Réinitialiser le formulaire de tâche
     setNewTask({
@@ -894,10 +943,28 @@ export function ProjectsView() {
     if (isEditing) {
       if (!editingProject) return;
 
+      // Supprimer la tâche du store global IMMÉDIATEMENT
+      dispatch({
+        type: 'DELETE_TASK',
+        payload: {
+          projectId: editingProject.id,
+          taskId: taskId
+        }
+      });
+
       const updatedTasks = editingProject.tasks?.filter(task => task.id !== taskId) || [];
-      setEditingProject({
+      const updatedProject = {
         ...editingProject,
-        tasks: updatedTasks
+        tasks: updatedTasks,
+        updatedAt: new Date().toISOString()
+      };
+
+      setEditingProject(updatedProject);
+
+      // Mettre à jour le projet dans le store aussi
+      dispatch({
+        type: 'UPDATE_PROJECT',
+        payload: updatedProject
       });
     } else {
       setNewProject({
@@ -1581,15 +1648,15 @@ export function ProjectsView() {
         <Tabs activeKey={activeTab} onChange={(key: string) => setActiveTab(key)}>
           <CustomTabPane tab="Général" key="general">
             <CustomForm layout="vertical">
-              <CustomFormItem label="Nom du projet" required>
+              <Form.Item label="Nom du projet" required>
                 <Input
                   value={newProject.name}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     setNewProject({ ...newProject, name: e.target.value })}
                   placeholder="Nom du projet"
                 />
-              </CustomFormItem>
-              <CustomFormItem label="Description">
+              </Form.Item>
+              <Form.Item label="Description">
                 <TextArea
                   value={newProject.description}
                   onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
@@ -1597,10 +1664,10 @@ export function ProjectsView() {
                   placeholder="Description du projet"
                   rows={4}
                 />
-              </CustomFormItem>
+              </Form.Item>
               <Row gutter={16 as unknown as string}>
                 <Col span={12 as unknown as string}>
-                  <CustomFormItem label="Couleur">
+                  <Form.Item label="Couleur">
                     <Select
                       value={newProject.color}
                       onChange={(value: string) =>
@@ -1633,10 +1700,10 @@ export function ProjectsView() {
                         placeholder="#000000"
                       />
                     </div>
-                  </CustomFormItem>
+                  </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <CustomFormItem label="Statut">
+                  <Form.Item label="Statut">
                     <Select
                       value={newProject.status}
                       onChange={(value: string) => setNewProject({ ...newProject, status: value })}
@@ -1646,10 +1713,10 @@ export function ProjectsView() {
                       <CustomSelectOption value="completed">Terminé</CustomSelectOption>
                       <CustomSelectOption value="archived">Archivé</CustomSelectOption>
                     </Select>
-                  </CustomFormItem>
+                  </Form.Item>
                 </Col>
               </Row>
-              <CustomFormItem label="Durée estimée (jours)">
+              <Form.Item label="Durée estimée (jours)">
                 <InputNumber
                   min={1}
                   value={newProject.estimatedDuration}
@@ -1657,7 +1724,7 @@ export function ProjectsView() {
                   style={{ width: '100%' }}
                   placeholder="Durée estimée en jours"
                 />
-              </CustomFormItem>
+              </Form.Item>
             </CustomForm>
           </CustomTabPane>
           <CustomTabPane
@@ -1688,7 +1755,7 @@ export function ProjectsView() {
       {/* Modal d'édition de projet */}
       <Modal
         isOpen={!!editingProject}
-        onClose={() => setEditingProject(null)}
+        onClose={() => handleCloseWithConfirmation(() => setEditingProject(null))}
         title="Modifier le projet"
         size="lg"
       >
@@ -2135,7 +2202,7 @@ export function ProjectsView() {
               onClick={() => setEditingProject(null)}
               className="flex-1"
             >
-              Annuler
+              Fermer
             </Button>
             <Button
               onClick={updateProject}
@@ -2303,6 +2370,83 @@ export function ProjectsView() {
           project={editingProject}
         />
       )}
+
+      {/* Modal d'avertissement pour modifications non enregistrées */}
+      <Modal
+        isOpen={showUnsavedChangesWarning}
+        onClose={() => setShowUnsavedChangesWarning(false)}
+        title="⚠️ Modifications non enregistrées"
+        size="sm"
+      >
+        <div className="space-y-6">
+          <div className="flex items-center justify-center text-yellow-500 mb-4">
+            <AlertTriangle className="w-12 h-12" />
+          </div>
+          
+          <div className="text-center space-y-4">
+            <p className="text-lg font-medium text-gray-900 dark:text-white">
+              {hasUnsavedProjectChanges && hasUnsavedTaskChanges 
+                ? "Vous avez des modifications non enregistrées dans le projet et une nouvelle tâche."
+                : hasUnsavedProjectChanges 
+                  ? "Vous avez des modifications non enregistrées dans le projet."
+                  : "Vous avez une nouvelle tâche qui n'a pas été enregistrée."}
+            </p>
+            
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {hasUnsavedProjectChanges && hasUnsavedTaskChanges 
+                ? "Si vous fermez cette fenêtre, vous perdrez toutes les modifications du projet et la nouvelle tâche."
+                : hasUnsavedProjectChanges 
+                  ? "Si vous fermez cette fenêtre, vous perdrez toutes les modifications du projet."
+                  : "Si vous fermez cette fenêtre, vous perdrez cette nouvelle tâche."}
+            </p>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-800">
+              <h4 className="font-medium text-yellow-800 dark:text-yellow-200 mb-2">Que souhaitez-vous faire ?</h4>
+              <div className="space-y-2 text-sm text-yellow-700 dark:text-yellow-300">
+                <p>• <strong>Enregistrer</strong> : Sauvegarder toutes les modifications</p>
+                <p>• <strong>Continuer</strong> : Garder la fenêtre ouverte pour finir</p>
+                <p>• <strong>Annuler</strong> : Fermer et perdre toutes les modifications</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex space-x-3 pt-4">
+            <Button
+              onClick={() => {
+                pendingCloseAction();
+                setShowUnsavedChangesWarning(false);
+              }}
+              variant="gradient"
+              className="flex-1"
+            >
+              Enregistrer tout
+            </Button>
+            
+            <Button
+              onClick={() => {
+                setShowUnsavedChangesWarning(false);
+              }}
+              variant="outline"
+              className="flex-1"
+            >
+              Continuer sans enregistrer
+            </Button>
+            
+            <Button
+              onClick={() => {
+                setShowUnsavedChangesWarning(false);
+                setHasUnsavedProjectChanges(false);
+                setHasUnsavedTaskChanges(false);
+                // Ne pas exécuter l'action de fermeture originale
+              }}
+              variant="outline"
+              className="flex-1 bg-red-500 hover:bg-red-600 text-white border-red-500"
+            >
+              Annuler et perdre
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

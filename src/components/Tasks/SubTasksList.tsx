@@ -392,12 +392,7 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
                                       title={isEditing ? "Cliquez pour modifier le titre et le groupe" : "Cliquez pour cocher/décocher"}
                                     >
                                       {task.title}
-                                    </span>
-                                    {isEditing && (
-                                      <div className="text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <Edit2 className="w-3 h-3" />
-                                      </div>
-                                    )}
+                                    </span>                                   
                                   </div>
                                 )}
                               </div>
