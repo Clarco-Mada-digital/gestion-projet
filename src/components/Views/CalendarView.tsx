@@ -7,7 +7,7 @@ import { Task, Project } from '../../types';
 import { EditTaskForm } from '../Tasks/EditTaskForm';
 
 export function CalendarView() {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
   const [currentDate, setCurrentDate] = useState(new Date());
   type ViewMode = 'week' | 'month' | 'quarter' | 'semester';
   const [viewMode, setViewMode] = useState<ViewMode>('month');
@@ -148,6 +148,49 @@ export function CalendarView() {
     return date.getDate() === today.getDate() &&
       date.getMonth() === today.getMonth() &&
       date.getFullYear() === today.getFullYear();
+  };
+
+  const handleDragStart = (e: React.DragEvent, task: Task) => {
+    e.dataTransfer.setData('taskId', task.id);
+    e.dataTransfer.setData('projectId', task.projectId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, targetDate: Date) => {
+    e.preventDefault();
+    const taskId = e.dataTransfer.getData('taskId');
+    const projectId = e.dataTransfer.getData('projectId');
+
+    const project = state.projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    const task = project.tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    // Calculer la durée actuelle de la tâche en jours
+    const start = new Date(task.startDate || task.dueDate);
+    const end = new Date(task.dueDate);
+    const durationMs = end.getTime() - start.getTime();
+
+    // Nouvelles dates
+    const newDueDate = new Date(targetDate);
+    newDueDate.setHours(end.getHours(), end.getMinutes(), end.getSeconds(), end.getMilliseconds());
+
+    const newStartDate = new Date(newDueDate.getTime() - durationMs);
+
+    const updatedTask: Task = {
+      ...task,
+      startDate: newStartDate.toISOString(),
+      dueDate: newDueDate.toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    dispatch({ type: 'UPDATE_TASK', payload: updatedTask });
   };
 
   const weekDays: string[] = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
@@ -421,21 +464,30 @@ export function CalendarView() {
               });
 
               return (
-                <div key={weekIndex} className="grid grid-cols-7 gap-1 relative min-h-[140px] last:mb-0">
+                <div key={weekIndex} className="grid grid-cols-7 gap-x-1 gap-y-0 relative min-h-[160px] last:mb-0" style={{ gridTemplateRows: '34px repeat(5, 1fr)' }}>
                   {/* Fond des jours */}
                   {week.map((day, dayIdx) => (
                     <div
                       key={dayIdx}
                       className={`
-                        min-h-[140px] p-2 border border-blue-200/20 dark:border-blue-800/20 rounded-xl transition-all
+                        min-h-[160px] p-2 border border-blue-200/20 dark:border-blue-800/20 rounded-xl transition-all
                         ${day.isCurrentMonth ? 'bg-white/40 dark:bg-gray-800/40' : 'bg-gray-50/20 dark:bg-gray-900/20'}
-                        ${isToday(day.date) ? 'ring-2 ring-amber-500 bg-amber-50/30 dark:bg-amber-900/20' : ''}
+                        ${isToday(day.date) ? 'bg-amber-100/30 dark:bg-amber-900/10 shadow-inner' : ''}
                       `}
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDrop(e, day.date)}
                       style={{ gridColumn: dayIdx + 1, gridRow: '1 / span 6' }}
                     >
-                      <span className={`text-xs font-bold ${day.isCurrentMonth ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-600'} ${isToday(day.date) ? 'text-blue-600 dark:text-blue-400' : ''}`}>
-                        {day.date.getDate()}
-                      </span>
+                      <div className="flex justify-start">
+                        <span className={`
+                          text-[11px] font-bold w-7 h-7 flex items-center justify-center rounded-lg transition-all
+                          ${isToday(day.date)
+                            ? 'bg-amber-500 text-white shadow-lg transform scale-110 -translate-y-1'
+                            : (day.isCurrentMonth ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-600')}
+                        `}>
+                          {day.date.getDate()}
+                        </span>
+                      </div>
                     </div>
                   ))}
 
@@ -445,10 +497,13 @@ export function CalendarView() {
                     const project = state.projects.find(p => p.id === task.projectId);
                     const isDone = task.status === 'done';
                     const isOverdue = new Date(task.dueDate) < new Date(new Date().setHours(0, 0, 0, 0)) && !isDone;
+                    const isDueToday = !isDone && isToday(new Date(task.dueDate));
 
                     return (
                       <div
                         key={i}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, task)}
                         onClick={() => project && setSelectedTask({ task, project })}
                         style={{
                           gridColumn: `${startIdx + 1} / span ${endIdx - startIdx + 1}`,
@@ -456,14 +511,16 @@ export function CalendarView() {
                           marginTop: '4px'
                         }}
                         className={`
-                          h-6 mt-6 flex items-center justify-center px-4 text-[10px] font-bold cursor-pointer rounded-md shadow-sm transition-all hover:scale-[1.01] hover:brightness-110 z-10 truncate
-                          ${isDone
+                              h-6 mt-1 flex items-center justify-center px-4 text-[10px] font-bold cursor-pointer rounded-md shadow-sm transition-all hover:scale-[1.01] hover:brightness-110 z-10 truncate
+                              ${isDone
                             ? 'bg-green-500/20 text-green-700 dark:text-green-300 border-l-4 border-green-500'
-                            : isOverdue
-                              ? 'bg-red-500/20 text-red-700 dark:text-red-300 border-l-4 border-red-500'
-                              : 'bg-blue-500/20 text-blue-700 dark:text-blue-300 border-l-4 border-blue-500'
+                            : isDueToday
+                              ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-l-4 border-amber-500 shadow-md transform scale-[1.02]'
+                              : isOverdue
+                                ? 'bg-red-500/20 text-red-700 dark:text-red-300 border-l-4 border-red-500'
+                                : 'bg-blue-500/20 text-blue-700 dark:text-blue-300 border-l-4 border-blue-500'
                           }
-                        `}
+                            `}
                         title={`${task.title} (${project?.name})`}
                       >
                         {task.title}
@@ -508,7 +565,11 @@ export function CalendarView() {
             <span className="text-gray-600 dark:text-gray-400 font-medium">Tâches à venir / En cours</span>
           </div>
           <div className="flex items-center space-x-3">
-            <div className="w-4 h-4 bg-amber-200 dark:bg-amber-800 rounded border-2 border-amber-500 shadow-sm" />
+            <div className="w-4 h-4 bg-amber-500/20 rounded border-l-4 border-amber-500 shadow-sm" />
+            <span className="text-gray-600 dark:text-gray-400 font-medium">Échéance aujourd'hui</span>
+          </div>
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-amber-500 text-white text-[10px] font-bold rounded-lg flex items-center justify-center shadow-md" >11</div>
             <span className="text-gray-600 dark:text-gray-400 font-medium">Aujourd'hui (Date actuelle)</span>
           </div>
         </div>
@@ -548,7 +609,8 @@ export function CalendarView() {
                 {selectedDayTasks.tasks.map((task) => {
                   const project = state.projects.find((p: Project) => p.id === task.projectId);
                   const isDone = task.status === 'done';
-                  const isOverdue = new Date(task.dueDate) < new Date() && !isDone;
+                  const isOverdue = new Date(task.dueDate) < new Date(new Date().setHours(0, 0, 0, 0)) && !isDone;
+                  const isDueToday = !isDone && isToday(new Date(task.dueDate));
 
                   return (
                     <div
@@ -563,15 +625,17 @@ export function CalendarView() {
                         p-4 rounded-xl cursor-pointer transition-all duration-200 border-l-4 hover:translate-x-1 group
                         ${isDone
                           ? 'bg-green-50 dark:bg-green-900/20 border-green-500 hover:bg-green-100 dark:hover:bg-green-900/30'
-                          : isOverdue
-                            ? 'bg-red-50 dark:bg-red-900/20 border-red-500 hover:bg-red-100 dark:hover:bg-red-900/30'
-                            : 'bg-blue-50 dark:bg-blue-900/20 border-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30'
+                          : isDueToday
+                            ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500 hover:bg-amber-100 dark:hover:bg-amber-900/30 shadow-sm transform scale-[1.01]'
+                            : isOverdue
+                              ? 'bg-red-50 dark:bg-red-900/20 border-red-500 hover:bg-red-100 dark:hover:bg-red-900/30'
+                              : 'bg-blue-50 dark:bg-blue-900/20 border-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30'
                         }
                       `}
                     >
                       <div className="flex items-center justify-between">
                         <div className="space-y-1">
-                          <h4 className={`font-bold transition-colors break-words ${isDone ? 'text-green-800 dark:text-green-400 line-through' : 'text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400'}`}>
+                          <h4 className={`font-bold transition-colors break-words ${isDone ? 'text-green-800 dark:text-green-400 line-through' : isDueToday ? 'text-amber-800 dark:text-amber-400' : 'text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400'}`}>
                             {task.title}
                           </h4>
                           <span className="text-xs font-semibold px-2 py-0.5 bg-white/50 dark:bg-black/20 rounded-full text-gray-600 dark:text-gray-400">
