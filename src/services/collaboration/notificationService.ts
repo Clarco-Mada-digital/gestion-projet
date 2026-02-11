@@ -1,4 +1,4 @@
-import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, Timestamp, doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, query, where, onSnapshot, serverTimestamp, Timestamp, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { initializeApp } from 'firebase/app';
 import { firebaseConfig, isFirebaseConfigured } from '../../lib/firebaseConfig';
 import { Notification } from '../../types';
@@ -43,8 +43,7 @@ export const notificationService = {
 
     const q = query(
       collection(db, 'notifications'),
-      where('userId', '==', userId),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', userId)
     );
 
     return onSnapshot(q, (snapshot) => {
@@ -57,6 +56,10 @@ export const notificationService = {
           createdAt: data.createdAt ? (data.createdAt as Timestamp).toDate().toISOString() : new Date().toISOString()
         } as Notification);
       });
+
+      // Tri côté client pour éviter de demander une création d'index composite dans Firebase
+      notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
       callback(notifications);
     }, (error) => {
       console.error("Erreur lors de l'écoute des notifications:", error);
@@ -80,7 +83,7 @@ export const notificationService = {
   /**
    * Marque toutes les notifications comme lues
    */
-  async markAllAsRead(userId: string, currentNotifications: Notification[]): Promise<void> {
+  async markAllAsRead(currentNotifications: Notification[]): Promise<void> {
     if (!ensureInitialized()) return;
     try {
       const unread = currentNotifications.filter(n => !n.isRead);

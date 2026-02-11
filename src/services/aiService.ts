@@ -240,7 +240,7 @@ ${appDataInfo}
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
         ...(effectiveProvider === 'openrouter' && {
-          'HTTP-Referer': window.location.origin || 'http://localhost:3000',
+          'HTTP-Referer': window.location.href,
           'X-Title': 'Gestion de Projet App'
         })
       };
@@ -600,7 +600,93 @@ ${appDataInfo}
     }
   }
 
-  // ... autres méthodes existantes ...
+  static async generateTasks(
+    settings: AISettings,
+    project: { name: string; description?: string; tasks?: any[] }
+  ): Promise<any[]> {
+    try {
+      const { provider } = settings;
+      const apiKey = provider === 'openai'
+        ? settings.openaiApiKey?.trim()
+        : settings.openrouterApiKey?.trim();
+
+      const endpoint = provider === 'openai'
+        ? 'https://api.openai.com/v1/chat/completions'
+        : 'https://openrouter.ai/api/v1/chat/completions';
+
+      const model = (provider === 'openai'
+        ? settings.openaiModel
+        : settings.openrouterModel) || (provider === 'openai' ? 'gpt-3.5-turbo' : 'google/gemma-7b-it:free');
+
+      // Préparer le prompt
+      let prompt = `Génère 3 à 5 tâches pertinentes pour le projet "${project.name}".`;
+      if (project.description) {
+        prompt += `\nDescription du projet : ${project.description}`;
+      }
+
+      if (project.tasks && project.tasks.length > 0) {
+        prompt += `\nTâches déjà existantes :\n${project.tasks.slice(0, 5).map((t, i) => `${i + 1}. ${t.title}`).join('\n')}`;
+      }
+
+      prompt += '\n\nFormat de sortie JSON attendu (tableau d\'objets) :\n[{"title": "Nom de la tâche", "description": "Description détaillée", "estimatedHours": 2}]';
+
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+
+      if (apiKey && apiKey !== '') {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
+
+      if (provider === 'openrouter') {
+        headers['HTTP-Referer'] = window.location.origin || 'https://gestion-projet.app';
+        headers['X-Title'] = 'Gestion de Projet App';
+      }
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: 'system',
+              content: 'Tu es un assistant expert en gestion de projet qui génère des tâches pertinentes et structurées au format JSON.'
+            },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.7,
+          max_tokens: 1000,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || `Erreur API: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content;
+
+      if (!content) throw new Error('Aucun contenu généré');
+
+      // Extraire le JSON
+      const jsonMatch = content.match(/\[\s*\{.*\}\s*\]/s);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+
+      // Tentative de parse directe si le regex échoue mais que le contenu ressemble à du JSON
+      try {
+        return JSON.parse(content);
+      } catch (e) {
+        throw new Error('Format de réponse invalide');
+      }
+    } catch (error) {
+      console.error('Erreur lors de la génération des tâches:', error);
+      throw error;
+    }
+  }
 }
 
 export default AIService;

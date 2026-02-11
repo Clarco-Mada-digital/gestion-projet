@@ -12,11 +12,11 @@ export async function loadDocumentation(): Promise<string> {
   }
 
   try {
-    const response = await fetch('/DOCUMENTATION.md');
+    const response = await fetch('./DOCUMENTATION.md');
     if (!response.ok) {
       throw new Error('Impossible de charger la documentation');
     }
-    
+
     documentationContent = await response.text();
     isLoaded = true;
     return documentationContent;

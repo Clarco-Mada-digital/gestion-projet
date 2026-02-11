@@ -15,6 +15,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import { ActivityFeed } from './ActivityFeed';
+import { AIService } from '../../services/aiService';
 
 // Fonction pour nettoyer le markdown mal formé
 const cleanMarkdown = (text: string): string => {
@@ -718,97 +719,15 @@ export function ProjectsView() {
     setIsGeneratingTasks(true);
 
     try {
-      const projectDetails = {
-        name: editingProject.name,
-        description: editingProject.description || '',
-        tasks: editingProject.tasks || []
-      };
-
-      // Préparer le prompt pour l'IA
-      let prompt = `Génère 3 à 5 tâches pour le projet "${editingProject.name}".`;
-
-      if (editingProject.description) {
-        prompt += ` Description du projet: ${editingProject.description}\n\n`;
-      }
-
-      if (editingProject.tasks?.length > 0) {
-        prompt += `Tâches existantes (${editingProject.tasks.length}):\n`;
-        editingProject.tasks.slice(0, 3).forEach((task, index) => {
-          prompt += `${index + 1}. ${task.title}\n`;
-        });
-        if (editingProject.tasks.length > 3) {
-          prompt += `... et ${editingProject.tasks.length - 3} de plus\n`;
-        }
-        prompt += '\n';
-      }
-
-      prompt += `Génère des tâches pertinentes et bien structurées. \nFormat de sortie JSON : [{"title":"Titre de la tâche","description":"Description détaillée","estimatedHours":2}]`;
-
-      // Récupérer les paramètres IA du contexte de l'application
       const aiConfig = state.appSettings?.aiSettings || DEFAULT_AI_SETTINGS;
-      const apiKey = aiConfig.openrouterApiKey || '';
-
-      // Débogage - à supprimer après résolution
-      console.log('🔍 Debug IA Settings:', {
-        hasAppSettings: !!state.appSettings,
-        hasAISettings: !!state.appSettings?.aiSettings,
+      const generatedTasks = await AIService.generateTasks(
         aiConfig,
-        apiKey: apiKey ? '***CONFIGURED***' : 'NOT_SET',
-        provider: aiConfig.provider,
-        model: aiConfig.openrouterModel
-      });
-
-      // Mode anonyme supporté par OpenRouter pour les modèles gratuits
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        'HTTP-Referer': window.location.origin,
-        'X-Title': 'Gestion de Projet App',
-      };
-
-      // Ajouter l'authentification seulement si une clé est disponible
-      if (apiKey) {
-        headers['Authorization'] = `Bearer ${apiKey}`;
-      }
-
-      // Appeler le service IA
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify({
-          model: aiConfig.openrouterModel || 'openrouter/auto',
-          messages: [
-            {
-              role: 'system',
-              content: 'Tu es un assistant qui aide à la gestion de projet en générant des tâches pertinentes.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          temperature: aiConfig.temperature || 0.7,
-          max_tokens: aiConfig.maxTokens || 1000
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Erreur lors de la génération des tâches');
-      }
-
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content;
-
-      if (!content) {
-        throw new Error('Réponse de l\'IA invalide');
-      }
-
-      // Extraire le JSON de la réponse
-      const jsonMatch = content.match(/\[\s*\{.*\}\s*\]/s);
-      if (!jsonMatch) {
-        throw new Error('Format de réponse inattendu');
-      }
-
-      const generatedTasks = JSON.parse(jsonMatch[0]);
+        {
+          name: editingProject.name,
+          description: editingProject.description,
+          tasks: editingProject.tasks
+        }
+      );
 
       // Ajouter les nouvelles tâches au projet
       if (generatedTasks && Array.isArray(generatedTasks) && generatedTasks.length > 0) {
@@ -1183,7 +1102,10 @@ export function ProjectsView() {
       const updatedProject: Project = {
         ...editingProject,
         ...newProject,
-        aiSettings: aiSettings,
+        aiSettings: {
+          ...aiSettings,
+          enabled: true
+        } as any,
         updatedAt: new Date().toISOString(),
       };
       dispatch({ type: 'UPDATE_PROJECT', payload: updatedProject });
@@ -1200,16 +1122,19 @@ export function ProjectsView() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         tasks: [],
-        aiSettings: aiSettings
+        aiSettings: {
+          ...aiSettings,
+          enabled: true
+        } as any
       };
       dispatch({ type: 'ADD_PROJECT', payload: project });
       message.success('Projet créé avec succès');
     }
 
     setShowProjectModal(false);
-    setNewProject({ name: '', description: '', color: '#1890ff', status: 'active', estimatedDuration: 0, tasks: [] });
+    resetNewProjectForm();
     setEditingProject(null);
-    setAISettings(null);
+    setAISettings(DEFAULT_AI_SETTINGS);
   };
 
   const handleManageMembers = (project: Project) => {
@@ -1391,14 +1316,12 @@ export function ProjectsView() {
                       project={project}
                       onEdit={handleEditProject}
                       onArchive={handleArchiveProject}
-                      onDelete={(project) => {
-                        setProjectToDelete(project);
+                      onDelete={(p: Project) => {
+                        setProjectToDelete(p);
                         setShowDeleteConfirm(true);
                       }}
                       onManageMembers={handleManageMembers}
                       getProjectStats={getProjectStats}
-                      totalTasks={getProjectStats(project).totalTasks}
-                      completedTasks={getProjectStats(project).completedTasks}
                     >
                       <div className="flex justify-between mt-2">
                         <Button
@@ -1662,16 +1585,11 @@ export function ProjectsView() {
         </>
       )}
 
-      {/* Modal de création avec design moderne */}
       <Modal
         title={editingProject ? 'Modifier le projet' : 'Nouveau projet'}
-        open={showProjectModal}
-        onOk={handleSaveProject}
-        onCancel={() => setShowProjectModal(false)}
-        width={800}
-        okText={editingProject ? 'Mettre à jour' : 'Créer'}
-        cancelText="Annuler"
-        destroyOnClose
+        isOpen={showProjectModal}
+        onClose={() => setShowProjectModal(false)}
+        size="lg"
       >
         <Tabs activeKey={activeTab} onChange={(key: string) => setActiveTab(key)}>
           <CustomTabPane tab="Général" key="general">

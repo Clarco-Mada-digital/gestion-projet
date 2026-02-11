@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { User, TeamMember, DayOfWeek, getDayName, DAYS_OF_WEEK, Contact } from '../../types';
+import { v4 as uuidv4 } from 'uuid';
+import { User, TeamMember, DayOfWeek, getDayName, DAYS_OF_WEEK } from '../../types';
 import { Card } from '../UI/Card';
 import { TeamManagement } from '../Settings/TeamManagement';
 import { TeamModal } from '../Modals/TeamModal';
@@ -20,10 +21,9 @@ import {
   Contact as ContactIcon,
   ChevronRight,
   Settings as SettingsIcon,
-  LogOut,
   ShieldCheck,
-  Info,
-  Check
+  Check,
+  Info
 } from 'lucide-react';
 
 export function SettingsView() {
@@ -51,31 +51,21 @@ export function SettingsView() {
   // États pour le formulaire de profil
   const [formData, setFormData] = useState<Partial<User>>({
     settings: {
-      daysOff: ['sunday'] // Valeur par défaut
+      theme: 'light',
+      language: 'fr',
+      timezone: 'Europe/Paris',
+      notifications: true,
+      emailNotifications: true,
+      pushNotifications: true,
+      daysOff: ['sunday'] as DayOfWeek[]
     },
-    daysOff: ['sunday']
+    daysOff: ['sunday'] as DayOfWeek[]
   });
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // État local pour le chargement des données utilisateur
-  const [isUserLoaded, setIsUserLoaded] = useState(false);
-
-  // Effet pour suivre le cycle de vie du composant
-  useEffect(() => {
-    if (state.users.length > 0) {
-
-
-
-      setIsUserLoaded(true);
-    }
-
-    return () => {
-      
-    };
-  }, [state.users, state.currentView]);
 
   // Gestion de l'ouverture/fermeture de la modale d'équipe
   const handleOpenTeamModal = (member?: TeamMember) => {
@@ -115,12 +105,16 @@ export function SettingsView() {
           timezone: memberData.timezone || currentMember.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
           updatedAt: new Date().toISOString(),
           settings: {
-            ...currentMember.settings,
+            theme: currentMember.settings?.theme || 'light',
             language: memberData.language || currentMember.settings?.language || 'fr',
             timezone: memberData.timezone || currentMember.settings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+            notifications: currentMember.settings?.notifications ?? true,
             emailNotifications: memberData.emailNotifications !== undefined
               ? memberData.emailNotifications
-              : currentMember.settings?.emailNotifications !== false
+              : currentMember.settings?.emailNotifications !== false,
+            pushNotifications: memberData.pushNotifications !== undefined
+              ? memberData.pushNotifications
+              : currentMember.settings?.pushNotifications ?? true
           }
         };
 
@@ -138,7 +132,7 @@ export function SettingsView() {
       } else {
         // Ajout d'un nouveau membre
         const newUser: User = {
-          // L'ID sera généré par le reducer
+          id: uuidv4(),
           name: memberData.name || '',
           email: memberData.email || '',
           phone: memberData.phone || '',
@@ -152,13 +146,15 @@ export function SettingsView() {
           pushNotifications: memberData.pushNotifications !== false,
           language: memberData.language || 'fr',
           timezone: memberData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
-          // Les champs createdAt et updatedAt seront gérés par le reducer
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
           settings: {
             theme: 'light',
             language: memberData.language || 'fr',
             timezone: memberData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
             notifications: true,
-            emailNotifications: memberData.emailNotifications !== false
+            emailNotifications: memberData.emailNotifications !== false,
+            pushNotifications: memberData.pushNotifications !== false
           }
         };
 
@@ -195,19 +191,6 @@ export function SettingsView() {
     );
   }
 
-  // Utiliser le premier utilisateur comme utilisateur actuel
-  const currentUser = state.users[0];
-
-  // Effet pour suivre le cycle de vie du composant
-  useEffect(() => {
-    
-
-    
-
-    return () => {
-      
-    };
-  }, [state.users, state.currentView]);
 
   // Initialiser le formulaire avec les données de l'utilisateur
   useEffect(() => {
@@ -227,10 +210,15 @@ export function SettingsView() {
         emailNotifications: primaryUser.emailNotifications !== false,
         pushNotifications: primaryUser.pushNotifications !== false,
         settings: {
-          ...primaryUser.settings,
-          daysOff: Array.isArray(userDaysOff) ? userDaysOff : defaultDaysOff
+          theme: primaryUser.settings?.theme || 'light',
+          language: primaryUser.settings?.language || 'fr',
+          timezone: primaryUser.settings?.timezone || 'Europe/Paris',
+          notifications: primaryUser.settings?.notifications ?? true,
+          emailNotifications: primaryUser.settings?.emailNotifications ?? true,
+          daysOff: Array.isArray(userDaysOff) ? (userDaysOff as DayOfWeek[]) : (defaultDaysOff as DayOfWeek[])
         },
-        daysOff: Array.isArray(userDaysOff) ? userDaysOff : defaultDaysOff
+        daysOff: Array.isArray(userDaysOff) ? (userDaysOff as DayOfWeek[]) : (defaultDaysOff as DayOfWeek[]),
+        avatar: primaryUser.avatar || primaryUser.photoURL || ''
       });
     }
   }, [state.users]);
@@ -279,57 +267,6 @@ export function SettingsView() {
     }
   };
 
-  const handleRegenerateApiKey = async () => {
-    if (!window.confirm('Êtes-vous sûr de vouloir régénérer votre clé API ? Cette action est irréversible.')) {
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Simuler un appel API
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      const newApiKey = `sk_${Math.random().toString(36).substr(2, 32)}`;
-      dispatch({
-        type: 'UPDATE_USER',
-        payload: { apiKey: newApiKey }
-      });
-
-      setSuccess('Clé API régénérée avec succès');
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
-      setError('Impossible de régénérer la clé API');
-      console.error('Erreur lors de la régénération de la clé API:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      setSuccess('Copié dans le presse-papier');
-      setTimeout(() => setSuccess(null), 2000);
-    }).catch(err => {
-      console.error('Erreur lors de la copie:', err);
-      setError('Impossible de copier dans le presse-papier');
-    });
-  };
-
-  // Bouton de débogage temporaire - À supprimer une fois le problème résolu
-  const debugForceSettings = () => {
-
-    window.localStorage.setItem('debug_force_settings', 'true');
-    window.location.reload();
-  };
-
-  // Fonction pour afficher le contenu de l'onglet actif
-  // Fonction pour basculer entre les thèmes
-  const toggleTheme = () => {
-    const newTheme = state.theme === 'light' ? 'dark' : 'light';
-    dispatch({ type: 'SET_THEME', payload: newTheme });
-  };
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -519,6 +456,33 @@ export function SettingsView() {
 
             {isEditing ? (
               <form id="profile-form" onSubmit={handleSubmit} className="space-y-6">
+                <div className="flex flex-col items-center mb-6 space-y-4">
+                  <div className="relative group">
+                    <div className="w-24 h-24 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-3xl font-bold shadow-xl overflow-hidden">
+                      {formData.avatar ? (
+                        <img src={formData.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        formData.name?.charAt(0).toUpperCase() || 'U'
+                      )}
+                    </div>
+                  </div>
+                  <div className="w-full max-w-xs space-y-1">
+                    <label htmlFor="avatar" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      URL de l'avatar
+                    </label>
+                    <input
+                      type="text"
+                      id="avatar"
+                      name="avatar"
+                      value={formData.avatar || ''}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-xs"
+                      placeholder="https://example.com/photo.jpg"
+                      disabled={isLoading}
+                    />
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-1">
                     <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -649,16 +613,21 @@ export function SettingsView() {
                               checked={isSelected}
                               onChange={() => {
                                 setFormData(prev => {
-                                  const currentDays = Array.isArray(prev.daysOff) ? [...prev.daysOff] : [];
+                                  const currentDays = Array.isArray(prev.daysOff) ? [...prev.daysOff] : [] as DayOfWeek[];
                                   const newDays = isSelected
                                     ? currentDays.filter(d => d !== day)
-                                    : [...currentDays, day];
+                                    : [...currentDays, day as DayOfWeek];
 
                                   return {
                                     ...prev,
                                     daysOff: newDays,
                                     settings: {
                                       ...prev.settings,
+                                      theme: prev.settings?.theme || 'light',
+                                      language: prev.settings?.language || 'fr',
+                                      timezone: prev.settings?.timezone || 'Europe/Paris',
+                                      notifications: prev.settings?.notifications ?? true,
+                                      emailNotifications: prev.settings?.emailNotifications ?? true,
                                       daysOff: newDays
                                     }
                                   };
@@ -728,6 +697,19 @@ export function SettingsView() {
                     <p className="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
                       Détails personnels et informations de contact
                     </p>
+                  </div>
+                  <div className="px-4 py-5 sm:px-6 flex items-center space-x-4 border-t border-gray-200 dark:border-gray-700">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg overflow-hidden shrink-0">
+                      {formData.avatar ? (
+                        <img src={formData.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        formData.name?.charAt(0).toUpperCase() || 'U'
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-bold text-gray-900 dark:text-white">{formData.name}</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{formData.position || 'Utilisateur'}</p>
+                    </div>
                   </div>
                   <div className="border-t border-gray-200 dark:border-gray-700">
                     <dl>
@@ -825,8 +807,9 @@ export function SettingsView() {
                   </div>
                 </div>
               </div>
-            )}
-          </div>
+            )
+            }
+          </div >
         );
     }
   };

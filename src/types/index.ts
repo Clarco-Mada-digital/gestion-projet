@@ -157,7 +157,17 @@ export interface User {
   cannotDelete?: boolean;
   createdAt: string;
   updatedAt: string;
+  // Champs fusionnés pour plus de facilité d'accès
+  language?: string;
+  timezone?: string;
+  emailNotifications?: boolean;
+  pushNotifications?: boolean;
+  daysOff?: DayOfWeek[];
+  photoURL?: string; // Pour compatibilité Firebase
+  apiKey?: string;
 }
+
+export type TeamMember = User;
 
 export type ViewMode = 'today' | 'projects' | 'kanban' | 'calendar' | 'settings' | 'reports';
 

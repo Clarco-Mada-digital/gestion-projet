@@ -24,7 +24,7 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
   const { state } = useApp();
 
-  
+
 
   const aiSettings = state.appSettings?.aiSettings;
 
@@ -162,23 +162,23 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
   };
 
   const onDragEnd = (result: DropResult) => {
-    
-    
-    
+
+
+
     if (!result.destination) {
-      
+
       return;
     }
 
     if (!isEditing) {
-      
+
       return;
     }
 
     const sourceGroup = result.source.droppableId;
     const destGroup = result.destination.droppableId;
-    
-    
+
+
 
     // Si on déplace dans le même groupe
     if (sourceGroup === destGroup) {
@@ -187,7 +187,7 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
       const [reorderedItem] = items.splice(result.source.index, 1);
       items.splice(result.destination.index, 0, reorderedItem);
 
-      
+
 
       // Reconstruire la liste complète en préservant l'ordre des groupes
       const newSubTasks: SubTask[] = [];
@@ -199,7 +199,7 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
         }
       });
 
-      
+
       onSubTasksChange(newSubTasks);
     } else {
       // Déplacement entre groupes
@@ -212,7 +212,7 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
 
       destItems.splice(result.destination.index, 0, updatedItem);
 
-      
+
 
       // Reconstruire la liste complète en préservant l'ordre des groupes
       const newSubTasks: SubTask[] = [];
@@ -226,7 +226,7 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
         }
       });
 
-      
+
       onSubTasksChange(newSubTasks);
     }
   };
@@ -292,8 +292,8 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
             if (tasks.length === 0 && !isEditing) return null;
             if (tasks.length === 0 && groupName === '' && groupNames.length > 1) return null;
 
-            // Identifiant unique pour le droppable
-            const droppableId = groupName || '';
+            // Identifiant unique pour le droppable (ne doit pas être une chaîne vide)
+            const droppableId = groupName || 'ungrouped-tasks';
 
             return (
               <div key={groupName || 'ungrouped'} className="relative group/section">
@@ -392,7 +392,7 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
                                       title={isEditing ? "Cliquez pour modifier le titre et le groupe" : "Cliquez pour cocher/décocher"}
                                     >
                                       {task.title}
-                                    </span>                                   
+                                    </span>
                                   </div>
                                 )}
                               </div>

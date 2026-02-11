@@ -595,8 +595,12 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                     className="flex items-center rounded-full px-3 py-1.5 text-sm font-medium cursor-pointer bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800/70 transition-colors duration-200"
                     onClick={(e) => handleRemoveAssignee(e, user.id)}
                   >
-                    <div className="w-6 h-6 rounded-full bg-blue-200 dark:bg-blue-800 flex items-center justify-center text-xs font-medium text-blue-800 dark:text-blue-200 mr-2 shrink-0">
-                      {user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
+                    <div className="w-6 h-6 rounded-full bg-blue-200 dark:bg-blue-800 flex items-center justify-center text-xs font-medium text-blue-800 dark:text-blue-200 mr-2 shrink-0 overflow-hidden">
+                      {user.avatar ? (
+                        <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                      ) : (
+                        user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()
+                      )}
                     </div>
                     <span className="whitespace-nowrap">{user.name || user.email}</span>
                     <XIcon className="w-3.5 h-3.5 ml-1.5 opacity-70 hover:opacity-100" />
@@ -649,8 +653,12 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                               onClick={(e) => handleAddAssignee(e, user.id)}
                               className="px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center"
                             >
-                              <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-sm font-medium text-blue-800 dark:text-blue-200 mr-3">
-                                {user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
+                              <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-sm font-medium text-blue-800 dark:text-blue-200 mr-3 overflow-hidden">
+                                {user.avatar ? (
+                                  <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()
+                                )}
                               </div>
                               <div>
                                 <div className="font-medium">{user.name || 'Utilisateur sans nom'}</div>

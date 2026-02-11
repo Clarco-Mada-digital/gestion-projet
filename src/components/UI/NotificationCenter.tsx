@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Check, Trash2, ExternalLink } from 'lucide-react';
+import { Bell, Check, ExternalLink } from 'lucide-react';
 import { Notification } from '../../types';
 import { notificationService } from '../../services/collaboration/notificationService';
 import { useApp } from '../../context/AppContext';
@@ -37,8 +37,8 @@ export function NotificationCenter() {
   };
 
   const handleMarkAllAsRead = async () => {
-    if (state.cloudUser) {
-      await notificationService.markAllAsRead(state.cloudUser.uid, notifications);
+    if (notifications.length > 0) {
+      await notificationService.markAllAsRead(notifications);
     }
   };
 

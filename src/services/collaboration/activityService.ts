@@ -1,7 +1,7 @@
-import { getFirestore, collection, addDoc, query, where, orderBy, limit, onSnapshot, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, query, where, onSnapshot, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { initializeApp } from 'firebase/app';
 import { firebaseConfig, isFirebaseConfigured } from '../../lib/firebaseConfig';
-import { Activity, ActivityType } from '../../types';
+import { Activity } from '../../types';
 
 let db: any = null;
 
@@ -42,9 +42,7 @@ export const activityService = {
 
     const q = query(
       collection(db, 'activities'),
-      where('projectId', '==', projectId),
-      orderBy('createdAt', 'desc'),
-      limit(50)
+      where('projectId', '==', projectId)
     );
 
     return onSnapshot(q, (snapshot) => {
@@ -57,7 +55,12 @@ export const activityService = {
           createdAt: data.createdAt ? (data.createdAt as Timestamp).toDate().toISOString() : new Date().toISOString()
         } as Activity);
       });
-      callback(activities);
+
+      // Tri et limitation côté client pour éviter la création d'index composite Firebase
+      activities.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const limitedActivities = activities.slice(0, 50);
+
+      callback(limitedActivities);
     }, (error) => {
       console.error("Erreur lors de l'écoute des activités:", error);
     });

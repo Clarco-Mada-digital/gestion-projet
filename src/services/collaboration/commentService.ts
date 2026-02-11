@@ -1,4 +1,4 @@
-import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, Timestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, query, where, onSnapshot, serverTimestamp, Timestamp, doc, deleteDoc } from 'firebase/firestore';
 import { initializeApp } from 'firebase/app';
 import { firebaseConfig, isFirebaseConfigured } from '../../lib/firebaseConfig';
 import { Comment } from '../../types';
@@ -45,8 +45,7 @@ export const commentService = {
 
     const q = query(
       collection(db, 'comments'),
-      where('taskId', '==', taskId),
-      orderBy('createdAt', 'asc')
+      where('taskId', '==', taskId)
     );
 
     return onSnapshot(q, (snapshot) => {
@@ -60,6 +59,10 @@ export const commentService = {
           updatedAt: data.updatedAt ? (data.updatedAt as Timestamp).toDate().toISOString() : new Date().toISOString()
         } as Comment);
       });
+
+      // Tri côté client pour éviter de demander une création d'index composite dans Firebase
+      comments.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
       callback(comments);
     }, (error) => {
       console.error("Erreur lors de l'écoute des commentaires:", error);

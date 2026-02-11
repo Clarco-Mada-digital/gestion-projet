@@ -15,14 +15,14 @@ export function Sidebar() {
     { id: 'about' as ViewMode, label: 'À propos', icon: Info, color: 'text-pink-500', gradient: 'from-pink-500 to-rose-500' },
   ];
 
-  
+
 
   const toggleTheme = () => {
     dispatch({ type: 'SET_THEME', payload: state.theme === 'light' ? 'dark' : 'light' });
   };
 
   // Log de l'état actuel de la vue
-  
+
 
   return (
     <div className="w-72 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-700/50 flex flex-col shadow-2xl">
@@ -56,14 +56,14 @@ export function Sidebar() {
             <button
               key={item.id}
               onClick={() => {
-                
-                
+
+
                 dispatch({ type: 'SET_VIEW', payload: item.id });
-                
+
               }}
               className={`w-full group relative overflow-hidden flex items-center space-x-3 px-4 py-4 rounded-2xl transition-all duration-300 transform hover:scale-105 ${isActive
-                  ? 'bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-cyan-500/20 text-blue-600 dark:text-blue-400 shadow-xl border border-blue-200/50 dark:border-blue-700/50'
-                  : 'text-gray-600 dark:text-gray-300 hover:bg-gradient-to-r hover:from-gray-100/50 hover:to-gray-200/50 dark:hover:from-gray-800/50 dark:hover:to-gray-700/50'
+                ? 'bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-cyan-500/20 text-blue-600 dark:text-blue-400 shadow-xl border border-blue-200/50 dark:border-blue-700/50'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-gradient-to-r hover:from-gray-100/50 hover:to-gray-200/50 dark:hover:from-gray-800/50 dark:hover:to-gray-700/50'
                 }`}
             >
               {isActive && (
@@ -103,10 +103,10 @@ export function Sidebar() {
             <button
               onClick={() => {
                 if (window.confirm('Êtes-vous sûr de vouloir réinitialiser toutes les données ? Cette action est irréversible.')) {
-                  
-                  
+
+
                   localStorage.removeItem('astroProjectManagerData');
-                  
+
                   window.location.reload();
                 }
               }}
@@ -126,7 +126,7 @@ export function Sidebar() {
             {/* Bouton de débogage pour forcer la vue des paramètres */}
             <button
               onClick={() => {
-                
+
                 localStorage.setItem('debug_force_settings', 'true');
                 window.location.reload();
               }}
@@ -142,17 +142,21 @@ export function Sidebar() {
         </div>
 
         {state.cloudUser ? (
-          <div className="flex items-center space-x-3 px-4 py-3 rounded-2xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-200/30 dark:border-blue-700/30">
-            {state.cloudUser.photoURL ? (
-              <img src={state.cloudUser.photoURL} alt={state.cloudUser.displayName || 'User'} className="w-10 h-10 rounded-full object-cover shadow-lg border-2 border-white dark:border-gray-800" />
-            ) : (
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-lg">
-                {state.cloudUser.email?.charAt(0).toUpperCase() || 'U'}
-              </div>
-            )}
+          <div className="flex items-center space-x-3 px-4 py-3 rounded-2xl bg-gradient-to-r from-gray-50/50 to-blue-50/50 dark:from-gray-800/50 dark:to-blue-900/50 border border-gray-100 dark:border-gray-800">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-lg overflow-hidden shrink-0 border-2 border-white dark:border-gray-800">
+              {state.cloudUser.photoURL || (state.users && state.users[0]?.avatar) ? (
+                <img
+                  src={state.cloudUser.photoURL || state.users[0]?.avatar}
+                  alt={state.cloudUser.displayName || 'User'}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                state.cloudUser.email?.charAt(0).toUpperCase() || 'U'
+              )}
+            </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                {state.cloudUser.displayName || 'Utilisateur Connecté'}
+                {state.cloudUser.displayName || state.users[0]?.name || 'Utilisateur'}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                 {state.cloudUser.email}
@@ -160,16 +164,20 @@ export function Sidebar() {
             </div>
           </div>
         ) : state.users && state.users.length > 0 ? (
-          <div className="flex items-center space-x-3 px-4 py-3 rounded-2xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-200/30 dark:border-blue-700/30">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-lg">
-              {state.users[0].avatar || state.users[0].name?.charAt(0) || 'U'}
+          <div className="flex items-center space-x-3 px-4 py-3 rounded-2xl bg-gradient-to-r from-gray-50/50 to-blue-50/50 dark:from-gray-800/50 dark:to-blue-900/50 border border-gray-100 dark:border-gray-800">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-lg overflow-hidden shrink-0 border-2 border-white dark:border-gray-800">
+              {state.users[0].avatar ? (
+                <img src={state.users[0].avatar} alt={state.users[0].name} className="w-full h-full object-cover" />
+              ) : (
+                state.users[0].name?.charAt(0).toUpperCase() || 'U'
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                {state.users[0].name || 'Utilisateur'}
+                {state.users[0].name}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                {state.users[0].email || 'Paramètres Locaux'}
+                {state.users[0].email || 'Utilisateur local'}
               </p>
             </div>
           </div>
