@@ -12,7 +12,10 @@ export async function loadDocumentation(): Promise<string> {
   }
 
   try {
-    const response = await fetch('./DOCUMENTATION.md');
+    const baseUrl = import.meta.env.BASE_URL || '/';
+    // S'assurer que le chemin est correct (éviter le double slash)
+    const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+    const response = await fetch(`${normalizedBaseUrl}DOCUMENTATION.md`);
     if (!response.ok) {
       throw new Error('Impossible de charger la documentation');
     }

@@ -22,6 +22,8 @@ type AIResponse = {
 };
 
 export class AIService {
+  private static documentationCache: string | null = null;
+
   /**
    * Génère une réponse d'assistant IA en fonction du message de l'utilisateur
    * @param message Message de l'utilisateur
@@ -38,7 +40,22 @@ export class AIService {
   private static async prepareSystemPrompt(appState?: AppState): Promise<string> {
     let documentation = '';
     try {
-      documentation = await loadDocumentation();
+      // Utiliser un cache pour éviter de recharger la documentation à chaque message
+      if (AIService.documentationCache) {
+        documentation = AIService.documentationCache;
+      } else {
+        // Ajouter un timeout pour éviter de bloquer indéfiniment
+        const controller = new AbortController();
+        const docTimeout = setTimeout(() => controller.abort(), 5000); // 5 secondes pour charger la doc
+
+        try {
+          documentation = await loadDocumentation();
+          AIService.documentationCache = documentation;
+        } finally {
+          clearTimeout(docTimeout);
+        }
+      }
+
       documentation = documentation
         .replace(/```[\s\S]*?```/g, '')
         .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
@@ -684,6 +701,27 @@ ${appDataInfo}
       }
     } catch (error) {
       console.error('Erreur lors de la génération des tâches:', error);
+      throw error;
+    }
+  }
+  static async fetchOpenRouterModels(apiKey: string): Promise<{ id: string; name: string; context_length: number; pricing: any }[]> {
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/models', {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'HTTP-Referer': window.location.origin,
+          'X-Title': 'ProjectFlow'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de la récupération des modèles');
+      }
+
+      const data = await response.json();
+      return data.data || [];
+    } catch (error) {
+      console.error('Erreur OpenRouter models:', error);
       throw error;
     }
   }

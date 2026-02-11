@@ -1,20 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
-  Card,
   Input,
-  Button,
   Select,
   Alert,
   message,
   InputNumber,
-  theme,
   Form
 } from 'antd';
 import type { FormInstance } from 'antd/es/form';
-import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
-const { useToken } = theme;
-const { Password } = Input;
 import { AIService } from '../../services/aiService';
 import '../../styles/ai-settings.css';
 
@@ -27,16 +21,16 @@ interface ModelOption {
 
 interface FormValues {
   provider: ProviderType;
-  openaiApiKey?: string;
-  openrouterApiKey?: string;
-  openaiModel?: string;
-  openrouterModel?: string;
+  openaiApiKey: string | null;
+  openrouterApiKey: string | null;
+  openaiModel: string;
+  openrouterModel: string;
   maxTokens: number;
   temperature: number;
-  isConfigured?: boolean;
-  lastTested?: string;
-  lastTestStatus?: string;
-  lastTestMessage?: string;
+  isConfigured: boolean;
+  lastTested: string | null;
+  lastTestStatus: 'success' | 'error' | null;
+  lastTestMessage: string | null;
 }
 
 interface AISettingsProps {
@@ -68,18 +62,12 @@ const MODELS: Record<ProviderType, ModelOption[]> = {
   ]
 };
 
-interface TestResult {
-  status: 'success' | 'error' | null;
-  message: string;
-}
 
 export const AISettings: React.FC<AISettingsProps> = ({
   value: externalValue,
   onChange,
-  showTitle = true
 }) => {
   const [form] = Form.useForm<FormValues>();
-  const { token } = theme.useToken();
   const { state, dispatch } = useApp();
   const isDarkMode = state.theme === 'dark';
 
@@ -102,6 +90,9 @@ export const AISettings: React.FC<AISettingsProps> = ({
     status: 'success' | 'error' | null;
     message: string;
   }>({ status: null, message: '' });
+  const [dynamicModels, setDynamicModels] = useState<ModelOption[]>([]);
+  const [isFetchingModels, setIsFetchingModels] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Valeurs par défaut
   const initialValues: FormValues = {
@@ -109,15 +100,19 @@ export const AISettings: React.FC<AISettingsProps> = ({
     openaiApiKey: '',
     openrouterApiKey: '',
     openaiModel: 'gpt-3.5-turbo',
-    openrouterModel: 'openai/gpt-3.5-turbo',
+    openrouterModel: 'google/gemma-7b-it:free',
     maxTokens: 1000,
     temperature: 0.7,
-    ...externalValue
+    isConfigured: false,
+    lastTested: null,
+    lastTestStatus: null,
+    lastTestMessage: null,
+    ...externalValue as any
   };
 
   // Mettre à jour le formulaire quand les valeurs externes ou les paramètres IA changent
   useEffect(() => {
-    const settings = externalValue || state.appSettings.aiSettings;
+    const settings = (externalValue || state.appSettings.aiSettings) as FormValues;
     if (settings) {
       form.setFieldsValue({
         ...initialValues,
@@ -128,7 +123,36 @@ export const AISettings: React.FC<AISettingsProps> = ({
     }
   }, [externalValue, state.appSettings.aiSettings, form]);
 
-  const aiSettings = externalValue || state.appSettings.aiSettings || initialValues;
+  // Récupérer les modèles dynamiques d'OpenRouter
+  useEffect(() => {
+    const fetchModels = async () => {
+      const provider = form.getFieldValue('provider');
+      const apiKey = provider === 'openrouter' ? form.getFieldValue('openrouterApiKey') : null;
+
+      if (provider === 'openrouter' && apiKey && apiKey.startsWith('sk-or-')) {
+        setIsFetchingModels(true);
+        try {
+          const models = await AIService.fetchOpenRouterModels(apiKey);
+          const mappedModels = models.map(m => ({
+            value: m.id,
+            label: `${m.name}`,
+            context: m.context_length,
+            pricing: m.pricing
+          }));
+          setDynamicModels(mappedModels);
+        } catch (error) {
+          console.error('Erreur lors de la récupération des modèles:', error);
+        } finally {
+          setIsFetchingModels(false);
+        }
+      } else {
+        setDynamicModels([]);
+      }
+    };
+
+    fetchModels();
+  }, [form.getFieldValue('provider'), form.getFieldValue('openrouterApiKey')]);
+
 
   const handleTestConnection = async (): Promise<void> => {
     try {
@@ -141,6 +165,10 @@ export const AISettings: React.FC<AISettingsProps> = ({
         openrouterModel: values.openrouterModel,
         maxTokens: values.maxTokens,
         temperature: values.temperature,
+        isConfigured: false,
+        lastTested: null,
+        lastTestStatus: null,
+        lastTestMessage: null,
       };
 
       setIsTesting(true);
@@ -163,13 +191,13 @@ export const AISettings: React.FC<AISettingsProps> = ({
         };
 
         if (onChange) {
-          onChange(settings);
+          onChange(settings as any);
         } else {
           dispatch({
             type: 'UPDATE_APP_SETTINGS',
             payload: {
               ...state.appSettings,
-              aiSettings: settings
+              aiSettings: settings as any
             },
           });
         }
@@ -197,16 +225,16 @@ export const AISettings: React.FC<AISettingsProps> = ({
         lastTested: new Date().toISOString(),
       };
 
-      
+
 
       if (onChange) {
-        onChange(settings);
+        onChange(settings as any);
       } else {
         dispatch({
           type: 'UPDATE_APP_SETTINGS',
           payload: {
             ...state.appSettings,
-            aiSettings: settings
+            aiSettings: settings as any
           },
         });
       }
@@ -223,98 +251,121 @@ export const AISettings: React.FC<AISettingsProps> = ({
     }
   };
 
-  const renderTestResult = () => {
-    if (!testResult.status) return null;
-
-    const isSuccess = testResult.status === 'success';
-
-    return (
-      <div style={{ marginBottom: 16 }}>
-        <Alert
-          message={testResult.message}
-          type={isSuccess ? 'success' : 'error'}
-          showIcon
-          style={{
-            borderRadius: 8,
-            border: 'none',
-            backgroundColor: isSuccess ? '#f6ffed' : '#fff2f0',
-          }}
-        />
-      </div>
-    );
-  };
 
   interface ModelSelectProps {
     form: FormInstance<FormValues>;
     labelStyle: string;
+    dynamicModels: any[];
+    isFetching: boolean;
+    searchTerm: string;
+    onSearch: (val: string) => void;
   }
 
-  const ModelSelect = React.memo<ModelSelectProps>(({ form, labelStyle }) => {
+  const ModelSelect = React.memo<ModelSelectProps>(({ form, labelStyle, dynamicModels, isFetching, searchTerm, onSearch }) => {
     const provider = (Form.useWatch('provider', form) as ProviderType) || 'openai';
     const modelName = provider === 'openai' ? 'openaiModel' : 'openrouterModel';
-    const { token } = theme.useToken();
 
     // S'assurer que le provider est valide
-    const models = MODELS[provider] || MODELS.openai;
+    const staticModels = MODELS[provider] || MODELS.openai;
+    const allModels = provider === 'openrouter' && dynamicModels.length > 0 ? dynamicModels : staticModels;
 
-    // Récupérer la valeur actuelle une seule fois en dehors de la boucle
+    // Filtrer les modèles par recherche
+    const filteredModels = allModels.filter(m =>
+      m.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      m.value.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    // Récupérer la valeur actuelle
     const currentModelValue = Form.useWatch(modelName, form);
 
     return (
-      <div>
+      <div className="space-y-4">
         <Form.Item
           name={modelName}
           rules={[{ required: true, message: 'Veuillez sélectionner un modèle' }]}
-          className="hidden" // Masquer le champ de formulaire réel
+          className="hidden"
         >
           <Input type="hidden" />
         </Form.Item>
 
-        <label className={labelStyle}>Modèle IA</label>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <label className={labelStyle}>Modèle IA</label>
+          <Input
+            placeholder="Rechercher un modèle..."
+            value={searchTerm}
+            onChange={e => onSearch(e.target.value)}
+            className="max-w-xs rounded-lg dark:bg-gray-700 dark:border-gray-600"
+            allowClear
+            prefix={<svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>}
+          />
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-          {models.map((model) => {
-            const isSelected = currentModelValue === model.value;
+        {isFetching ? (
+          <div className="flex items-center justify-center p-12 bg-gray-50 dark:bg-gray-900/50 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-sm text-gray-500">Chargement des modèles depuis OpenRouter...</p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 h-[400px] overflow-y-auto pr-2 custom-scrollbar p-1">
+            {filteredModels.map((model) => {
+              const isSelected = currentModelValue === model.value;
+              const isFree = model.label.toLowerCase().includes('gratuit') || model.value.endsWith(':free');
 
-            return (
-              <div
-                key={model.value}
-                onClick={() => form.setFieldValue(modelName, model.value)}
-                className={`
-                  relative flex flex-col p-4 cursor-pointer rounded-xl border-2 transition-all duration-200
-                  ${isSelected
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 bg-white dark:bg-gray-800'
-                  }
-                `}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className={`font-semibold text-sm ${isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-white'}`}>
-                    {model.label.split(':')[0]}
+              return (
+                <div
+                  key={model.value}
+                  onClick={() => form.setFieldValue(modelName, model.value)}
+                  className={`
+                    group relative flex flex-col p-4 cursor-pointer rounded-xl border-2 transition-all duration-200
+                    ${isSelected
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
+                      : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 bg-white dark:bg-gray-800'
+                    }
+                  `}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`font-semibold text-sm truncate mr-2 ${isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-white'}`}>
+                      {model.label.split(':')[0]}
+                    </span>
+                    {isSelected ? (
+                      <div className="shrink-0 h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center">
+                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    ) : (
+                      <div className="shrink-0 h-5 w-5 rounded-full border border-gray-300 dark:border-gray-600 group-hover:border-blue-400 transition-colors"></div>
+                    )}
+                  </div>
+
+                  <span className={`text-[10px] break-all mb-1 ${isSelected ? 'text-blue-600 dark:text-blue-200' : 'text-gray-500 dark:text-gray-400'}`}>
+                    ID: {model.value}
                   </span>
-                  {isSelected && (
-                    <div className="h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center">
-                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
+
+                  {model.context && (
+                    <span className="text-[10px] text-gray-400">
+                      Contexte: {(model.context / 1024).toFixed(0)}k
+                    </span>
+                  )}
+
+                  {isFree && (
+                    <span className="absolute top-2 right-2 px-2 py-0.5 text-[10px] font-bold uppercase rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                      Gratuit
+                    </span>
                   )}
                 </div>
+              );
+            })}
 
-                <span className={`text-xs ${isSelected ? 'text-blue-600 dark:text-blue-200' : 'text-gray-500 dark:text-gray-400'}`}>
-                  {model.label.split(':')[1] || model.label}
-                </span>
-
-                {/* Badge pour Gratuit ou Auto */}
-                {(model.label.toLowerCase().includes('gratuit') || model.label.toLowerCase().includes('auto')) && (
-                  <span className="absolute top-2 right-2 px-2 py-0.5 text-[10px] font-bold uppercase rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                    {model.label.toLowerCase().includes('auto') ? 'Recommandé' : 'Gratuit'}
-                  </span>
-                )}
+            {filteredModels.length === 0 && (
+              <div className="col-span-full py-12 text-center bg-gray-50 dark:bg-gray-900/50 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+                <p className="text-gray-500">Aucun modèle ne correspond à votre recherche</p>
               </div>
-            );
-          })}
-        </div>
+            )}
+          </div>
+        )}
 
         <div className="mt-4 flex items-start space-x-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-md">
           <svg className="w-4 h-4 mt-0.5 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -322,41 +373,13 @@ export const AISettings: React.FC<AISettingsProps> = ({
           </svg>
           <div className="flex-1">
             <p className="font-medium text-gray-700 dark:text-gray-300">Note sur les modèles</p>
-            <p>Plus le modèle est puissant, plus il sera capable de comprendre des tâches complexes, mais il pourra être plus lent et coûteux.</p>
+            <p>Plus le modèle est puissant, plus il sera capable de comprendre des tâches complexes. Les modèles OpenRouter sont mis à jour dynamiquement.</p>
           </div>
         </div>
       </div>
     );
   });
 
-  // Styles pour la carte principale
-  const cardStyle: React.CSSProperties = {
-    borderRadius: '0.5rem',
-    marginBottom: '1.5rem',
-    backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
-    border: `1px solid ${isDarkMode ? '#374151' : '#e5e7eb'}`,
-    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-    color: isDarkMode ? '#f9fafb' : '#111827',
-  };
-
-  // Styles pour les boutons
-  const buttonStyle = (primary = false): React.CSSProperties => {
-    const baseStyle: React.CSSProperties = {
-      borderRadius: '0.375rem',
-      fontWeight: 500,
-      padding: '0.5rem 1rem',
-      transition: 'all 0.2s',
-    };
-
-    if (primary) {
-      return {
-        ...baseStyle,
-        backgroundColor: '#3b82f6',
-        color: '#ffffff',
-        border: '1px solid #2563eb',
-      };
-    }
-  }
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6">
@@ -446,7 +469,14 @@ export const AISettings: React.FC<AISettingsProps> = ({
                 </svg>
                 Modèle d'IA
               </h3>
-              <ModelSelect form={form} labelStyle={labelStyle} />
+              <ModelSelect
+                form={form}
+                labelStyle={labelStyle}
+                dynamicModels={dynamicModels}
+                isFetching={isFetchingModels}
+                searchTerm={searchTerm}
+                onSearch={setSearchTerm}
+              />
             </div>
 
             {/* Paramètres avancés */}
