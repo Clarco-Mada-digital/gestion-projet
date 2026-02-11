@@ -31,18 +31,16 @@ export const cloudinaryService = {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('upload_preset', cloudinaryConfig.uploadPreset);
+      formData.append('resource_type', 'auto');
 
-      // Déterminer le resource_type (image, video, raw)
-      let resourceType = 'raw';
-      if (file.type.startsWith('image/')) {
-        resourceType = 'image';
-      } else if (file.type.startsWith('video/')) {
-        resourceType = 'video';
-      }
-      formData.append('resource_type', resourceType);
+      // Utiliser des tags pour l'organisation (toujours autorisé en mode non-signé)
+      const tags = ['gestion-projet'];
+      if (metadata.taskId) tags.push('attachment');
+      if (metadata.projectId && !metadata.taskId) tags.push('cover');
+      formData.append('tags', tags.join(','));
 
       const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/${resourceType}/upload`,
+        `https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/upload`,
         {
           method: 'POST',
           body: formData,
@@ -55,10 +53,11 @@ export const cloudinaryService = {
       }
 
       const data = await response.json();
+      const actualResourceType = data.resource_type;
 
       // Optimisation automatique pour les images (format auto + qualité auto)
       let finalUrl = data.secure_url;
-      if (resourceType === 'image') {
+      if (actualResourceType === 'image') {
         finalUrl = data.secure_url.replace('/upload/', '/upload/f_auto,q_auto/');
       }
 
@@ -75,7 +74,6 @@ export const cloudinaryService = {
       };
 
       // Mettre à jour Firestore uniquement si le document existe
-      // On wrap dans un try/catch car si la tâche est locale (pas encore sync), updateDoc plantera
       try {
         if (metadata.taskId) {
           await updateDoc(doc(db, 'tasks', metadata.taskId), {
@@ -94,6 +92,26 @@ export const cloudinaryService = {
   },
 
   /**
+   * Enregistre un fichier dans la "corbeille" Firestore pour suppression manuelle ultérieure
+   */
+  async logToTrash(fileUrl: string, publicId: string, type: string, reason: string): Promise<void> {
+    try {
+      const { collection, addDoc } = await import('firebase/firestore');
+      await addDoc(collection(db, 'cloudinary_trash'), {
+        url: fileUrl,
+        publicId,
+        type,
+        deletedAt: new Date().toISOString(),
+        reason, // ex: "replaced_cover", "removed_attachment"
+        status: 'pending_manual_deletion'
+      });
+      console.log(`Fichier tracé pour suppression manuelle : ${publicId}`);
+    } catch (error) {
+      console.error("Erreur lors du log vers la corbeille:", error);
+    }
+  },
+
+  /**
    * Uploade une image de couverture pour un projet
    */
   async uploadProjectCoverImage(
@@ -106,11 +124,15 @@ export const cloudinaryService = {
         throw new Error('Le fichier doit être une image');
       }
 
-      const uploadedFile = await this.uploadFile(file, { projectId, uploadedBy });
+      const uploadedFile = await this.uploadFile(file, {
+        projectId,
+        uploadedBy
+      });
 
       // Mise à jour spécifique pour la cover
       await updateDoc(doc(db, 'projects', projectId), {
-        coverImage: uploadedFile.url
+        coverImage: uploadedFile.url,
+        coverImagePublicId: uploadedFile.publicId // On stocke le publicId pour le tracer si on change l'image
       });
 
       return uploadedFile.url;
@@ -129,7 +151,11 @@ export const cloudinaryService = {
     projectId: string,
     uploadedBy: string
   ): Promise<UploadedFile> {
-    return await this.uploadFile(file, { taskId, projectId, uploadedBy });
+    return await this.uploadFile(file, {
+      taskId,
+      projectId,
+      uploadedBy
+    });
   },
 
   /**

@@ -17,7 +17,7 @@ import remarkGfm from 'remark-gfm';
 // Fonction pour nettoyer le markdown mal formé
 const cleanMarkdown = (text: string): string => {
   if (!text) return text;
-  
+
   return text
     .replace(/\*\*\*+/g, '**')
     .replace(/\*\*(.*?)\*\*/g, '**$1**')
@@ -182,7 +182,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-white/90 dark:to-gray-900/90"></div>
         </div>
       )}
-      
+
       <div className="relative z-10">
         <div className="flex items-start justify-between mb-6">
           <div className="flex items-center space-x-3 min-w-0">
@@ -199,217 +199,217 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                 </h3>
                 {project.source === 'firebase' && (
                   <span className="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800 uppercase tracking-wider">
-                  Cloud
-                </span>
-              )}
+                    Cloud
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="relative" ref={menuRef}>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowMenu(!showMenu);
-            }}
-            className="p-2 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-700/50 transition-all duration-200"
-            aria-label="Options du projet"
-          >
-            <MoreHorizontal className="w-5 h-5 text-gray-500" />
-          </button>
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowMenu(!showMenu);
+              }}
+              className="p-2 rounded-xl hover:bg-gray-100/50 dark:hover:bg-gray-700/50 transition-all duration-200"
+              aria-label="Options du projet"
+            >
+              <MoreHorizontal className="w-5 h-5 text-gray-500" />
+            </button>
 
-          {showMenu && (
-            <div className="absolute right-0 top-10 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-xl py-2 z-[100] border border-gray-200 dark:border-gray-700 animate-in fade-in zoom-in duration-200 max-h-96 overflow-y-auto">
-              {/* Option de Sync / Partage */}
-              <button
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  setShowMenu(false);
-
-                  if (!project.source || project.source === 'local') {
-                    // Action: Synchroniser vers le cloud (Partager)
-                    try {
-                      const { Modal } = await import('antd');
-                      Modal.confirm({
-                        title: 'Partager sur le Cloud',
-                        content: 'Voulez-vous partager ce projet sur le Cloud pour collaborer ?',
-                        okText: 'Partager',
-                        cancelText: 'Annuler',
-                        onOk: async () => {
-                          const hide = message.loading('Synchronisation en cours...', 0);
-                          try {
-                            const { firebaseService } = await import('../../services/collaboration/firebaseService');
-
-                            if (!firebaseService.isReady()) {
-                              message.error("Firebase n'est pas configuré.");
-                              return;
-                            }
-
-                            const user = await firebaseService.getCurrentUser();
-                            if (!user) {
-                              message.warning("Vous devez être connecté. Allez dans Paramètres > Gestion des données.");
-                              return;
-                            }
-
-                            const projectToSync = {
-                              ...project,
-                              source: 'firebase' as const,
-                              ownerId: user.uid,
-                              members: [user.uid],
-                              isShared: true,
-                              updatedAt: new Date().toISOString()
-                            };
-
-                            await firebaseService.syncProject(projectToSync);
-                            dispatch({ type: 'UPDATE_PROJECT', payload: projectToSync });
-
-                            message.success("Projet synchronisé avec succès !");
-                          } catch (error: any) {
-                            console.error("Détails de l'erreur de synchronisation:", error);
-                            // On affiche l'erreur réelle pour aider au débug
-                            message.error(`Erreur lors de la synchronisation : ${error.message || 'Erreur inconnue'}`);
-                          } finally {
-                            hide();
-                          }
-                        }
-                      });
-                    } catch (error) {
-                      console.error("Erreur lors de l'ouverture du modal:", error);
-                    }
-                  } else {
-                    // Action: Télécharger une copie locale (si c'est un projet cloud)
-                    if (window.confirm("Créer une copie locale de ce projet ?")) {
-                      message.info("La création de copie locale arrivera bientôt !");
-                    }
-                  }
-                }}
-                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <Cpu className="w-4 h-4 mr-3" />
-                {(!project.source || project.source === 'local') ? 'Partager / Sync' : 'Copie locale'}
-              </button>
-
-              {/* Option Gérer l'équipe (visible seulement pour les projets cloud dont on est propriétaire) */}
-              {project.source === 'firebase' && (state.cloudUser?.uid === project.ownerId) && (
+            {showMenu && (
+              <div className="absolute right-0 top-10 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-xl py-2 z-[100] border border-gray-200 dark:border-gray-700 animate-in fade-in zoom-in duration-200 max-h-96 overflow-y-auto">
+                {/* Option de Sync / Partage */}
                 <button
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.stopPropagation();
                     setShowMenu(false);
-                    onManageMembers(project);
+
+                    if (!project.source || project.source === 'local') {
+                      // Action: Synchroniser vers le cloud (Partager)
+                      try {
+                        const { Modal } = await import('antd');
+                        Modal.confirm({
+                          title: 'Partager sur le Cloud',
+                          content: 'Voulez-vous partager ce projet sur le Cloud pour collaborer ?',
+                          okText: 'Partager',
+                          cancelText: 'Annuler',
+                          onOk: async () => {
+                            const hide = message.loading('Synchronisation en cours...', 0);
+                            try {
+                              const { firebaseService } = await import('../../services/collaboration/firebaseService');
+
+                              if (!firebaseService.isReady()) {
+                                message.error("Firebase n'est pas configuré.");
+                                return;
+                              }
+
+                              const user = await firebaseService.getCurrentUser();
+                              if (!user) {
+                                message.warning("Vous devez être connecté. Allez dans Paramètres > Gestion des données.");
+                                return;
+                              }
+
+                              const projectToSync = {
+                                ...project,
+                                source: 'firebase' as const,
+                                ownerId: user.uid,
+                                members: [user.uid],
+                                isShared: true,
+                                updatedAt: new Date().toISOString()
+                              };
+
+                              await firebaseService.syncProject(projectToSync);
+                              dispatch({ type: 'UPDATE_PROJECT', payload: projectToSync });
+
+                              message.success("Projet synchronisé avec succès !");
+                            } catch (error: any) {
+                              console.error("Détails de l'erreur de synchronisation:", error);
+                              // On affiche l'erreur réelle pour aider au débug
+                              message.error(`Erreur lors de la synchronisation : ${error.message || 'Erreur inconnue'}`);
+                            } finally {
+                              hide();
+                            }
+                          }
+                        });
+                      } catch (error) {
+                        console.error("Erreur lors de l'ouverture du modal:", error);
+                      }
+                    } else {
+                      // Action: Télécharger une copie locale (si c'est un projet cloud)
+                      if (window.confirm("Créer une copie locale de ce projet ?")) {
+                        message.info("La création de copie locale arrivera bientôt !");
+                      }
+                    }
                   }}
                   className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
-                  <FolderOpen className="w-4 h-4 mr-3" />
-                  Gérer l'équipe
+                  <Cpu className="w-4 h-4 mr-3" />
+                  {(!project.source || project.source === 'local') ? 'Partager / Sync' : 'Copie locale'}
                 </button>
-              )}
 
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowMenu(false);
-                  onEdit(project);
-                }}
-                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <Edit className="w-4 h-4 mr-3" />
-                Modifier
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowMenu(false);
-                  onArchive(project);
-                }}
-                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <Archive className="w-4 h-4 mr-3" />
-                {project.status === 'archived' ? 'Désarchiver' : 'Archiver'}
-              </button>
-              {/* Option Supprimer (visible seulement pour les projets locaux OU les projets cloud dont on est propriétaire) */}
-              {(project.source !== 'firebase' || state.cloudUser?.uid === project.ownerId) ? (
+                {/* Option Gérer l'équipe (visible seulement pour les projets cloud dont on est propriétaire) */}
+                {project.source === 'firebase' && (state.cloudUser?.uid === project.ownerId) && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowMenu(false);
+                      onManageMembers(project);
+                    }}
+                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <FolderOpen className="w-4 h-4 mr-3" />
+                    Gérer l'équipe
+                  </button>
+                )}
+
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowMenu(false);
-                    onDelete(project);
+                    onEdit(project);
                   }}
-                  className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
+                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
-                  <Trash2 className="w-4 h-4 mr-3" />
-                  Supprimer
+                  <Edit className="w-4 h-4 mr-3" />
+                  Modifier
                 </button>
-              ) : (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowMenu(false);
-                    onDelete(project); // Réutilise le même flux de confirmation
+                    onArchive(project);
                   }}
-                  className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
+                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
-                  <LogOut className="w-4 h-4 mr-3" />
-                  Quitter le projet
+                  <Archive className="w-4 h-4 mr-3" />
+                  {project.status === 'archived' ? 'Désarchiver' : 'Archiver'}
                 </button>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {project.description && (
-        <div className={`text-gray-600 dark:text-gray-400 mb-6 line-clamp-2 leading-relaxed markdown-body ${state.appSettings?.fontSize === 'small' ? 'text-xs' :
-          state.appSettings?.fontSize === 'large' ? 'text-base' : 'text-sm'
-          }`}>
-          <ReactMarkdown 
-            remarkPlugins={[remarkGfm]}
-            components={{
-              strong: ({children}) => <strong style={{fontWeight: 'bold', color: 'inherit'}}>{children}</strong>,
-              em: ({children}) => <em style={{fontStyle: 'italic', color: 'inherit'}}>{children}</em>,
-              code: ({className, children}) => {
-                const isInline = !className?.includes('language-');
-                return isInline 
-                  ? <code style={{backgroundColor: '#f3f4f6', padding: '0.1em 0.2em', borderRadius: '2px', fontSize: '0.8em', fontFamily: 'monospace'}}>{children}</code>
-                  : <code style={{backgroundColor: '#f3f4f6', padding: '0.5em', borderRadius: '4px', display: 'block', overflowX: 'auto', fontFamily: 'monospace', fontSize: '0.8em'}}>{children}</code>;
-              },
-              p: ({children}) => <p style={{margin: '0'}}>{children}</p>,
-              ul: ({children}) => <ul style={{margin: '0', paddingLeft: '1em'}}>{children}</ul>,
-              ol: ({children}) => <ol style={{margin: '0', paddingLeft: '1em'}}>{children}</ol>,
-              li: ({children}) => <li style={{marginBottom: '0'}}>{children}</li>,
-              h1: ({children}) => <h1 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h1>,
-              h2: ({children}) => <h2 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h2>,
-              h3: ({children}) => <h3 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h3>
-            }}
-          >
-            {cleanMarkdown(project.description)}
-          </ReactMarkdown>
-        </div>
-      )}
-
-
-
-      {/* Reste du render... */}
-      <div className="space-y-4 mb-6">
-        <div className={`flex justify-between ${state.appSettings?.fontSize === 'small' ? 'text-xs' :
-          state.appSettings?.fontSize === 'large' ? 'text-base' : 'text-sm'
-          }`}>
-          <span className="text-gray-600 dark:text-gray-400 font-medium">Progression</span>
-          <span className="font-bold text-gray-900 dark:text-white">
-            {stats.completedTasks}/{stats.totalTasks}
-          </span>
+                {/* Option Supprimer (visible seulement pour les projets locaux OU les projets cloud dont on est propriétaire) */}
+                {(project.source !== 'firebase' || state.cloudUser?.uid === project.ownerId) ? (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowMenu(false);
+                      onDelete(project);
+                    }}
+                    className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
+                  >
+                    <Trash2 className="w-4 h-4 mr-3" />
+                    Supprimer
+                  </button>
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowMenu(false);
+                      onDelete(project); // Réutilise le même flux de confirmation
+                    }}
+                    className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
+                  >
+                    <LogOut className="w-4 h-4 mr-3" />
+                    Quitter le projet
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-          <div
-            className="h-3 rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 transition-all duration-500 shadow-sm"
-            style={{
-              width: `${stats.totalTasks > 0 ? Math.round((stats.completedTasks / stats.totalTasks) * 100) : 0}%`
-            }}
-          />
-        </div>
-      </div>
+        {project.description && (
+          <div className={`text-gray-600 dark:text-gray-400 mb-6 line-clamp-2 leading-relaxed markdown-body ${state.appSettings?.fontSize === 'small' ? 'text-xs' :
+            state.appSettings?.fontSize === 'large' ? 'text-base' : 'text-sm'
+            }`}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                strong: ({ children }) => <strong style={{ fontWeight: 'bold', color: 'inherit' }}>{children}</strong>,
+                em: ({ children }) => <em style={{ fontStyle: 'italic', color: 'inherit' }}>{children}</em>,
+                code: ({ className, children }) => {
+                  const isInline = !className?.includes('language-');
+                  return isInline
+                    ? <code style={{ backgroundColor: '#f3f4f6', padding: '0.1em 0.2em', borderRadius: '2px', fontSize: '0.8em', fontFamily: 'monospace' }}>{children}</code>
+                    : <code style={{ backgroundColor: '#f3f4f6', padding: '0.5em', borderRadius: '4px', display: 'block', overflowX: 'auto', fontFamily: 'monospace', fontSize: '0.8em' }}>{children}</code>;
+                },
+                p: ({ children }) => <p style={{ margin: '0' }}>{children}</p>,
+                ul: ({ children }) => <ul style={{ margin: '0', paddingLeft: '1em' }}>{children}</ul>,
+                ol: ({ children }) => <ol style={{ margin: '0', paddingLeft: '1em' }}>{children}</ol>,
+                li: ({ children }) => <li style={{ marginBottom: '0' }}>{children}</li>,
+                h1: ({ children }) => <h1 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h1>,
+                h2: ({ children }) => <h2 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h2>,
+                h3: ({ children }) => <h3 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h3>
+              }}
+            >
+              {cleanMarkdown(project.description)}
+            </ReactMarkdown>
+          </div>
+        )}
 
-      {children}
+
+
+        {/* Reste du render... */}
+        <div className="space-y-4 mb-6">
+          <div className={`flex justify-between ${state.appSettings?.fontSize === 'small' ? 'text-xs' :
+            state.appSettings?.fontSize === 'large' ? 'text-base' : 'text-sm'
+            }`}>
+            <span className="text-gray-600 dark:text-gray-400 font-medium">Progression</span>
+            <span className="font-bold text-gray-900 dark:text-white">
+              {stats.completedTasks}/{stats.totalTasks}
+            </span>
+          </div>
+
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+            <div
+              className="h-3 rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 transition-all duration-500 shadow-sm"
+              style={{
+                width: `${stats.totalTasks > 0 ? Math.round((stats.completedTasks / stats.totalTasks) * 100) : 0}%`
+              }}
+            />
+          </div>
+        </div>
+
+        {children}
       </div>
     </Card>
   );
@@ -962,6 +962,7 @@ export function ProjectsView() {
     });
 
     setEditingProject(null);
+    setShowProjectModal(false);
   };
 
 
@@ -1061,8 +1062,9 @@ export function ProjectsView() {
       estimatedDuration: project.estimatedDuration || 0,
       tasks: project.tasks || []
     });
-    setActiveTab('general'); // Réinitialiser à l'onglet général
-    setShowProjectModal(true);
+    setActiveTab('general');
+    // On n'ouvre que le modal moderne (utilisant editingProject)
+    // setShowProjectModal(true); // Commenté pour éviter le doublon
   };
 
   const handleCreateProject = () => {
@@ -1490,24 +1492,24 @@ export function ProjectsView() {
 
                         {project.description && (
                           <div className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-2 markdown-body">
-                            <ReactMarkdown 
+                            <ReactMarkdown
                               remarkPlugins={[remarkGfm]}
                               components={{
-                                strong: ({children}) => <strong style={{fontWeight: 'bold', color: 'inherit'}}>{children}</strong>,
-                                em: ({children}) => <em style={{fontStyle: 'italic', color: 'inherit'}}>{children}</em>,
-                                code: ({className, children}) => {
+                                strong: ({ children }) => <strong style={{ fontWeight: 'bold', color: 'inherit' }}>{children}</strong>,
+                                em: ({ children }) => <em style={{ fontStyle: 'italic', color: 'inherit' }}>{children}</em>,
+                                code: ({ className, children }) => {
                                   const isInline = !className?.includes('language-');
-                                  return isInline 
-                                    ? <code style={{backgroundColor: '#f3f4f6', padding: '0.1em 0.2em', borderRadius: '2px', fontSize: '0.8em', fontFamily: 'monospace'}}>{children}</code>
-                                    : <code style={{backgroundColor: '#f3f4f6', padding: '0.5em', borderRadius: '4px', display: 'block', overflowX: 'auto', fontFamily: 'monospace', fontSize: '0.8em'}}>{children}</code>;
+                                  return isInline
+                                    ? <code style={{ backgroundColor: '#f3f4f6', padding: '0.1em 0.2em', borderRadius: '2px', fontSize: '0.8em', fontFamily: 'monospace' }}>{children}</code>
+                                    : <code style={{ backgroundColor: '#f3f4f6', padding: '0.5em', borderRadius: '4px', display: 'block', overflowX: 'auto', fontFamily: 'monospace', fontSize: '0.8em' }}>{children}</code>;
                                 },
-                                p: ({children}) => <p style={{margin: '0'}}>{children}</p>,
-                                ul: ({children}) => <ul style={{margin: '0', paddingLeft: '1em'}}>{children}</ul>,
-                                ol: ({children}) => <ol style={{margin: '0', paddingLeft: '1em'}}>{children}</ol>,
-                                li: ({children}) => <li style={{marginBottom: '0'}}>{children}</li>,
-                                h1: ({children}) => <h1 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h1>,
-                                h2: ({children}) => <h2 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h2>,
-                                h3: ({children}) => <h3 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h3>
+                                p: ({ children }) => <p style={{ margin: '0' }}>{children}</p>,
+                                ul: ({ children }) => <ul style={{ margin: '0', paddingLeft: '1em' }}>{children}</ul>,
+                                ol: ({ children }) => <ol style={{ margin: '0', paddingLeft: '1em' }}>{children}</ol>,
+                                li: ({ children }) => <li style={{ marginBottom: '0' }}>{children}</li>,
+                                h1: ({ children }) => <h1 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h1>,
+                                h2: ({ children }) => <h2 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h2>,
+                                h3: ({ children }) => <h3 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h3>
                               }}
                             >
                               {cleanMarkdown(project.description)}
@@ -1695,8 +1697,21 @@ export function ProjectsView() {
           <div className="mb-4">
             <CoverImageUpload
               currentImage={editingProject?.coverImage}
-              onImageUploaded={(imageUrl) => editingProject && setEditingProject({ ...editingProject, coverImage: imageUrl })}
-              onImageRemoved={() => editingProject && setEditingProject({ ...editingProject, coverImage: undefined })}
+              currentImagePublicId={editingProject?.coverImagePublicId}
+              onImageUploaded={(imageUrl, publicId) => editingProject && setEditingProject({
+                ...editingProject,
+                coverImage: imageUrl,
+                coverImagePublicId: publicId
+              })}
+              onImageRemoved={() => {
+                if (editingProject) {
+                  setEditingProject({
+                    ...editingProject,
+                    coverImage: null,
+                    coverImagePublicId: null
+                  });
+                }
+              }}
               projectId={editingProject?.id}
               projectSource={editingProject?.source || 'local'}
             />
@@ -1820,8 +1835,8 @@ export function ProjectsView() {
             {editingProject?.tasks?.length ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {editingProject.tasks.map((task) => (
-                  <div 
-                    key={task.id} 
+                  <div
+                    key={task.id}
                     className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 cursor-pointer transition-all hover:shadow-md"
                     onClick={() => openTaskModal(task)}
                   >
@@ -1834,29 +1849,27 @@ export function ProjectsView() {
                           </h4>
                           <div className="flex items-center gap-2 mt-1">
                             {/* Statut */}
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                              task.status === 'done' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' :
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${task.status === 'done' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' :
                               task.status === 'in-progress' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200' :
-                              task.status === 'blocked' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' :
-                              'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                            }`}>
+                                task.status === 'blocked' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' :
+                                  'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                              }`}>
                               {task.status === 'done' ? 'Terminé' :
-                               task.status === 'in-progress' ? 'En cours' :
-                               task.status === 'blocked' ? 'Bloqué' : 'À faire'}
+                                task.status === 'in-progress' ? 'En cours' :
+                                  task.status === 'blocked' ? 'Bloqué' : 'À faire'}
                             </span>
-                            
+
                             {/* Priorité */}
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                              task.priority === 'high' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200' :
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${task.priority === 'high' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200' :
                               task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' :
-                              'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200'
-                            }`}>
+                                'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200'
+                              }`}>
                               {task.priority === 'high' ? 'Haute' :
-                               task.priority === 'medium' ? 'Moyenne' : 'Faible'}
+                                task.priority === 'medium' ? 'Moyenne' : 'Faible'}
                             </span>
                           </div>
                         </div>
-                        
+
                         {/* Actions */}
                         <div className="flex items-center gap-1 ml-2">
                           <button
@@ -1886,24 +1899,24 @@ export function ProjectsView() {
                       {task.description && (
                         <div className="mb-3">
                           <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 leading-relaxed markdown-body">
-                            <ReactMarkdown 
+                            <ReactMarkdown
                               remarkPlugins={[remarkGfm]}
                               components={{
-                                strong: ({children}) => <strong style={{fontWeight: 'bold', color: 'inherit'}}>{children}</strong>,
-                                em: ({children}) => <em style={{fontStyle: 'italic', color: 'inherit'}}>{children}</em>,
-                                code: ({className, children}) => {
+                                strong: ({ children }) => <strong style={{ fontWeight: 'bold', color: 'inherit' }}>{children}</strong>,
+                                em: ({ children }) => <em style={{ fontStyle: 'italic', color: 'inherit' }}>{children}</em>,
+                                code: ({ className, children }) => {
                                   const isInline = !className?.includes('language-');
-                                  return isInline 
-                                    ? <code style={{backgroundColor: '#f3f4f6', padding: '0.1em 0.2em', borderRadius: '2px', fontSize: '0.8em', fontFamily: 'monospace'}}>{children}</code>
-                                    : <code style={{backgroundColor: '#f3f4f6', padding: '0.5em', borderRadius: '4px', display: 'block', overflowX: 'auto', fontFamily: 'monospace', fontSize: '0.8em'}}>{children}</code>;
+                                  return isInline
+                                    ? <code style={{ backgroundColor: '#f3f4f6', padding: '0.1em 0.2em', borderRadius: '2px', fontSize: '0.8em', fontFamily: 'monospace' }}>{children}</code>
+                                    : <code style={{ backgroundColor: '#f3f4f6', padding: '0.5em', borderRadius: '4px', display: 'block', overflowX: 'auto', fontFamily: 'monospace', fontSize: '0.8em' }}>{children}</code>;
                                 },
-                                p: ({children}) => <p style={{margin: '0'}}>{children}</p>,
-                                ul: ({children}) => <ul style={{margin: '0', paddingLeft: '1em'}}>{children}</ul>,
-                                ol: ({children}) => <ol style={{margin: '0', paddingLeft: '1em'}}>{children}</ol>,
-                                li: ({children}) => <li style={{marginBottom: '0'}}>{children}</li>,
-                                h1: ({children}) => <h1 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h1>,
-                                h2: ({children}) => <h2 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h2>,
-                                h3: ({children}) => <h3 style={{fontSize: '1em', fontWeight: 'bold', margin: '0'}}>{children}</h3>
+                                p: ({ children }) => <p style={{ margin: '0' }}>{children}</p>,
+                                ul: ({ children }) => <ul style={{ margin: '0', paddingLeft: '1em' }}>{children}</ul>,
+                                ol: ({ children }) => <ol style={{ margin: '0', paddingLeft: '1em' }}>{children}</ol>,
+                                li: ({ children }) => <li style={{ marginBottom: '0' }}>{children}</li>,
+                                h1: ({ children }) => <h1 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h1>,
+                                h2: ({ children }) => <h2 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h2>,
+                                h3: ({ children }) => <h3 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h3>
                               }}
                             >
                               {cleanMarkdown(task.description)}
@@ -1950,7 +1963,7 @@ export function ProjectsView() {
                               </span>
                             )}
                           </div>
-                          
+
                           {/* Sous-tâches */}
                           {task.subTasks && task.subTasks.length > 0 && (
                             <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">

@@ -5,7 +5,8 @@ import { localImageService } from '../../services/localImageService';
 
 interface CoverImageUploadProps {
   currentImage?: string;
-  onImageUploaded: (imageUrl: string) => void;
+  currentImagePublicId?: string;
+  onImageUploaded: (imageUrl: string, publicId?: string) => void;
   onImageRemoved: () => void;
   projectId?: string;
   projectSource?: 'local' | 'firebase';
@@ -14,6 +15,7 @@ interface CoverImageUploadProps {
 
 export function CoverImageUpload({
   currentImage,
+  currentImagePublicId,
   onImageUploaded,
   onImageRemoved,
   projectId,
@@ -38,8 +40,12 @@ export function CoverImageUpload({
     try {
       const isCloudProject = projectSource === 'firebase' || projectSource === 'cloud';
       if (isCloudProject) {
-        // Pour les projets Firebase/Cloudinary, utiliser le service Cloudinary
-        const maxSize = 10 * 1024 * 1024; // Augmenté à 10MB pour Cloudinary
+        // Log l'ancienne image vers la corbeille si elle existe avant d'uploader la nouvelle
+        if (currentImage && currentImagePublicId && !currentImage.startsWith('data:')) {
+          cloudinaryService.logToTrash(currentImage, currentImagePublicId, 'image', "replaced_project_cover");
+        }
+
+        const maxSize = 10 * 1024 * 1024; // 10MB
         if (file.size > maxSize) {
           throw new Error('L\'image est trop volumineuse. Taille maximale: 10MB');
         }
@@ -48,11 +54,11 @@ export function CoverImageUpload({
           file,
           {
             projectId,
-            uploadedBy: 'current-user' // À remplacer avec l'ID utilisateur réel
+            uploadedBy: 'current-user'
           }
         );
 
-        onImageUploaded(uploadedFile.url);
+        onImageUploaded(uploadedFile.url, uploadedFile.publicId);
       } else {
         // Pour les projets locaux, utiliser le service base64
         const validation = localImageService.validateImageFile(file);
@@ -77,7 +83,7 @@ export function CoverImageUpload({
       setIsUploading(false);
       setUploadProgress(0);
     }
-  }, [onImageUploaded, projectId, projectSource]);
+  }, [onImageUploaded, projectId, projectSource, currentImage, currentImagePublicId]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -110,8 +116,12 @@ export function CoverImageUpload({
   }, []);
 
   const handleRemoveImage = useCallback(() => {
+    const isCloudProject = projectSource === 'firebase' || projectSource === 'cloud';
+    if (isCloudProject && currentImage && currentImagePublicId && !currentImage.startsWith('data:')) {
+      cloudinaryService.logToTrash(currentImage, currentImagePublicId, 'image', "removed_project_cover");
+    }
     onImageRemoved();
-  }, [onImageRemoved]);
+  }, [onImageRemoved, currentImage, currentImagePublicId, projectSource]);
 
   // Déterminer les limites selon le type de projet
   const maxSize = projectSource === 'firebase' ? 5 * 1024 * 1024 : 2 * 1024 * 1024;

@@ -85,7 +85,8 @@ export interface Project {
   tasks: Task[];
   aiSettings?: ProjectAISettings;
   estimatedDuration?: number; // Ajouté pour compatibilité avec ProjectsView
-  coverImage?: string; // URL de l'image de couverture
+  coverImage?: string | null; // URL de l'image de couverture
+  coverImagePublicId?: string | null; // ID Public Cloudinary pour suivi/suppression
 
   // Champs pour la synchronisation Cloud (Firebase)
   source?: 'local' | 'firebase';

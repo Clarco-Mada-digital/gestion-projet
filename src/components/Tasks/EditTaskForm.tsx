@@ -383,8 +383,7 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                     attachment = {
                       id: uploadedFile.publicId || (file.name + '-' + Date.now()),
                       name: uploadedFile.name,
-                      type: uploadedFile.type.includes('image') ? 'image' :
-                        uploadedFile.type.includes('pdf') || uploadedFile.name.includes('.doc') ? 'document' : 'other',
+                      type: cloudinaryService.categorizeFile(uploadedFile.type, uploadedFile.name),
                       url: uploadedFile.url,
                       size: uploadedFile.size,
                       uploadedAt: uploadedFile.uploadedAt,
@@ -413,6 +412,19 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
               }
             }}
             onRemoveAttachment={(attachmentId) => {
+              const attachment = editedTask.attachments?.find(a => a.id === attachmentId);
+              const isCloudProject = project.source === 'firebase' || project.source === 'cloud';
+
+              if (isCloudProject && attachment && !attachment.url.startsWith('data:')) {
+                // Log vers la corbeille Firestore pour suivi
+                cloudinaryService.logToTrash(
+                  attachment.url,
+                  attachment.id, // Le publicId est stocké dans id
+                  attachment.type,
+                  "removed_from_task"
+                );
+              }
+
               setEditedTask(prev => ({
                 ...prev,
                 attachments: prev.attachments?.filter(a => a.id !== attachmentId) || []

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Plus, X as XIcon, Eye } from 'lucide-react';
+import { Plus, X as XIcon, Eye, Image as ImageIcon, FileText, Music, Video, File, FileSpreadsheet, Presentation } from 'lucide-react';
 import { Attachment } from '../../types';
 
 interface CompactAttachmentsProps {
@@ -30,7 +30,7 @@ export function CompactAttachments({
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-    
+
     if (e.dataTransfer.files) {
       onAddFiles(e.dataTransfer.files);
     }
@@ -50,17 +50,25 @@ export function CompactAttachments({
 
   const getFileIcon = (type: string) => {
     switch (type) {
-      case 'image': return '🖼️';
-      case 'document': return '📄';
-      default: return '📎';
+      case 'image': return <ImageIcon className="w-3 h-3" />;
+      case 'document': return <FileText className="w-3 h-3" />;
+      case 'spreadsheet': return <FileSpreadsheet className="w-3 h-3" />;
+      case 'presentation': return <Presentation className="w-3 h-3" />;
+      case 'audio': return <Music className="w-3 h-3" />;
+      case 'video': return <Video className="w-3 h-3" />;
+      default: return <File className="w-3 h-3" />;
     }
   };
 
   const getFileColor = (type: string) => {
     switch (type) {
-      case 'image': return 'text-green-600 dark:text-green-400';
-      case 'document': return 'text-blue-600 dark:text-blue-400';
-      default: return 'text-gray-600 dark:text-gray-400';
+      case 'image': return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20';
+      case 'document': return 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20';
+      case 'spreadsheet': return 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20';
+      case 'presentation': return 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20';
+      case 'audio': return 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20';
+      case 'video': return 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20';
+      default: return 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20';
     }
   };
 
@@ -113,21 +121,21 @@ export function CompactAttachments({
               {attachments.map((attachment) => (
                 <div
                   key={attachment.id}
-                  className="group inline-flex items-center gap-1.5 px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full text-xs border border-gray-300 dark:border-gray-600 transition-colors cursor-pointer"
+                  className={`group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] border border-transparent transition-all cursor-pointer ${getFileColor(attachment.type)}`}
                   title={`${attachment.name} • ${(attachment.size / 1024).toFixed(1)} KB`}
                 >
-                  <span className={getFileColor(attachment.type)}>
+                  <span className="flex-shrink-0">
                     {getFileIcon(attachment.type)}
                   </span>
-                  <span className="max-w-24 truncate text-gray-700 dark:text-gray-300">
-                    {attachment.name.length > 15 ? attachment.name.substring(0, 12) + '...' : attachment.name}
+                  <span className="max-w-32 truncate font-medium">
+                    {attachment.name}
                   </span>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       onRemoveAttachment(attachment.id);
                     }}
-                    className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 transition-all duration-200"
+                    className="ml-0.5 opacity-60 hover:opacity-100 hover:text-red-500 transition-all duration-200"
                   >
                     <XIcon className="w-3 h-3" />
                   </button>
@@ -147,16 +155,16 @@ export function CompactAttachments({
                   href={attachment.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group inline-flex items-center gap-1.5 px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full text-xs border border-gray-300 dark:border-gray-600 transition-colors cursor-pointer"
+                  className={`group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] border border-transparent transition-all cursor-pointer hover:scale-105 active:scale-95 ${getFileColor(attachment.type)}`}
                   title={`${attachment.name} • ${(attachment.size / 1024).toFixed(1)} KB • Cliquez pour ouvrir`}
                 >
-                  <span className={getFileColor(attachment.type)}>
+                  <span className="flex-shrink-0">
                     {getFileIcon(attachment.type)}
                   </span>
-                  <span className="max-w-24 truncate text-gray-700 dark:text-gray-300">
-                    {attachment.name.length > 15 ? attachment.name.substring(0, 12) + '...' : attachment.name}
+                  <span className="max-w-32 truncate font-medium">
+                    {attachment.name}
                   </span>
-                  <Eye className="w-3 h-3 text-blue-500 opacity-0 group-hover:opacity-100 transition-all duration-200" />
+                  <Eye className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-all duration-200" />
                 </a>
               ))}
             </div>
