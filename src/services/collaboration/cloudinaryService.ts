@@ -105,7 +105,7 @@ export const cloudinaryService = {
         reason, // ex: "replaced_cover", "removed_attachment"
         status: 'pending_manual_deletion'
       });
-      
+
     } catch (error) {
       console.error("Erreur lors du log vers la corbeille:", error);
     }
@@ -171,23 +171,17 @@ export const cloudinaryService = {
   /**
    * Détermine la catégorie du fichier (copié de firebaseStorageService pour compatibilité)
    */
-  categorizeFile(type: string, name: string): string {
+  categorizeFile(type: string, name: string): 'image' | 'document' | 'other' {
     if (type.startsWith('image/')) return 'image';
-    if (type.startsWith('audio/')) return 'audio';
-    if (type.startsWith('video/')) return 'video';
     if (type.includes('pdf')) return 'document';
     if (type.includes('document')) return 'document';
-    if (type.includes('spreadsheet')) return 'spreadsheet';
-    if (type.includes('presentation')) return 'presentation';
+    if (type.includes('spreadsheet')) return 'document';
+    if (type.includes('presentation')) return 'document';
 
     const isImageFile = (n: string) => /\.(jpg|jpeg|png|gif|bmp|webp|svg|ico)$/i.test(n);
-    const isAudioFile = (n: string) => /\.(mp3|wav|ogg|flac|aac|m4a|wma)$/i.test(n);
-    const isVideoFile = (n: string) => /\.(mp4|avi|mov|wmv|flv|webm|mkv|3gp)$/i.test(n);
     const isDocumentFile = (n: string) => /\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|rtf|odt|ods|odp)$/i.test(n);
 
     if (isImageFile(name)) return 'image';
-    if (isAudioFile(name)) return 'audio';
-    if (isVideoFile(name)) return 'video';
     if (isDocumentFile(name)) return 'document';
 
     return 'other';

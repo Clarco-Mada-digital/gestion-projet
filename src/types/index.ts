@@ -72,6 +72,10 @@ export interface ProjectAISettings {
   openrouterModel: string;
   maxTokens: number;
   temperature: number;
+  isConfigured?: boolean;
+  lastTested?: string | null;
+  lastTestStatus?: 'success' | 'error' | null;
+  lastTestMessage?: string | null;
 }
 
 export interface Project {
@@ -79,7 +83,7 @@ export interface Project {
   name: string;
   description: string;
   color: string;
-  status: 'active' | 'completed' | 'archived';
+  status: 'active' | 'completed' | 'archived' | 'on-hold';
   createdAt: string;
   updatedAt: string;
   tasks: Task[];
@@ -282,4 +286,52 @@ export interface ReportEntry {
     emailSubject?: string;
     messageId?: string;
   };
+}
+
+export interface Comment {
+  id: string;
+  taskId: string;
+  projectId: string;
+  authorId: string;
+  authorName: string;
+  authorAvatar?: string;
+  content: string;
+  mentions: string[]; // Liste des IDs des utilisateurs mentionnés
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ActivityType =
+  | 'project_created'
+  | 'project_updated'
+  | 'project_archived'
+  | 'task_created'
+  | 'task_updated'
+  | 'task_completed'
+  | 'task_deleted'
+  | 'comment_added'
+  | 'member_added';
+
+export interface Activity {
+  id: string;
+  projectId: string;
+  type: ActivityType;
+  actorId: string;
+  actorName: string;
+  actorAvatar?: string;
+  targetId?: string; // ID de la tâche, du commentaire, etc.
+  targetName?: string; // Nom de la tâche, du projet, etc.
+  details?: string;
+  createdAt: string;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: 'mention' | 'task_assigned' | 'deadline_approaching' | 'project_update';
+  link?: string;
+  isRead: boolean;
+  createdAt: string;
 }

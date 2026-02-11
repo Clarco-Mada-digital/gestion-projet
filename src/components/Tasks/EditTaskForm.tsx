@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Calendar as CalendarIcon, Clock, Plus, X as XIcon, Edit2, Eye } from 'lucide-react';
-import { Task, Project, SubTask, Attachment } from '../../types';
+import { Task, Project, SubTask, Attachment, User } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { SubTasksList } from './SubTasksList';
 import ReactMarkdown from 'react-markdown';
@@ -9,6 +9,7 @@ import MDEditorClient from '../UI/MDEditorClient';
 import { CompactAttachments } from '../UI/CompactAttachments';
 import { cloudinaryService } from '../../services/collaboration/cloudinaryService';
 import { localAttachmentService } from '../../services/localAttachmentService';
+import { TaskComments } from './TaskComments';
 
 // Fonction pour nettoyer le markdown mal formé
 const cleanMarkdown = (text: string): string => {
@@ -220,7 +221,7 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
   useEffect(() => {
     const loadProjectMembers = async () => {
       // Si c'est un projet Firebase avec des membres définis
-      if ((project.source === 'firebase' || project.source === 'cloud') && project.members && project.members.length > 0) {
+      if (project.source === 'firebase' && project.members && project.members.length > 0) {
         try {
           const { firebaseService } = await import('../../services/collaboration/firebaseService');
           const membersData: User[] = [];
@@ -278,7 +279,7 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex justify-between items-center z-10">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Modifier la tâche
+            {project.name}
           </h2>
           <div className="flex items-center space-x-2">
             <button
@@ -324,7 +325,7 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
               <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
                 <MDEditorClient
                   value={editedTask.description || ''}
-                  onChange={(value) => setEditedTask({ ...editedTask, description: value || '' })}
+                  onChange={(value: string | undefined) => setEditedTask({ ...editedTask, description: value || '' })}
                   height={200}
                   preview="edit"
                   className="w-full"
@@ -366,7 +367,7 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
             isEditing={isEditing}
             onAddFiles={async (files) => {
               const filesArray = Array.from(files);
-              const isCloudProject = project.source === 'firebase' || project.source === 'cloud';
+              const isCloudProject = project.source === 'firebase';
 
               for (const file of filesArray) {
                 try {
@@ -413,7 +414,7 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
             }}
             onRemoveAttachment={(attachmentId) => {
               const attachment = editedTask.attachments?.find(a => a.id === attachmentId);
-              const isCloudProject = project.source === 'firebase' || project.source === 'cloud';
+              const isCloudProject = project.source === 'firebase';
 
               if (isCloudProject && attachment && !attachment.url.startsWith('data:')) {
                 // Log vers la corbeille Firestore pour suivi
@@ -736,6 +737,12 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
               ))}
             </div>
           </div>
+
+          <TaskComments
+            taskId={editedTask.id}
+            projectId={editedTask.projectId}
+            project={project}
+          />
 
           {/* Pied de page fixe */}
           <div className="sticky bottom-0 left-0 right-0 border rounded-lg border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-800 p-4 shadow-lg">

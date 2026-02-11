@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Archive, AlertTriangle, Calendar, Cpu, ChevronDown, Loader2, LogOut, Clock } from 'lucide-react';
+import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Archive, AlertTriangle, Calendar, Cpu, ChevronDown, Loader2, LogOut, Clock, Eye, Edit2, CheckCircle2, Circle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { firebaseService } from '../../services/collaboration/firebaseService';
 import { Card } from '../UI/Card';
@@ -13,6 +13,8 @@ import { EditTaskForm } from '../Tasks/EditTaskForm';
 import { Tabs, Form, Input, Select, Row, Col, InputNumber, message } from 'antd';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+
+import { ActivityFeed } from './ActivityFeed';
 
 // Fonction pour nettoyer le markdown mal formé
 const cleanMarkdown = (text: string): string => {
@@ -29,12 +31,12 @@ const { TextArea } = Input;
 
 interface CustomSelectOptionProps {
   children: React.ReactNode;
-  value: string | number;
+  value: string;
   disabled?: boolean;
   className?: string;
 }
 
-const CustomSelectOption: React.FC<CustomSelectOptionProps> = ({
+const CustomSelectOption: React.FC<CustomSelectOptionProps & { children?: React.ReactNode }> = ({
   children,
   value,
   disabled = false,
@@ -56,7 +58,7 @@ interface CustomTabPaneProps {
   className?: string;
 }
 
-const CustomTabPane: React.FC<CustomTabPaneProps> = ({
+const CustomTabPane: React.FC<CustomTabPaneProps & { children?: React.ReactNode }> = ({
   children,
   tab,
   key,
@@ -77,7 +79,7 @@ interface CustomFormProps {
   className?: string;
 }
 
-const CustomForm: React.FC<CustomFormProps> = ({
+const CustomForm: React.FC<CustomFormProps & { children?: React.ReactNode }> = ({
   children,
   layout = 'vertical',
   className = '',
@@ -386,58 +388,9 @@ const MembersModal = ({ isOpen, onClose, project }: { isOpen: boolean; onClose: 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const { state, dispatch } = useApp();
-  const [memberDetails, setMemberDetails] = useState<Record<string, { displayName: string, email: string, photoURL: string }>>({});
-
-  // Charger les détails des membres quand le projet change ou s'ouvre
-  useEffect(() => {
-    const fetchMemberDetails = async () => {
-      if (!project || !project.members) return;
-
-      const details: Record<string, any> = {};
-      const { firebaseService } = await import('../../services/collaboration/firebaseService');
-
-      // On cherche d'abord dans les contacts locaux pour éviter des requêtes inutiles
-      const contacts = state.appSettings?.contacts || [];
-
-      // Pour chaque membre, on essaie de récupérer ses infos
-      // Note: Idéalement, on aurait une méthode getUserProfile(uid) dans firebaseService
-      // Pour l'instant, on va simuler ou on devrait l'ajouter.
-      // On va supposer qu'on peut récupérer les infos via une requête.
-      // Pour simplifier ici sans modifier firebaseService tout de suite en profondeur,
-      // on va scanner la collection 'users' par ID si on a accès.
-
-      // Mais attendons, nous avons besoin de `getUserProfile`.
-      // Je vais utiliser une fonction ad-hoc importée dynamiquement si elle existait, 
-      // ou on va l'ajouter à firebaseService dans l'étape suivante.
-      // Pour l'instant, affichons les IDs ou cherchons dans contacts si l'email correspond (impossible sans avoir l'email du membre).
-
-      // Solution: On va charger les profils via une nouvelle méthode qu'on ajoutera.
-      // En attendant, on met un placeholder.
-    };
-
-    // fetchMemberDetails();
-  }, [project, isOpen]);
-
   // Chargement des profils (Vraie implémentation)
   useEffect(() => {
-    const loadDetails = async () => {
-      if (!project?.members) return;
-      const { firebaseService } = await import('../../services/collaboration/firebaseService');
-      const details: any = {};
-
-      for (const uid of project.members) {
-        try {
-          // On utilise une méthode qu'on va ajouter juste après: getUserProfile
-          // Si elle n'existe pas encore, le build va échouer, donc je dois m'assurer d'ajouter getUserProfile dans firebaseService D'ABORD.
-          // Mais je ne peux pas éditer 2 fichiers en même temps avec replace_file_content.
-          // Je vais utiliser 'any' pour bypasser le check TS temporairement ou appeler getDoc directement ici ?
-          // Non, restons propres. Je vais utiliser firebaseService.getUserProfile(uid)
-          // et je ferai l'edit de firebaseService JUSTE AVANT ou APRES.
-          // Le mieux est de faire l'edit de firebaseService d'abord.
-          // STOP. Je vais annuler cet edit et faire firebaseService d'abord.
-        } catch (e) { console.error(e); }
-      }
-    };
+    // Profils logic to be implemented if needed
   }, [project]);
 
   if (!project) return null;
@@ -606,6 +559,7 @@ export function ProjectsView() {
   const { state, dispatch } = useApp();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [managingMembersProject, setManagingMembersProject] = useState<Project | null>(null);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setNewProject(prev => ({
@@ -625,9 +579,9 @@ export function ProjectsView() {
         // Vérifier si les tâches ont été modifiées en comparant les updatedAt ou les IDs
         const storeTasks = updatedProject.tasks || [];
         const localTasks = editingProject.tasks || [];
-        
+
         // Si le nombre de tâches est différent ou si une tâche a été mise à jour
-        const hasTaskChanges = storeTasks.length !== localTasks.length || 
+        const hasTaskChanges = storeTasks.length !== localTasks.length ||
           storeTasks.some(storeTask => {
             const localTask = localTasks.find(t => t.id === storeTask.id);
             return !localTask || localTask.updatedAt !== storeTask.updatedAt;
@@ -668,7 +622,10 @@ export function ProjectsView() {
     openrouterModel: 'openai/gpt-3.5-turbo',
     maxTokens: 1000,
     temperature: 0.7,
-    isConfigured: false
+    isConfigured: false,
+    lastTested: null,
+    lastTestStatus: null,
+    lastTestMessage: null
   });
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -678,12 +635,13 @@ export function ProjectsView() {
   const [showCompletedProjects, setShowCompletedProjects] = useState(false);
   const [showArchivedProjects, setShowArchivedProjects] = useState(false);
   const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
+  const [isEditingProjectModal, setIsEditingProjectModal] = useState(false);
 
   // États pour suivre les modifications non enregistrées
   const [hasUnsavedProjectChanges, setHasUnsavedProjectChanges] = useState(false);
   const [hasUnsavedTaskChanges, setHasUnsavedTaskChanges] = useState(false);
   const [showUnsavedChangesWarning, setShowUnsavedChangesWarning] = useState(false);
-  const [pendingCloseAction, setPendingCloseAction] = useState<() => void>(() => {});
+  const [pendingCloseAction, setPendingCloseAction] = useState<() => void>(() => { });
 
   const [newProject, setNewProject] = useState<Omit<Project, 'id' | 'createdAt' | 'updatedAt'>>({
     name: '',
@@ -728,7 +686,7 @@ export function ProjectsView() {
           originalProject.color !== editingProject.color ||
           originalProject.status !== editingProject.status ||
           originalProject.estimatedDuration !== editingProject.estimatedDuration;
-        
+
         setHasUnsavedProjectChanges(projectChanged);
       }
     }
@@ -974,6 +932,43 @@ export function ProjectsView() {
     }
   };
 
+  const toggleTaskStatus = (taskId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!editingProject) return;
+
+    const task = editingProject.tasks?.find(t => t.id === taskId);
+    if (!task) return;
+
+    const newStatus = task.status === 'done' ? 'todo' : 'done';
+    const updatedTask = {
+      ...task,
+      status: newStatus as 'todo' | 'done',
+      completedAt: newStatus === 'done' ? new Date().toISOString() : undefined,
+      updatedAt: new Date().toISOString()
+    };
+
+    // Mettre à jour la tâche dans le store global immédiatement
+    dispatch({
+      type: 'UPDATE_TASK',
+      payload: updatedTask
+    });
+
+    const updatedTasks = editingProject.tasks?.map(t => t.id === taskId ? updatedTask : t) || [];
+    const updatedProject = {
+      ...editingProject,
+      tasks: updatedTasks,
+      updatedAt: new Date().toISOString()
+    };
+
+    setEditingProject(updatedProject);
+
+    // Mettre à jour le projet dans le store aussi
+    dispatch({
+      type: 'UPDATE_PROJECT',
+      payload: updatedProject
+    });
+  };
+
   const createProject = () => {
     if (!newProject.name.trim()) return;
 
@@ -1049,7 +1044,7 @@ export function ProjectsView() {
     };
   };
 
-  const handleUpdateProjectStatus = (project: Project, newStatus: 'active' | 'on-hold' | 'archived') => {
+  const handleUpdateProjectStatus = (project: Project, newStatus: 'active' | 'on-hold' | 'archived' | 'completed') => {
     dispatch({
       type: 'UPDATE_PROJECT',
       payload: {
@@ -1069,14 +1064,12 @@ export function ProjectsView() {
     handleUpdateProjectStatus(project, 'active');
   };
 
-  const handleCompleteProject = (project: Project) => {
-    handleUpdateProjectStatus(project, 'completed');
-  };
+  // Suppression de handleCompleteProject inutilisé
 
   const confirmDeleteProject = async () => {
     if (!projectToDelete) return;
 
-    
+
 
     try {
       // Si c'est un projet Cloud
@@ -1084,13 +1077,13 @@ export function ProjectsView() {
         const isOwner = state.cloudUser?.uid === projectToDelete.ownerId;
 
         if (isOwner) {
-          
+
           await firebaseService.deleteProject(projectToDelete.id);
-          
+
         } else {
-          
+
           await firebaseService.leaveProject(projectToDelete.id);
-          
+
         }
       }
 
@@ -1119,7 +1112,13 @@ export function ProjectsView() {
   const handleEditProject = (project: Project) => {
     setEditingProject({ ...project, tasks: project.tasks || [] });
     if (project.aiSettings) {
-      setAISettings(project.aiSettings);
+      setAISettings({
+        ...project.aiSettings,
+        isConfigured: project.aiSettings.isConfigured ?? true,
+        lastTested: project.aiSettings.lastTested ?? null,
+        lastTestStatus: project.aiSettings.lastTestStatus ?? null,
+        lastTestMessage: project.aiSettings.lastTestMessage ?? null,
+      });
     }
     setNewProject({
       name: project.name,
@@ -1151,7 +1150,10 @@ export function ProjectsView() {
       openrouterModel: 'openai/gpt-3.5-turbo',
       maxTokens: 1000,
       temperature: 0.7,
-      isConfigured: false
+      isConfigured: false,
+      lastTested: null,
+      lastTestStatus: null,
+      lastTestMessage: null
     });
     setActiveTab('general'); // Réinitialiser à l'onglet général
     setShowProjectModal(true);
@@ -1200,6 +1202,19 @@ export function ProjectsView() {
   const handleManageMembers = (project: Project) => {
     setManagingMembersProject(project);
   };
+
+  const isOwnerOrMember = editingProject && (
+    !editingProject.source ||
+    editingProject.source === 'local' ||
+    state.cloudUser?.uid === editingProject.ownerId ||
+    editingProject.members?.includes(state.cloudUser?.uid || '')
+  );
+
+  const canEditProject = isOwnerOrMember && (
+    !editingProject?.source ||
+    editingProject.source === 'local' ||
+    state.cloudUser?.uid === editingProject.ownerId
+  );
 
   return (
     <div className="space-y-8">
@@ -1706,13 +1721,15 @@ export function ProjectsView() {
                   <Form.Item label="Statut">
                     <Select
                       value={newProject.status}
-                      onChange={(value: string) => setNewProject({ ...newProject, status: value })}
+                      onChange={(value) => setNewProject({ ...newProject, status: value })}
                       style={{ width: '100%' }}
-                    >
-                      <CustomSelectOption value="active">Actif</CustomSelectOption>
-                      <CustomSelectOption value="completed">Terminé</CustomSelectOption>
-                      <CustomSelectOption value="archived">Archivé</CustomSelectOption>
-                    </Select>
+                      options={[
+                        { value: 'active', label: 'Actif' },
+                        { value: 'on-hold', label: 'En attente' },
+                        { value: 'completed', label: 'Terminé' },
+                        { value: 'archived', label: 'Archivé' },
+                      ]}
+                    />
                   </Form.Item>
                 </Col>
               </Row>
@@ -1752,15 +1769,36 @@ export function ProjectsView() {
         </Tabs>
       </Modal>
 
-      {/* Modal d'édition de projet */}
       <Modal
         isOpen={!!editingProject}
-        onClose={() => handleCloseWithConfirmation(() => setEditingProject(null))}
-        title="Modifier le projet"
+        onClose={() => handleCloseWithConfirmation(() => {
+          setEditingProject(null);
+          setIsEditingProjectModal(false);
+        })}
+        title={editingProject?.name || "Détails du projet"}
         size="lg"
+        extra={canEditProject && (
+          <button
+            onClick={() => setIsEditingProjectModal(!isEditingProjectModal)}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-200 dark:border-gray-700 ml-auto"
+          >
+            {isEditingProjectModal ? (
+              <>
+                <Eye className="w-4 h-4" />
+                <span className="hidden sm:inline">Mode Lecture</span>
+              </>
+            ) : (
+              <>
+                <Edit2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Mode Édition</span>
+              </>
+            )}
+          </button>
+        )}
       >
-        <div className="space-y-6">
-          {/* Image de couverture - déplacé en haut */}
+        <div className="space-y-8">
+
+          {/* Image de couverture */}
           <div className="mb-4">
             <CoverImageUpload
               currentImage={editingProject?.coverImage}
@@ -1789,29 +1827,49 @@ export function ProjectsView() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Nom du projet *
               </label>
-              <input
-                type="text"
-                value={editingProject?.name || ''}
-                onChange={(e) => editingProject && setEditingProject({ ...editingProject, name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
-                placeholder="Ex: Site e-commerce"
-              />
+              {isEditingProjectModal ? (
+                <input
+                  type="text"
+                  value={editingProject?.name || ''}
+                  onChange={(e) => editingProject && setEditingProject({ ...editingProject, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
+                  placeholder="Ex: Site e-commerce"
+                />
+              ) : (
+                <div className="text-xl font-bold text-gray-900 dark:text-white py-2">
+                  {editingProject?.name}
+                </div>
+              )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Statut
               </label>
-              <select
-                value={editingProject?.status || 'active'}
-                onChange={(e) => editingProject && setEditingProject({ ...editingProject, status: e.target.value as any })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
-              >
-                <option value="active">Actif</option>
-                <option value="on-hold">En attente</option>
-                <option value="completed">Terminé</option>
-                <option value="archived">Archivé</option>
-              </select>
+              {isEditingProjectModal ? (
+                <select
+                  value={editingProject?.status || 'active'}
+                  onChange={(e) => editingProject && setEditingProject({ ...editingProject, status: e.target.value as any })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
+                >
+                  <option value="active">Actif</option>
+                  <option value="on-hold">En attente</option>
+                  <option value="completed">Terminé</option>
+                  <option value="archived">Archivé</option>
+                </select>
+              ) : (
+                <div className="py-2">
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${editingProject?.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' :
+                    editingProject?.status === 'completed' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200' :
+                      editingProject?.status === 'on-hold' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' :
+                        'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                    }`}>
+                    {editingProject?.status === 'active' ? 'Actif' :
+                      editingProject?.status === 'completed' ? 'Terminé' :
+                        editingProject?.status === 'on-hold' ? 'En attente' : 'Archivé'}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1820,26 +1878,51 @@ export function ProjectsView() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Description
               </label>
-              <textarea
-                value={editingProject?.description || ''}
-                onChange={(e) => editingProject && setEditingProject({ ...editingProject, description: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white min-h-[100px]"
-                placeholder="Description du projet..."
-              />
+              {isEditingProjectModal ? (
+                <textarea
+                  value={editingProject?.description || ''}
+                  onChange={(e) => editingProject && setEditingProject({ ...editingProject, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white min-h-[100px]"
+                  placeholder="Description du projet..."
+                />
+              ) : (
+                <div className="markdown-body bg-gray-50/50 dark:bg-gray-800/50 p-4 rounded-xl text-gray-700 dark:text-gray-300 min-h-[100px] border border-gray-100 dark:border-gray-700">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      strong: ({ children }) => <strong className="font-bold text-gray-900 dark:text-white">{children}</strong>,
+                      em: ({ children }) => <em className="italic">{children}</em>,
+                      p: ({ children }) => <p className="mb-4 last:mb-0 leading-relaxed">{children}</p>,
+                      ul: ({ children }) => <ul className="list-disc ml-4 mb-4 space-y-1">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal ml-4 mb-4 space-y-1">{children}</ol>,
+                      li: ({ children }) => <li className="mb-0">{children}</li>,
+                    }}
+                  >
+                    {cleanMarkdown(editingProject?.description || '') || "*Aucune description*"}
+                  </ReactMarkdown>
+                </div>
+              )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Durée estimée (jours)
               </label>
-              <input
-                type="number"
-                min="1"
-                value={editingProject?.estimatedDuration || 1}
-                onChange={(e) => editingProject && setEditingProject({ ...editingProject, estimatedDuration: Math.max(1, Number(e.target.value)) })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
-                placeholder="Durée estimée en jours"
-              />
+              {isEditingProjectModal ? (
+                <input
+                  type="number"
+                  min="1"
+                  value={editingProject?.estimatedDuration || 1}
+                  onChange={(e) => editingProject && setEditingProject({ ...editingProject, estimatedDuration: Math.max(1, Number(e.target.value)) })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
+                  placeholder="Durée estimée en jours"
+                />
+              ) : (
+                <div className="flex items-center gap-2 py-2 text-gray-900 dark:text-white">
+                  <Clock className="w-5 h-5 text-blue-500" />
+                  <span className="font-semibold">{editingProject?.estimatedDuration || 0}</span> jours
+                </div>
+              )}
             </div>
           </div>
 
@@ -1847,31 +1930,41 @@ export function ProjectsView() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
               Couleur du projet
             </label>
-            <div className="flex flex-wrap gap-3 items-center">
-              {colors.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => editingProject && setEditingProject({ ...editingProject, color })}
-                  className={`w-10 h-10 rounded-2xl border-2 transition-all duration-200 transform hover:scale-110 shadow-lg ${editingProject?.color === color ? 'border-gray-400 scale-110' : 'border-transparent'
-                    }`}
-                  style={{ backgroundColor: color }}
-                />
-              ))}
-              <div className="flex items-center gap-2 ml-2 pl-4 border-l border-gray-200 dark:border-gray-700">
-                <div className="relative group">
-                  <input
-                    type="color"
-                    value={editingProject?.color || '#000000'}
-                    onChange={(e) => editingProject && setEditingProject({ ...editingProject, color: e.target.value })}
-                    className="w-10 h-10 rounded-2xl overflow-hidden border-2 border-transparent cursor-pointer bg-transparent shadow-lg transform hover:scale-110 transition-transform"
+            {isEditingProjectModal ? (
+              <div className="flex flex-wrap gap-3 items-center">
+                {colors.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => editingProject && setEditingProject({ ...editingProject, color })}
+                    className={`w-10 h-10 rounded-2xl border-2 transition-all duration-200 transform hover:scale-110 shadow-lg ${editingProject?.color === color ? 'border-gray-400 scale-110' : 'border-transparent'
+                      }`}
+                    style={{ backgroundColor: color }}
                   />
-                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-opacity">
-                    Couleur libre
+                ))}
+                <div className="flex items-center gap-2 ml-2 pl-4 border-l border-gray-200 dark:border-gray-700">
+                  <div className="relative group">
+                    <input
+                      type="color"
+                      value={editingProject?.color || '#000000'}
+                      onChange={(e) => editingProject && setEditingProject({ ...editingProject, color: e.target.value })}
+                      className="w-10 h-10 rounded-2xl overflow-hidden border-2 border-transparent cursor-pointer bg-transparent shadow-lg transform hover:scale-110 transition-transform"
+                    />
+                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-opacity">
+                      Couleur libre
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex items-center gap-3 py-1">
+                <div
+                  className="w-8 h-8 rounded-xl shadow-inner border border-black/5"
+                  style={{ backgroundColor: editingProject?.color }}
+                />
+                <span className="font-mono text-sm text-gray-500 uppercase">{editingProject?.color}</span>
+              </div>
+            )}
           </div>
 
           {/* Liste des tâches existantes */}
@@ -1910,30 +2003,45 @@ export function ProjectsView() {
                     <div className="p-4">
                       {/* En-tête de la tâche */}
                       <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors line-clamp-2">
-                            {task.title}
-                          </h4>
-                          <div className="flex items-center gap-2 mt-1">
-                            {/* Statut */}
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${task.status === 'done' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' :
-                              task.status === 'in-progress' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200' :
-                                task.status === 'blocked' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' :
-                                  'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                              }`}>
-                              {task.status === 'done' ? 'Terminé' :
-                                task.status === 'in-progress' ? 'En cours' :
-                                  task.status === 'blocked' ? 'Bloqué' : 'À faire'}
-                            </span>
+                        <div className="flex items-start gap-3 flex-1">
+                          {/* Raccourci pour marquer comme terminé */}
+                          <button
+                            onClick={(e) => toggleTaskStatus(task.id, e)}
+                            className={`mt-0.5 transition-colors ${task.status === 'done' ? 'text-green-500 hover:text-green-600' : 'text-gray-400 hover:text-blue-500'}`}
+                            title={task.status === 'done' ? "Marquer comme à faire" : "Marquer comme terminé"}
+                          >
+                            {task.status === 'done' ? (
+                              <CheckCircle2 className="w-5 h-5" />
+                            ) : (
+                              <Circle className="w-5 h-5" />
+                            )}
+                          </button>
 
-                            {/* Priorité */}
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${task.priority === 'high' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200' :
-                              task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' :
-                                'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200'
-                              }`}>
-                              {task.priority === 'high' ? 'Haute' :
-                                task.priority === 'medium' ? 'Moyenne' : 'Faible'}
-                            </span>
+                          <div className="flex-1">
+                            <h4 className={`font-medium transition-colors line-clamp-2 ${task.status === 'done' ? 'text-gray-500 line-through' : 'text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400'}`}>
+                              {task.title}
+                            </h4>
+                            <div className="flex items-center gap-2 mt-1">
+                              {/* Statut */}
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${task.status === 'done' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' :
+                                task.status === 'in-progress' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200' :
+                                  task.status === 'blocked' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' :
+                                    'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                                }`}>
+                                {task.status === 'done' ? 'Terminé' :
+                                  task.status === 'in-progress' ? 'En cours' :
+                                    task.status === 'blocked' ? 'Bloqué' : 'À faire'}
+                              </span>
+
+                              {/* Priorité */}
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${task.priority === 'high' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200' :
+                                task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' :
+                                  'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200'
+                                }`}>
+                                {task.priority === 'high' ? 'Haute' :
+                                  task.priority === 'medium' ? 'Moyenne' : 'Faible'}
+                              </span>
+                            </div>
                           </div>
                         </div>
 
@@ -2072,147 +2180,124 @@ export function ProjectsView() {
             )}
           </div>
 
-          {/* Formulaire d'ajout de tâche */}
-          <div className="space-y-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed border-gray-300 dark:border-gray-700">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Titre de la tâche *
-                </label>
-                <input
-                  type="text"
-                  value={newTask.title}
-                  onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
-                  placeholder="Ex: Créer la maquette"
-                />
+          {/* Formulaire d'ajout de tâche - Uniquement en mode édition */}
+          {isEditingProjectModal && (
+            <div className="space-y-4 p-6 bg-gray-50/50 dark:bg-gray-800/20 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700/50">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                <Plus className="w-4 h-4 text-blue-500" />
+                Ajouter une tâche
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Titre *
+                  </label>
+                  <input
+                    type="text"
+                    value={newTask.title}
+                    onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    placeholder="Titre de la tâche..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Priorité
+                  </label>
+                  <select
+                    value={newTask.priority}
+                    onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as any })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    <option value="low">Basse</option>
+                    <option value="medium">Moyenne</option>
+                    <option value="high">Haute</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Priorité
-                </label>
-                <select
-                  value={newTask.priority}
-                  onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as any })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
-                >
-                  <option value="low">Basse</option>
-                  <option value="medium">Moyenne</option>
-                  <option value="high">Haute</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Description (optionnel)
-              </label>
-              <textarea
-                value={newTask.description}
-                onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white min-h-[80px]"
-                placeholder="Détails de la tâche..."
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Date de début
-                </label>
-                <input
-                  type="date"
-                  value={newTask.startDate}
-                  onChange={(e) => setNewTask({ ...newTask, startDate: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Date de fin
-                </label>
-                <input
-                  type="date"
-                  min={newTask.startDate}
-                  value={newTask.endDate}
-                  onChange={(e) => setNewTask({ ...newTask, endDate: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Temps estimé (heures)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.5"
-                  value={newTask.estimatedHours}
-                  onChange={(e) => setNewTask({ ...newTask, estimatedHours: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white"
-                />
-              </div>
-              <div className="flex gap-2 items-center">
-                <Button
-                  onClick={addTask}
-                  disabled={!newTask.title.trim()}
-                  className="w-full mt-2"
-                >
-                  Ajouter la tâche
-                </Button>
-
-                {/* Bouton pour générer des tâches avec IA */}
-                <Button
-                  className="w-auto mt-2"
-                  onClick={generateTasksWithAI}
-                  disabled={isGeneratingTasks || !editingProject}
-                  title="Générer des tâches avec IA"
-                >
-                  {isGeneratingTasks ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="w-6 h-6"
-                    >
-                      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
-                      <path d="M5 3v4"></path>
-                      <path d="M19 17v4"></path>
-                      <path d="M3 5h4"></path>
-                      <path d="M17 19h4"></path>
-                    </svg>
-                  )}
-                </Button>
-
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Début
+                  </label>
+                  <input
+                    type="date"
+                    value={newTask.startDate}
+                    onChange={(e) => setNewTask({ ...newTask, startDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Fin
+                  </label>
+                  <input
+                    type="date"
+                    min={newTask.startDate}
+                    value={newTask.endDate}
+                    onChange={(e) => setNewTask({ ...newTask, endDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Est. (h)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={newTask.estimatedHours}
+                    onChange={(e) => setNewTask({ ...newTask, estimatedHours: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={addTask} disabled={!newTask.title.trim()} className="flex-1">
+                    Ajouter
+                  </Button>
+                  <Button
+                    onClick={generateTasksWithAI}
+                    disabled={isGeneratingTasks || !editingProject}
+                  >
+                    {isGeneratingTasks ? <Loader2 className="w-4 h-4 animate-spin" /> : <Cpu className="w-4 h-4" />}
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          <div className="flex space-x-4 pt-6">
+          <div className="flex gap-4 pt-6">
             <Button
               variant="outline"
-              onClick={() => setEditingProject(null)}
+              onClick={() => {
+                setEditingProject(null);
+                setIsEditingProjectModal(false);
+              }}
               className="flex-1"
             >
               Fermer
             </Button>
-            <Button
-              onClick={updateProject}
-              variant="gradient"
-              className="flex-1"
-              disabled={!editingProject?.name?.trim()}
-            >
-              Enregistrer
-            </Button>
+            {isEditingProjectModal && (
+              <Button
+                onClick={() => {
+                  updateProject();
+                  setIsEditingProjectModal(false);
+                }}
+                variant="gradient"
+                className="flex-1"
+                disabled={!editingProject?.name?.trim()}
+              >
+                Enregistrer les modifications
+              </Button>
+            )}
           </div>
+
+          {!isEditingProjectModal && editingProject && (
+            <div className="mt-8 pt-8 border-t border-gray-100 dark:border-gray-800">
+              <ActivityFeed projectId={editingProject.id} />
+            </div>
+          )}
         </div>
       </Modal>
 
@@ -2382,20 +2467,20 @@ export function ProjectsView() {
           <div className="flex items-center justify-center text-yellow-500 mb-4">
             <AlertTriangle className="w-12 h-12" />
           </div>
-          
+
           <div className="text-center space-y-4">
             <p className="text-lg font-medium text-gray-900 dark:text-white">
-              {hasUnsavedProjectChanges && hasUnsavedTaskChanges 
+              {hasUnsavedProjectChanges && hasUnsavedTaskChanges
                 ? "Vous avez des modifications non enregistrées dans le projet et une nouvelle tâche."
-                : hasUnsavedProjectChanges 
+                : hasUnsavedProjectChanges
                   ? "Vous avez des modifications non enregistrées dans le projet."
                   : "Vous avez une nouvelle tâche qui n'a pas été enregistrée."}
             </p>
-            
+
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              {hasUnsavedProjectChanges && hasUnsavedTaskChanges 
+              {hasUnsavedProjectChanges && hasUnsavedTaskChanges
                 ? "Si vous fermez cette fenêtre, vous perdrez toutes les modifications du projet et la nouvelle tâche."
-                : hasUnsavedProjectChanges 
+                : hasUnsavedProjectChanges
                   ? "Si vous fermez cette fenêtre, vous perdrez toutes les modifications du projet."
                   : "Si vous fermez cette fenêtre, vous perdrez cette nouvelle tâche."}
             </p>
@@ -2421,7 +2506,7 @@ export function ProjectsView() {
             >
               Enregistrer tout
             </Button>
-            
+
             <Button
               onClick={() => {
                 setShowUnsavedChangesWarning(false);
@@ -2431,7 +2516,7 @@ export function ProjectsView() {
             >
               Continuer sans enregistrer
             </Button>
-            
+
             <Button
               onClick={() => {
                 setShowUnsavedChangesWarning(false);

@@ -55,7 +55,6 @@
     "@babel/plugin-transform-react-jsx": "^7.27.1",
     "@babel/plugin-transform-runtime": "^7.29.0",
     "@babel/preset-env": "^7.29.0",
-    "@types/antd": "^0.12.32",
     "@types/react-syntax-highlighter": "^15.5.13",
     "fs-extra": "^11.3.1",
     "gh-pages": "^6.3.0",

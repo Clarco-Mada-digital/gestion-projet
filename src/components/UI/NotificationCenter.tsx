@@ -1,0 +1,120 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Bell, Check, Trash2, ExternalLink } from 'lucide-react';
+import { Notification } from '../../types';
+import { notificationService } from '../../services/collaboration/notificationService';
+import { useApp } from '../../context/AppContext';
+
+export function NotificationCenter() {
+  const { state } = useApp();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!state.cloudUser) return;
+
+    const unsubscribe = notificationService.subscribeToNotifications(state.cloudUser.uid, (fetched) => {
+      setNotifications(fetched);
+    });
+    return () => unsubscribe();
+  }, [state.cloudUser]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  const handleMarkAsRead = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await notificationService.markAsRead(id);
+  };
+
+  const handleMarkAllAsRead = async () => {
+    if (state.cloudUser) {
+      await notificationService.markAllAsRead(state.cloudUser.uid, notifications);
+    }
+  };
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="relative p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
+      >
+        <Bell className="w-5 h-5" />
+        {unreadCount > 0 && (
+          <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white dark:border-gray-900 animate-pulse">
+            {unreadCount}
+          </span>
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 top-12 w-80 max-h-[480px] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 z-[100] flex flex-col animate-in fade-in zoom-in duration-200">
+          <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+            <h3 className="font-bold text-gray-900 dark:text-white">Notifications</h3>
+            {unreadCount > 0 && (
+              <button
+                onClick={handleMarkAllAsRead}
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Tout marquer comme lu
+              </button>
+            )}
+          </div>
+
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
+            {notifications.map((n) => (
+              <div
+                key={n.id}
+                className={`p-4 border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors relative group ${!n.isRead ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
+              >
+                <div className="flex justify-between items-start mb-1">
+                  <h4 className={`text-sm font-semibold truncate pr-6 ${!n.isRead ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
+                    {n.title}
+                  </h4>
+                  {!n.isRead && (
+                    <button
+                      onClick={(e) => handleMarkAsRead(n.id, e)}
+                      className="p-1 rounded-md text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-950 transition-colors"
+                      title="Marquer comme lu"
+                    >
+                      <Check className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-2">{n.message}</p>
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] text-gray-400">{new Date(n.createdAt).toLocaleString()}</span>
+                  {n.link && (
+                    <a
+                      href={n.link}
+                      className="text-[10px] text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline"
+                    >
+                      Voir <ExternalLink className="w-2 h-2" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+            {notifications.length === 0 && (
+              <div className="p-8 text-center">
+                <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-3">
+                  <Bell className="w-6 h-6 text-gray-300" />
+                </div>
+                <p className="text-sm text-gray-500 italic">Aucune notification</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
