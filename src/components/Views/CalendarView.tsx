@@ -172,6 +172,13 @@ export function CalendarView() {
     const task = project.tasks.find(t => t.id === taskId);
     if (!task) return;
 
+    // Check if user is viewer
+    if (project.source === 'firebase' &&
+      project.ownerId !== state.cloudUser?.uid &&
+      project.memberRoles?.[state.cloudUser?.uid || ''] === 'viewer') {
+      return;
+    }
+
     // Calculer la durée actuelle de la tâche en jours
     const start = new Date(task.startDate || task.dueDate);
     const end = new Date(task.dueDate);
@@ -499,11 +506,15 @@ export function CalendarView() {
                     const isOverdue = new Date(task.dueDate) < new Date(new Date().setHours(0, 0, 0, 0)) && !isDone;
                     const isDueToday = !isDone && isToday(new Date(task.dueDate));
 
+                    const isViewer = project?.source === 'firebase' &&
+                      project.ownerId !== state.cloudUser?.uid &&
+                      project.memberRoles?.[state.cloudUser?.uid || ''] === 'viewer';
+
                     return (
                       <div
                         key={i}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, task)}
+                        draggable={!isViewer}
+                        onDragStart={(e) => !isViewer && handleDragStart(e, task)}
                         onClick={() => project && setSelectedTask({ task, project })}
                         style={{
                           gridColumn: `${startIdx + 1} / span ${endIdx - startIdx + 1}`,

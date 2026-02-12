@@ -508,20 +508,31 @@ export function KanbanView() {
                       Tous les projets
                     </button>
                     <div className="h-px bg-gray-100 dark:bg-gray-700 my-1" />
-                    {state.projects.filter(p => p.status === 'active').map(project => (
-                      <label key={project.id} className="flex items-center px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors">
-                        <input
-                          type="checkbox"
-                          checked={selectedProjectIds.includes(project.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) setSelectedProjectIds([...selectedProjectIds, project.id]);
-                            else setSelectedProjectIds(selectedProjectIds.filter(id => id !== project.id));
-                          }}
-                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{project.name}</span>
-                      </label>
-                    ))}
+                    {state.projects
+                      .filter(p => {
+                        if (p.status !== 'active') return false;
+                        // Exclure les projets dont on est seulement viewer
+                        if (p.source === 'firebase' &&
+                          p.ownerId !== state.cloudUser?.uid &&
+                          p.memberRoles?.[state.cloudUser?.uid || ''] === 'viewer') {
+                          return false;
+                        }
+                        return true;
+                      })
+                      .map(project => (
+                        <label key={project.id} className="flex items-center px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={selectedProjectIds.includes(project.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) setSelectedProjectIds([...selectedProjectIds, project.id]);
+                              else setSelectedProjectIds(selectedProjectIds.filter(id => id !== project.id));
+                            }}
+                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3"
+                          />
+                          <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{project.name}</span>
+                        </label>
+                      ))}
                   </div>
                 </div>
               </>
