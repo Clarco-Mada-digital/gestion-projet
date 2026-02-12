@@ -17,6 +17,8 @@ type ProviderType = 'openai' | 'openrouter';
 interface ModelOption {
   value: string;
   label: string;
+  context?: number;
+  pricing?: any;
 }
 
 interface FormValues {
@@ -46,7 +48,7 @@ const MODELS: Record<ProviderType, ModelOption[]> = {
     { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
   ],
   openrouter: [
-    { value: 'openrouter/auto', label: 'Auto (Meilleur rapport qualité/prix)' },
+    { value: 'openrouter/auto', label: '🤖 Auto (Meilleur modèle gratuit adapté)' },
     { value: 'google/gemma-7b-it:free', label: 'Google: Gemma 7B (Gratuit)' },
     { value: 'mistralai/mistral-7b-instruct:free', label: 'Mistral 7B (Gratuit)' },
     { value: 'huggingfaceh4/zephyr-7b-beta:free', label: 'Zephyr 7B (Gratuit)' },
@@ -100,7 +102,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
     openaiApiKey: '',
     openrouterApiKey: '',
     openaiModel: 'gpt-3.5-turbo',
-    openrouterModel: 'google/gemma-7b-it:free',
+    openrouterModel: 'openrouter/auto',
     maxTokens: 1000,
     temperature: 0.7,
     isConfigured: false,
@@ -272,7 +274,18 @@ export const AISettings: React.FC<AISettingsProps> = ({
 
     // S'assurer que le provider est valide
     const staticModels = MODELS[provider] || MODELS.openai;
-    const allModels = provider === 'openrouter' && dynamicModels.length > 0 ? dynamicModels : staticModels;
+    
+    // Toujours mettre l'option Auto en premier pour OpenRouter
+    let allModels = staticModels;
+    if (provider === 'openrouter' && dynamicModels.length > 0) {
+      const autoModel = staticModels.find(m => m.value === 'openrouter/auto');
+      const otherModels = dynamicModels.filter(m => m.value !== 'openrouter/auto');
+      allModels = autoModel ? [autoModel, ...otherModels] : dynamicModels;
+    } else if (provider === 'openrouter') {
+      allModels = staticModels;
+    } else {
+      allModels = dynamicModels.length > 0 ? dynamicModels : staticModels;
+    }
 
     // Filtrer les modèles par recherche
     const filteredModels = allModels.filter(m =>
@@ -379,6 +392,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
           <div className="flex-1">
             <p className="font-medium text-gray-700 dark:text-gray-300">Note sur les modèles</p>
             <p>Plus le modèle est puissant, plus il sera capable de comprendre des tâches complexes. Les modèles OpenRouter sont mis à jour dynamiquement.</p>
+            <p className="mt-1 text-amber-600 dark:text-amber-400 font-medium">🎁 OpenRouter : Accès gratuit disponible sans clé API (limité quotidiennement)</p>
           </div>
         </div>
       </div>
@@ -445,7 +459,12 @@ export const AISettings: React.FC<AISettingsProps> = ({
                       <Form.Item
                         name={apiKeyName}
                         label={<span className={labelStyle}>{apiKeyLabel}</span>}
-                        rules={[{ required: true, message: `Veuillez entrer votre ${apiKeyLabel}` }]}
+                        rules={[
+                          {
+                            required: isOpenAI,
+                            message: isOpenAI ? `Veuillez entrer votre ${apiKeyLabel}` : `La clé API est optionnelle pour OpenRouter (accès limité sans clé)`
+                          }
+                        ]}
                         className="mb-4"
                       >
                         <Input.Password

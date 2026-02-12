@@ -72,21 +72,6 @@ export function ReportView() {
   const [includeSubTasks, setIncludeSubTasks] = useState<boolean>(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const generateSignature = (): string => {
-    const user = state.users[0];
-    if (!user) return '';
-
-    const signatureParts = [
-      user.name,
-      user.position,
-      user.department,
-      user.email,
-      user.phone
-    ].filter(Boolean);
-
-    return signatureParts.join(' | ');
-  };
-
   const handleEditReport = () => {
     setEditedReport(aiReport);
     setIsEditing(true);
@@ -152,12 +137,31 @@ export function ReportView() {
     }));
   };
 
+  const getNextReplyPrefix = (subject: string): string => {
+    // Vérifier si le sujet a déjà un préfixe Re
+    const rePattern = /^Re(\d*):\s*/;
+    const match = subject.match(rePattern);
+    
+    if (match) {
+      // Si déjà un préfixe Re, incrémenter le numéro
+      const currentNumber = match[1] ? parseInt(match[1]) : 1;
+      const nextNumber = currentNumber + 1;
+      return subject.replace(rePattern, `Re${nextNumber}: `);
+    } else {
+      // Si pas de préfixe Re, ajouter Re:
+      return `Re: ${subject}`;
+    }
+  };
+
   const handleOpenEmailDialog = (replyToSubject?: string, messageId?: string) => {
     // Si un sujet est passé (bouton Répondre de l'historique), on l'utilise directement
     if (replyToSubject) {
+      // Gérer les réponses multiples (Re:, Re2:, Re3:, etc.)
+      const subjectWithReply = getNextReplyPrefix(replyToSubject);
+      
       setEmailForm(prev => ({
         ...prev,
-        subject: replyToSubject,
+        subject: subjectWithReply,
         message: aiReport || 'Voici une mise à jour de mon delivery.'
       }));
       if (messageId) {
@@ -214,6 +218,56 @@ export function ReportView() {
     setTimeout(() => setEmailStatus({ type: null, message: '' }), 3000);
   };
 
+  const handleDownloadReport = () => {
+    const reportContent = editedReport || aiReport;
+    if (!reportContent || !report) return;
+
+    // Créer le contenu du fichier
+    const formatDate = (date: Date) => {
+      return date.toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    };
+
+    const fileName = `Rapport_${formatDate(report.startDate)}_au_${formatDate(report.endDate)}.txt`;
+    
+    // Créer le contenu complet du rapport
+    const fullContent = `RAPPORT D'ACTIVITÉ
+Période: ${formatDate(report.startDate)} au ${formatDate(report.endDate)}
+Généré le: ${new Date().toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })}
+
+${'='.repeat(80)}
+
+${reportContent}
+
+${'='.repeat(80)}
+
+Ce rapport a été généré automatiquement depuis l'application de gestion de projets.
+`;
+
+    // Créer un blob et télécharger
+    const blob = new Blob([fullContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setEmailStatus({ type: 'success', message: 'Rapport téléchargé avec succès !' });
+    setTimeout(() => setEmailStatus({ type: null, message: '' }), 3000);
+  };
+
   const handleSendEmail = async () => {
     if (!report || !state.emailSettings) return;
 
@@ -243,11 +297,16 @@ export function ReportView() {
       );
 
       const emailOptions: any = {
-        to: toEmails,
+        serviceId: state.emailSettings.serviceId,
+        templateId: state.emailSettings.templateId,
+        userId: state.emailSettings.userId,
+        to: toEmails.join(', '),
+        from: state.emailSettings?.fromEmail || 'noreply@gestion-projet.com',
+        fromName: state.emailSettings?.fromName || 'Gestion de Projet',
         subject: emailForm.subject,
         html: emailContent,
+        text: messageContent.replace(/<[^>]*>?/gm, ''),
         templateParams: {
-          to_email: toEmails[0],
           to_emails: toEmails,
           to_name: toEmails[0].split('@')[0],
           from_name: state.emailSettings?.fromName || 'Gestion de Projet',
@@ -257,16 +316,10 @@ export function ReportView() {
           content: emailContent,
           title: emailForm.subject,
           user_name: state.users[0]?.name || 'Utilisateur',
-          // Ajout des en-têtes pour le threading
-          'In-Reply-To': replyToMessageId || '',
-          'References': replyToMessageId || '',
-          // Certains templates EmailJS utilisent ces variables
-          in_reply_to: replyToMessageId || '',
-          references: replyToMessageId || ''
+          // Note: EmailJS ne supporte pas le threading natif avec In-Reply-To et References
+          // On utilise plutôt le préfixe "Re:" dans le sujet pour indiquer une réponse
         }
       };
-
-      emailOptions.text = `Bonjour,\n\nVeuvez trouver ci-joint le rapport d'activité demandé.\n\n${messageContent.replace(/<[^>]*>?/gm, '')}\n\nCordialement,\n${generateSignature()}`;
 
       const result = await EmailService.sendEmail(emailOptions, state.emailSettings);
 
@@ -352,6 +405,9 @@ export function ReportView() {
 
   const generateReport = () => {
     const { start, end } = getDateRange(dateRange);
+
+    // Réinitialiser selectedReportId pour créer un nouveau rapport au lieu de modifier l'existant
+    setSelectedReportId(null);
 
     const projectsData = (state.projects || [])
       .filter(project => {
@@ -870,7 +926,7 @@ export function ReportView() {
                       <Button variant="outline" size="sm" onClick={handleEditReport} disabled={isSendingEmail}><Edit className="w-4 h-4 mr-2" />Modifier</Button>
                       <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(aiReport)} disabled={isSendingEmail}><FileText className="w-4 h-4 mr-2" />Copier</Button>
                       <Button variant="outline" size="sm" onClick={handleSaveToHistory} disabled={isSendingEmail} className="text-blue-600 border-blue-200 hover:bg-blue-50"><Save className="w-4 h-4 mr-2" />Enregistrer</Button>
-                      <Button variant="outline" size="sm" onClick={() => window.print()} disabled={isSendingEmail}><FileText className="w-4 h-4 mr-2" />Télécharger</Button>
+                      <Button variant="outline" size="sm" onClick={handleDownloadReport} disabled={isSendingEmail}><FileText className="w-4 h-4 mr-2" />Télécharger</Button>
                       <Button variant="primary" size="sm" onClick={() => handleOpenEmailDialog()} disabled={isSendingEmail} className="bg-blue-600 hover:bg-blue-700 text-white">
                         {isSendingEmail ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}Envoyer par email
                       </Button>

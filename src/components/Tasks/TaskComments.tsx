@@ -124,21 +124,34 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
         details: newComment.substring(0, 50) + (newComment.length > 50 ? '...' : '')
       });
 
-      // Envoyer des notifications aux mentions (simulé)
-      // Pour chaque membre du projet mentionné via @Nom
-      project.members?.forEach(async (memberId) => {
-        if (memberId === currentUser.uid) return;
+      // Envoyer des notifications aux mentions
+      // Extraire les mentions du commentaire avec une regex plus robuste
+      const mentionRegex = /@(\w+)/g;
+      const mentions = newComment.match(mentionRegex) || [];
 
-        // On récupère le profil simplifié pour comparer le nom (ou on utilise state.users si local)
-        // Pour faire simple, on notifie tout le monde sauf l'auteur si pas de système d'ID mention
-        await notificationService.sendNotification({
-          userId: memberId,
-          title: `Nouveau commentaire sur ${project.name}`,
-          message: `${currentUser.displayName || 'Anonyme'} a commenté : "${newComment.substring(0, 30)}..."`,
-          type: 'mention', // On pourrait filtrer si vraiment mentionné
-          link: `/projects/${projectId}?task=${taskId}`
+      if (mentions.length > 0) {
+        // Pour chaque membre du projet mentionné via @Nom
+        project.members?.forEach(async (memberId) => {
+          const member = state.users.find(u => u.id === memberId);
+          if (!member) return;
+
+          // Vérifier si ce membre est mentionné
+          const isMentioned = mentions.some(mention => 
+            mention[1].toLowerCase() === (member.name?.toLowerCase() || member.email?.toLowerCase())
+          );
+
+          if (isMentioned && member.id !== currentUser.uid) {
+            // Envoyer la notification au membre mentionné
+            await notificationService.sendNotification({
+              userId: member.id,
+              title: 'Vous avez été mentionné',
+              message: `${currentUser.displayName || 'Un utilisateur'} vous a mentionné dans un commentaire: "${newComment.substring(0, 50)}${newComment.length > 50 ? '...' : ''}"`,
+              type: 'mention',
+              link: `/projects/${project.id}/tasks/${taskId}`
+            });
+          }
         });
-      });
+      }
 
       setNewComment('');
     }

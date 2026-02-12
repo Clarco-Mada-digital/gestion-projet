@@ -61,7 +61,6 @@ export function calculateDuration(startDate: string | Date, endDate: string | Da
   // Calcul de la différence en millisecondes
   const diffMs = endOfDay.getTime() - startOfDay.getTime();
   
-  
   // Conversion en différentes unités
   const diffSeconds = Math.floor(diffMs / 1000);
   const diffMinutes = Math.floor(diffSeconds / 60);

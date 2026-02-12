@@ -138,8 +138,11 @@ ${appDataInfo}
         ? aiSettings.openaiApiKey?.trim()
         : aiSettings.openrouterApiKey?.trim();
 
-      if (!apiKey) {
-        throw new Error(`Clé API ${effectiveProvider} manquante ou invalide`);
+      // Pour OpenRouter, permettre l'utilisation sans clé API (accès limité)
+      if (effectiveProvider === 'openrouter' && !apiKey) {
+        console.log('Utilisation d\'OpenRouter sans clé API (accès limité)');
+      } else if (effectiveProvider === 'openai' && !apiKey) {
+        throw new Error('Clé API OpenAI requise pour utiliser OpenAI');
       }
 
       // Utiliser un modèle adapté pour la conversation
@@ -166,14 +169,12 @@ ${appDataInfo}
       // Préparer les en-têtes
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
-        ...(effectiveProvider === 'openrouter' && {
-          'HTTP-Referer': window.location.href,
-          'X-Title': 'Gestion de Projet App'
-        })
       };
 
-      // Ajouter l'authentification
-      if (apiKey && typeof apiKey === 'string' && apiKey.trim() !== '') {
+      // Ajouter l'authentification uniquement si une clé est fournie
+      if (effectiveProvider === 'openai' && apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      } else if (effectiveProvider === 'openrouter' && apiKey) {
         headers['Authorization'] = `Bearer ${apiKey}`;
       }
 
@@ -241,10 +242,24 @@ ${appDataInfo}
         ? settings.openaiApiKey?.trim()
         : settings.openrouterApiKey?.trim();
 
+      // Pour OpenRouter, permettre l'utilisation sans clé API (accès limité)
+      if (effectiveProvider === 'openrouter' && !apiKey) {
+        console.log('Utilisation d\'OpenRouter sans clé API pour la génération de sous-tâches (accès limité)');
+      } else if (effectiveProvider === 'openai' && !apiKey) {
+        throw new Error('Clé API OpenAI requise pour utiliser OpenAI');
+      }
+
       // Utiliser un modèle plus léger pour OpenRouter
-      const model = effectiveProvider === 'openai'
+      let model = effectiveProvider === 'openai'
         ? settings.openaiModel || 'gpt-3.5-turbo'
         : settings.openrouterModel || 'google/gemma-7b-it:free';
+
+      // Gérer le modèle Auto pour OpenRouter
+      if (effectiveProvider === 'openrouter' && model === 'openrouter/auto') {
+        // Pour le modèle Auto, utiliser un modèle gratuit de base
+        model = 'google/gemma-7b-it:free';
+        console.log('Utilisation du modèle Auto OpenRouter -> google/gemma-7b-it:free');
+      }
 
       const endpoint = effectiveProvider === 'openai'
         ? 'https://api.openai.com/v1/chat/completions'
@@ -262,8 +277,10 @@ ${appDataInfo}
         })
       };
 
-      // Ajouter l'authentification uniquement si nécessaire
-      if (apiKey && typeof apiKey === 'string' && apiKey.trim() !== '') {
+      // Ajouter l'authentification uniquement si une clé est fournie
+      if (effectiveProvider === 'openai' && apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      } else if (effectiveProvider === 'openrouter' && apiKey) {
         headers['Authorization'] = `Bearer ${apiKey}`;
       }
 
@@ -271,7 +288,7 @@ ${appDataInfo}
         method: 'POST',
         headers,
         body: JSON.stringify({
-          model,
+          model: provider === 'openrouter' && model === 'openrouter/auto' ? actualModel : model,
           messages: [
             {
               role: 'system',
@@ -376,8 +393,11 @@ ${appDataInfo}
         ? settings.openaiApiKey?.trim()
         : settings.openrouterApiKey?.trim();
 
-      if (!apiKey) {
-        throw new Error(`Clé API ${provider} manquante ou invalide`);
+      // Pour OpenRouter, permettre l'utilisation sans clé API (accès limité)
+      if (provider === 'openrouter' && !apiKey) {
+        console.log('Utilisation d\'OpenRouter sans clé API pour la génération de tâches (accès limité)');
+      } else if (provider === 'openai' && !apiKey) {
+        throw new Error('Clé API OpenAI requise pour utiliser OpenAI');
       }
 
       const endpoint = provider === 'openai'
@@ -387,6 +407,14 @@ ${appDataInfo}
       const model = provider === 'openai'
         ? settings.openaiModel
         : settings.openrouterModel;
+
+      // Gérer le modèle Auto pour OpenRouter
+      if (provider === 'openrouter' && model === 'openrouter/auto') {
+        // Pour le modèle Auto, utiliser un modèle gratuit de base
+        const actualModel = 'google/gemma-7b-it:free';
+        console.log('Utilisation du modèle Auto OpenRouter -> google/gemma-7b-it:free pour generateTask');
+        // Utiliser actualModel pour le reste de la fonction
+      }
 
       // Construire le prompt pour générer une tâche
       const prompt = `Génère une tâche pour le projet "${project.name}". ` +
@@ -399,11 +427,12 @@ ${appDataInfo}
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
           ...(provider === 'openrouter' && { 'HTTP-Referer': window.location.origin }),
+          // Ajouter l'authentification uniquement si une clé est fournie
+          ...(apiKey && { 'Authorization': `Bearer ${apiKey}` })
         },
         body: JSON.stringify({
-          model,
+          model: provider === 'openrouter' && model === 'openrouter/auto' ? actualModel : model,
           messages: [
             {
               role: 'system',
@@ -490,7 +519,7 @@ ${appDataInfo}
         method: 'POST',
         headers,
         body: JSON.stringify({
-          model,
+          model: provider === 'openrouter' && model === 'openrouter/auto' ? actualModel : model,
           messages: [
             {
               role: 'system',
@@ -577,7 +606,7 @@ ${appDataInfo}
         method: 'POST',
         headers,
         body: JSON.stringify({
-          model,
+          model: provider === 'openrouter' && model === 'openrouter/auto' ? actualModel : model,
           messages: [{ role: 'user' as const, content: message }],
           max_tokens: 5, // Nombre minimal de tokens pour le test
         }),
@@ -627,6 +656,13 @@ ${appDataInfo}
         ? settings.openaiApiKey?.trim()
         : settings.openrouterApiKey?.trim();
 
+      // Pour OpenRouter, permettre l'utilisation sans clé API (accès limité)
+      if (provider === 'openrouter' && !apiKey) {
+        console.log('Utilisation d\'OpenRouter sans clé API pour la génération multiple de tâches (accès limité)');
+      } else if (provider === 'openai' && !apiKey) {
+        throw new Error('Clé API OpenAI requise pour utiliser OpenAI');
+      }
+
       const endpoint = provider === 'openai'
         ? 'https://api.openai.com/v1/chat/completions'
         : 'https://openrouter.ai/api/v1/chat/completions';
@@ -645,26 +681,18 @@ ${appDataInfo}
         prompt += `\nTâches déjà existantes :\n${project.tasks.slice(0, 5).map((t, i) => `${i + 1}. ${t.title}`).join('\n')}`;
       }
 
-      prompt += '\n\nFormat de sortie JSON attendu (tableau d\'objets) :\n[{"title": "Nom de la tâche", "description": "Description détaillée", "estimatedHours": 2}]';
-
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-
-      if (apiKey && apiKey !== '') {
-        headers['Authorization'] = `Bearer ${apiKey}`;
-      }
-
-      if (provider === 'openrouter') {
-        headers['HTTP-Referer'] = window.location.origin || 'https://gestion-projet.app';
-        headers['X-Title'] = 'Gestion de Projet App';
-      }
+      prompt += '\n\nGénère les tâches au format JSON array. Retourne uniquement le JSON, pas de texte supplémentaire.';
 
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(provider === 'openrouter' && { 'HTTP-Referer': window.location.origin }),
+          // Ajouter l'authentification uniquement si une clé est fournie
+          ...(apiKey && { 'Authorization': `Bearer ${apiKey}` })
+        },
         body: JSON.stringify({
-          model,
+          model: provider === 'openrouter' && model === 'openrouter/auto' ? actualModel : model,
           messages: [
             {
               role: 'system',
