@@ -10,6 +10,7 @@ import { CompactAttachments } from '../UI/CompactAttachments';
 import { cloudinaryService } from '../../services/collaboration/cloudinaryService';
 import { localAttachmentService } from '../../services/localAttachmentService';
 import { TaskComments } from './TaskComments';
+import { calculateDuration, isMultiDayTask } from '../../utils/dateUtils';
 
 // Fonction pour nettoyer le markdown mal formé
 const cleanMarkdown = (text: string): string => {
@@ -800,36 +801,80 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
               </div>
             </div>
 
-            {/* Heures estimées - seulement si la tâche est sur une seule journée */}
-            {isEditing ? (
-              editedTask.startDate === editedTask.dueDate && (
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Heures estimées</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Clock className="h-5 w-5 text-gray-400" />
+            {/* Heures estimées */}
+            {(() => {
+              const isMultiDay = isMultiDayTask(editedTask.startDate, editedTask.dueDate);
+              const autoCalculatedDuration = isMultiDay ? calculateDuration(editedTask.startDate, editedTask.dueDate) : '';
+              
+              return (
+                <>
+                  {isEditing ? (
+                    isMultiDay ? (
+                      // Tâche multi-jours : afficher la durée calculée automatiquement
+                      <div>
+                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Durée totale</label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <Clock className="h-5 w-5 text-gray-400" />
+                          </div>
+                          <input
+                            type="text"
+                            value={autoCalculatedDuration}
+                            readOnly
+                            className="w-full pl-10 pr-4 py-2.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-gray-900 dark:text-white cursor-not-allowed"
+                            title="Durée calculée automatiquement selon les dates"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Calculée automatiquement selon la durée entre le début et la fin
+                        </p>
+                      </div>
+                    ) : (
+                      // Tâche d'un jour : permettre la saisie manuelle
+                      <div>
+                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Heures estimées</label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <Clock className="h-5 w-5 text-gray-400" />
+                          </div>
+                          <input
+                            type="number"
+                            min="0"
+                            value={editedTask.estimatedHours || ''}
+                            onChange={(e) => setEditedTask({ ...editedTask, estimatedHours: parseInt(e.target.value) || 0 })}
+                            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
+                            placeholder="0"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Saisie manuelle pour les tâches d'un jour
+                        </p>
+                      </div>
+                    )
+                  ) : (
+                    // Mode lecture
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                        {isMultiDay ? 'Durée totale' : 'Heures estimées'}
+                      </label>
+                      <div className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white">
+                        {isMultiDay ? (
+                          <span className="flex items-center">
+                            <Clock className="h-4 w-4 mr-2 text-blue-500" />
+                            {autoCalculatedDuration}
+                          </span>
+                        ) : (
+                          <span className="flex items-center">
+                            <Clock className="h-4 w-4 mr-2 text-blue-500" />
+                            {(editedTask.estimatedHours || 0) > 0 ? `${editedTask.estimatedHours} h` : 'Non spécifié'}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <input
-                      type="number"
-                      min="0"
-                      value={editedTask.estimatedHours || ''}
-                      onChange={(e) => setEditedTask({ ...editedTask, estimatedHours: parseInt(e.target.value) || 0 })}
-                      className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
-                      placeholder="0"
-                    />
-                  </div>
-                </div>
-              )
-            ) : (
-              editedTask.startDate === editedTask.dueDate && (editedTask.estimatedHours || 0) > 0 && (
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Heures estimées</label>
-                  <div className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white">
-                    {editedTask.estimatedHours || 0} h
-                  </div>
-                </div>
-              )
-            )}
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           {/* Assignés */}

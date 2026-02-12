@@ -13,6 +13,7 @@ import { EditTaskForm } from '../Tasks/EditTaskForm';
 import { Tabs, Form, Input, Select, Row, Col, InputNumber, message } from 'antd';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { calculateDuration, isMultiDayTask } from '../../utils/dateUtils';
 
 import { ActivityFeed } from './ActivityFeed';
 import { AIService } from '../../services/aiService';
@@ -2210,12 +2211,29 @@ export function ProjectsView() {
                               }) : 'Pas de date'}
                             </span>
                           </div>
-                          {task.estimatedHours && (
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {task.estimatedHours}h
-                            </span>
-                          )}
+                          {(() => {
+                            const isMultiDay = isMultiDayTask(task.startDate, task.dueDate);
+                            
+                            if (isMultiDay) {
+                              // Tâche multi-jours : afficher la durée calculée
+                              const duration = calculateDuration(task.startDate, task.dueDate);
+                              return (
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  {duration}
+                                </span>
+                              );
+                            } else if (task.estimatedHours && task.estimatedHours > 0) {
+                              // Tâche d'un jour : afficher les heures estimées
+                              return (
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  {task.estimatedHours}h
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
 
                         {/* Tags et assignés */}
