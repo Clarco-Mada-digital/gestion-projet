@@ -50,16 +50,6 @@ export function calculateDuration(startDate: string | Date, endDate: string | Da
     return 'Date de fin antérieure à la date de début';
   }
   
-  // DEBUG: Afficher les dates dans la console pour diagnostic
-  console.log('DEBUG calculateDuration:', {
-    startDate: startDate,
-    endDate: endDate,
-    start: start.toISOString(),
-    end: end.toISOString(),
-    startString: start.toLocaleDateString('fr-FR'),
-    endString: end.toLocaleDateString('fr-FR')
-  });
-  
   // Pour les dates sans heures spécifiées :
   // - Date de début : début de journée (00:00)
   // - Date d'échéance : fin de journée (23:59:59)
@@ -71,12 +61,6 @@ export function calculateDuration(startDate: string | Date, endDate: string | Da
   // Calcul de la différence en millisecondes
   const diffMs = endOfDay.getTime() - startOfDay.getTime();
   
-  // DEBUG: Afficher la différence
-  console.log('DEBUG diff:', {
-    diffMs,
-    diffHours: diffMs / (1000 * 60 * 60),
-    diffDays: diffMs / (1000 * 60 * 60 * 24)
-  });
   
   // Conversion en différentes unités
   const diffSeconds = Math.floor(diffMs / 1000);
@@ -145,9 +129,7 @@ export function calculateDuration(startDate: string | Date, endDate: string | Da
     return parts.slice(0, 3).join(' ');
   }
   
-  const result = parts.join(' ');
-  console.log('DEBUG result:', result);
-  return result;
+  return parts.join(' ');
 }
 
 /**
