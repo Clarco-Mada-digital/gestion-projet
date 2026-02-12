@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Calendar as CalendarIcon, Clock, Plus, X as XIcon, Edit2, Eye } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, Plus, X as XIcon, Edit2, Eye, Image as ImageIcon, Video, Music, Link as LinkIcon } from 'lucide-react';
 import { Task, Project, SubTask, Attachment, User } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { SubTasksList } from './SubTasksList';
@@ -331,6 +331,129 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Description</label>
             {isEditing ? (
               <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+                <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('desc-media-upload-image')?.click()}
+                    className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded flex items-center gap-1.5 text-xs font-medium transition-colors"
+                    title="Insérer une image"
+                  >
+                    <ImageIcon className="w-4 h-4" />
+                    <span className="hidden sm:inline">Image</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('desc-media-upload-video')?.click()}
+                    className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded flex items-center gap-1.5 text-xs font-medium transition-colors"
+                    title="Insérer une vidéo (MP4, WebM...)"
+                  >
+                    <Video className="w-4 h-4" />
+                    <span className="hidden sm:inline">Vidéo</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('desc-media-upload-audio')?.click()}
+                    className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded flex items-center gap-1.5 text-xs font-medium transition-colors"
+                    title="Insérer un audio (MP3, WAV...)"
+                  >
+                    <Music className="w-4 h-4" />
+                    <span className="hidden sm:inline">Audio</span>
+                  </button>
+                  <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = prompt("Entrez l'URL de la vidéo YouTube, Vimeo ou autre lien :");
+                      if (url) {
+                        let markdown = '';
+                        if (url.includes('youtube') || url.includes('youtu.be')) markdown = `\n[📺 YouTube: Vidéo](${url})\n`;
+                        else markdown = `\n[🔗 Lien](${url})\n`;
+
+                        setEditedTask(prev => ({
+                          ...prev,
+                          description: (prev.description || '') + markdown
+                        }));
+                      }
+                    }}
+                    className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded flex items-center gap-1.5 text-xs font-medium transition-colors"
+                    title="Insérer un lien (YouTube...)"
+                  >
+                    <LinkIcon className="w-4 h-4" />
+                    <span className="hidden sm:inline">Lien / YouTube</span>
+                  </button>
+
+                  {/* Inputs cachés pour l'upload */}
+                  <input
+                    type="file"
+                    id="desc-media-upload-image"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={async (e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        const file = e.target.files[0];
+                        try {
+                          let url = '';
+                          if (project.source === 'firebase') {
+                            const uploaded = await cloudinaryService.uploadFile(file, { uploadedBy: 'user', projectId: project.id });
+                            url = uploaded.url;
+                          } else {
+                            url = await localAttachmentService.convertFileToBase64(file);
+                          }
+                          setEditedTask(prev => ({ ...prev, description: (prev.description || '') + `\n![${file.name}](${url})\n` }));
+                        } catch (err) { alert('Erreur upload image'); }
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                  <input
+                    type="file"
+                    id="desc-media-upload-video"
+                    className="hidden"
+                    accept="video/*"
+                    onChange={async (e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        const file = e.target.files[0];
+                        try {
+                          let url = '';
+                          if (project.source === 'firebase') {
+                            const uploaded = await cloudinaryService.uploadFile(file, { uploadedBy: 'user', projectId: project.id });
+                            url = uploaded.url;
+                          } else {
+                            const validation = localAttachmentService.validateFile(file);
+                            if (!validation.isValid) throw new Error(validation.error);
+                            url = await localAttachmentService.convertFileToBase64(file);
+                          }
+                          setEditedTask(prev => ({ ...prev, description: (prev.description || '') + `\n[🎥 Vidéo: ${file.name}](${url})\n` }));
+                        } catch (err) { alert('Erreur upload vidéo'); }
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                  <input
+                    type="file"
+                    id="desc-media-upload-audio"
+                    className="hidden"
+                    accept="audio/*"
+                    onChange={async (e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        const file = e.target.files[0];
+                        try {
+                          let url = '';
+                          if (project.source === 'firebase') {
+                            const uploaded = await cloudinaryService.uploadFile(file, { uploadedBy: 'user', projectId: project.id });
+                            url = uploaded.url;
+                          } else {
+                            const validation = localAttachmentService.validateFile(file);
+                            if (!validation.isValid) throw new Error(validation.error);
+                            url = await localAttachmentService.convertFileToBase64(file);
+                          }
+                          setEditedTask(prev => ({ ...prev, description: (prev.description || '') + `\n[🎵 Audio: ${file.name}](${url})\n` }));
+                        } catch (err) { alert('Erreur upload audio'); }
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                </div>
                 <MDEditorClient
                   value={editedTask.description || ''}
                   onChange={(value: string | undefined) => setEditedTask({ ...editedTask, description: value || '' })}
@@ -361,7 +484,68 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
                     li: ({ children }) => <li style={{ marginBottom: '0.25em' }}>{children}</li>,
                     h1: ({ children }) => <h1 style={{ fontSize: '1.5em', fontWeight: 'bold', marginTop: '1.5em', marginBottom: '0.5em', borderBottom: '2px solid #e5e7eb', paddingBottom: '0.5em' }}>{children}</h1>,
                     h2: ({ children }) => <h2 style={{ fontSize: '1.25em', fontWeight: 'bold', marginTop: '1.5em', marginBottom: '0.5em', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.3em' }}>{children}</h2>,
-                    h3: ({ children }) => <h3 style={{ fontSize: '1.1em', fontWeight: 'bold', marginTop: '1.5em', marginBottom: '0.5em' }}>{children}</h3>
+                    h3: ({ children }) => <h3 style={{ fontSize: '1.1em', fontWeight: 'bold', marginTop: '1.5em', marginBottom: '0.5em' }}>{children}</h3>,
+                    img: (props) => (
+                      <img
+                        {...props}
+                        style={{ maxWidth: '100%', borderRadius: '8px', marginTop: '0.5em', marginBottom: '0.5em', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
+                        alt={props.alt || ''}
+                      />
+                    ),
+                    a: ({ href, children }) => {
+                      if (!href) return <span>{children}</span>;
+
+                      // Helper to check for video
+                      const isVideo = href.match(/\.(mp4|mov|webm)$/i);
+                      const isYouTube = href.includes('youtube.com') || href.includes('youtu.be');
+                      const isAudio = href.match(/\.(mp3|wav|ogg)$/i);
+
+                      if (isVideo) {
+                        return (
+                          <div style={{ marginTop: '0.5em', marginBottom: '0.5em' }}>
+                            <video src={href} controls style={{ maxWidth: '100%', borderRadius: '8px' }} />
+                          </div>
+                        );
+                      }
+
+                      if (isYouTube) {
+                        let videoId = '';
+                        if (href.includes('youtu.be')) {
+                          videoId = href.split('/').pop() || '';
+                        } else if (href.includes('v=')) {
+                          videoId = new URLSearchParams(href.split('?')[1]).get('v') || '';
+                        }
+
+                        if (videoId) {
+                          return (
+                            <div style={{ marginTop: '0.5em', marginBottom: '0.5em', position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', borderRadius: '8px' }}>
+                              <iframe
+                                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+                                src={`https://www.youtube.com/embed/${videoId}`}
+                                title="YouTube video"
+                                frameBorder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                              />
+                            </div>
+                          );
+                        }
+                      }
+
+                      if (isAudio) {
+                        return (
+                          <div style={{ marginTop: '0.5em', marginBottom: '0.5em', padding: '0.5em', backgroundColor: '#f3f4f6', borderRadius: '8px', display: 'flex', alignItems: 'center' }}>
+                            <audio src={href} controls style={{ width: '100%' }} />
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', textDecoration: 'underline' }}>
+                          {children}
+                        </a>
+                      );
+                    }
                   }}
                 >
                   {cleanMarkdown(editedTask.description) || "*Aucune description*"}
@@ -419,6 +603,63 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
                   alert(`Erreur lors de l'ajout du fichier ${file.name} : ${message}`);
                 }
               }
+            }}
+
+            onAddLink={(url, name) => {
+              let type: 'video' | 'link' | 'image' | 'audio' | 'document' | 'other' = 'link';
+              let attachmentName = name || url;
+
+              // Détection simple du type
+              if (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com')) {
+                type = 'video';
+                attachmentName = name || 'Vidéo YouTube';
+              } else if (url.match(/\.(jpeg|jpg|gif|png|webp)$/i)) {
+                type = 'image';
+                attachmentName = name || 'Image Externe';
+              } else if (url.match(/\.(mp3|wav|ogg)$/i)) {
+                type = 'audio';
+                attachmentName = name || 'Audio Externe';
+              }
+
+              const attachment: Attachment = {
+                id: `link-${Date.now()}`,
+                name: attachmentName,
+                type: type,
+                url: url,
+                size: 0,
+                uploadedAt: new Date().toISOString(),
+                uploadedBy: state.cloudUser?.displayName || 'Utilisateur'
+              };
+
+              setEditedTask(prev => ({
+                ...prev,
+                attachments: [...(prev.attachments || []), attachment]
+              }));
+            }}
+            onInsertToDescription={(url, name, type) => {
+              let markdownToInsert = '';
+
+              if (type === 'image') {
+                markdownToInsert = `\n![${name}](${url})\n`;
+              } else if (type === 'video') {
+                // Pour les vidéos, on insère un lien qui sera transformé par notre renderer custom
+                // Si c'est un fichier vidéo direct
+                if (url.match(/\.(mp4|mov|webm)$/i)) {
+                  markdownToInsert = `\n[🎥 Vidéo: ${name}](${url})\n`;
+                } else {
+                  // YouTube ou autre
+                  markdownToInsert = `\n[📺 Vidéo: ${name}](${url})\n`;
+                }
+              } else if (type === 'audio') {
+                markdownToInsert = `\n[🎵 Audio: ${name}](${url})\n`;
+              } else {
+                markdownToInsert = `\n[📎 ${name}](${url})\n`;
+              }
+
+              setEditedTask(prev => ({
+                ...prev,
+                description: (prev.description || '') + markdownToInsert
+              }));
             }}
             onRemoveAttachment={(attachmentId) => {
               const attachment = editedTask.attachments?.find(a => a.id === attachmentId);

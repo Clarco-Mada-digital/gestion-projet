@@ -171,17 +171,27 @@ export const cloudinaryService = {
   /**
    * Détermine la catégorie du fichier (copié de firebaseStorageService pour compatibilité)
    */
-  categorizeFile(type: string, name: string): 'image' | 'document' | 'other' {
+  /**
+   * Détermine la catégorie du fichier (copié de firebaseStorageService pour compatibilité)
+   */
+  categorizeFile(type: string, name: string): 'image' | 'video' | 'audio' | 'document' | 'other' {
     if (type.startsWith('image/')) return 'image';
+    if (type.startsWith('video/')) return 'video';
+    if (type.startsWith('audio/')) return 'audio';
+
     if (type.includes('pdf')) return 'document';
     if (type.includes('document')) return 'document';
     if (type.includes('spreadsheet')) return 'document';
     if (type.includes('presentation')) return 'document';
 
     const isImageFile = (n: string) => /\.(jpg|jpeg|png|gif|bmp|webp|svg|ico)$/i.test(n);
+    const isVideoFile = (n: string) => /\.(mp4|mov|avi|webm|mkv|flv)$/i.test(n);
+    const isAudioFile = (n: string) => /\.(mp3|wav|ogg|m4a|aac)$/i.test(n);
     const isDocumentFile = (n: string) => /\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|rtf|odt|ods|odp)$/i.test(n);
 
     if (isImageFile(name)) return 'image';
+    if (isVideoFile(name)) return 'video';
+    if (isAudioFile(name)) return 'audio';
     if (isDocumentFile(name)) return 'document';
 
     return 'other';

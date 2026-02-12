@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Card } from '../UI/Card';
 import { Palette, Layout, Type, Laptop, Moon, Sun, Monitor, Check, Upload, Globe } from 'lucide-react';
@@ -34,6 +34,81 @@ export function AppearanceSettings() {
     setLocalBranding(newBranding);
     dispatch({ type: 'UPDATE_BRANDING', payload: updates });
   };
+
+  // Effect to apply accent color
+  useEffect(() => {
+    if (state.appSettings.accentColor) {
+      document.documentElement.style.setProperty('--color-primary', `var(--color-${state.appSettings.accentColor}-500)`);
+      // You also need to handle shades if you want a full theme switch, but this is a start
+      // For now, let's inject a style tag to override tailwind classes if needed, 
+      // or better, relies on the `primary` color defined in tailwind config if it uses CSS variables.
+      // Since we don't know the exact tailwind config, we will add a comprehensive style injection.
+
+      const colorMap: Record<string, string> = {
+        blue: '#3b82f6',
+        indigo: '#6366f1',
+        purple: '#a855f7',
+        pink: '#ec4899',
+        red: '#ef4444',
+        orange: '#f97316',
+        yellow: '#eab308',
+        green: '#22c55e',
+        emerald: '#10b981',
+        teal: '#14b8a6',
+        cyan: '#06b6d4',
+      };
+
+      const color = colorMap[state.appSettings.accentColor] || '#3b82f6';
+
+      // We will set a CSS variable that can be used globally
+      document.documentElement.style.setProperty('--primary-color', color);
+
+      // Inject dynamic style to override Tailwind user-agent styles for specific components/utilities if possible
+      // But mainly set the CSS variable we can use.
+      document.documentElement.style.setProperty('--primary-color', color);
+
+      // Force update some common blue classes to use the new color
+      // This is a "hack" to make the theme dynamic without rewriting all classes to use custom utilities
+      const styleId = 'dynamic-theme-styles';
+      let styleEl = document.getElementById(styleId) as HTMLStyleElement;
+      if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = styleId;
+        document.head.appendChild(styleEl);
+      }
+
+      styleEl.innerHTML = `
+        :root {
+          --color-primary: ${color};
+        }
+        
+        /* Override common blue classes */
+        .bg-blue-500 { background-color: ${color} !important; }
+        .bg-blue-600 { background-color: ${color} !important; filter: brightness(0.9); }
+        .hover\\:bg-blue-600:hover { background-color: ${color} !important; filter: brightness(0.9); }
+        .hover\\:bg-blue-700:hover { background-color: ${color} !important; filter: brightness(0.8); }
+        .text-blue-500 { color: ${color} !important; }
+        .text-blue-600 { color: ${color} !important; filter: brightness(0.9); }
+        .border-blue-500 { border-color: ${color} !important; }
+        .focus\\:ring-blue-500:focus { --tw-ring-color: ${color} !important; }
+      `;
+
+      // Also potentially inject specific overrides for commonly used blue classes if the user wants a "total" theme change
+      // But for a "WOW" factor, changing the main accent color used in buttons/links is key.
+      // We'll trust the user to use the text-{accentColor}-500 classes in new development,
+      // but to retroactively fix existing blue-500, we might need a more aggressive approach or just stick to the specific accent color request for NEW elements.
+
+      // The user asked for "Theme Dynamique". 
+      // Let's at least ensure the Preview shows it working.
+    }
+  }, [state.appSettings.accentColor]);
+
+  useEffect(() => {
+    // Apply Font Size
+    const size = state.appSettings.fontSize || 'medium';
+    document.documentElement.classList.remove('font-size-small', 'font-size-medium', 'font-size-large');
+    document.documentElement.classList.add(`font-size-${size}`);
+  }, [state.appSettings.fontSize]);
 
   return (
     <div className="space-y-10 pb-10 animate-in fade-in slide-in-from-bottom-4 duration-500">

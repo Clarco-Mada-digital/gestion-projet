@@ -11,6 +11,7 @@ import { SettingsView } from './components/Views/SettingsView';
 import { ReportView } from './components/Views/ReportView';
 import { AboutView } from './components/Views/AboutView';
 import Chatbot from './components/Chatbot';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Fonction utilitaire pour charger l'état depuis le localStorage
 const loadStateFromLocalStorage = () => {
@@ -30,22 +31,22 @@ function AppContent() {
   const { state, dispatch } = useApp();
   const { currentView, appSettings } = state;
   const { fontSize = 'medium' } = appSettings || {};
-  
+
   // Appliquer la classe de taille de police au body
   useEffect(() => {
     // Supprimer les classes de taille de police existantes
     document.body.classList.remove('font-size-small', 'font-size-medium', 'font-size-large');
-    
+
     // Ajouter la classe de taille de police actuelle
     document.body.classList.add(`font-size-${fontSize}`);
-    
+
     // Mettre à jour la propriété CSS personnalisée pour la taille de police de base
-    document.documentElement.style.setProperty('--font-size-base', 
-      fontSize === 'small' ? '0.875rem' : 
-      fontSize === 'large' ? '1.125rem' : '1rem'
+    document.documentElement.style.setProperty('--font-size-base',
+      fontSize === 'small' ? '0.875rem' :
+        fontSize === 'large' ? '1.125rem' : '1rem'
     );
   }, [fontSize]);
-  
+
   // États de chargement
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -53,7 +54,7 @@ function AppContent() {
   // Effet pour le chargement initial
   useEffect(() => {
     let isMounted = true;
-    
+
     const initializeApp = async () => {
       try {
         // Charger les données depuis le localStorage
@@ -63,11 +64,11 @@ function AppContent() {
           if (savedData.currentView) {
             dispatch({ type: 'SET_VIEW', payload: savedData.currentView });
           }
-          
+
           if (savedData.theme) {
             dispatch({ type: 'SET_THEME', payload: savedData.theme });
           }
-          
+
           if (savedData.appSettings) {
             dispatch({ type: 'UPDATE_APP_SETTINGS', payload: savedData.appSettings });
           }
@@ -96,8 +97,8 @@ function AppContent() {
   // Effet pour suivre les changements de vue
   useEffect(() => {
     if (hasLoaded && !isLoading) {
-      
-      
+
+
     }
   }, [currentView, hasLoaded, isLoading]);
 
@@ -139,7 +140,18 @@ function AppContent() {
   return (
     <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200`}>
       <MainLayout currentView={currentView}>
-        {renderView()}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentView}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 10 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className="h-full w-full"
+          >
+            {renderView()}
+          </motion.div>
+        </AnimatePresence>
         <Chatbot />
       </MainLayout>
     </div>

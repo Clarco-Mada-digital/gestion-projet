@@ -12,7 +12,7 @@ export interface SubTask {
 export interface Attachment {
   id: string;
   name: string;
-  type: 'image' | 'document' | 'other';
+  type: 'image' | 'video' | 'audio' | 'document' | 'link' | 'other';
   url: string;
   size: number;
   uploadedAt: string;

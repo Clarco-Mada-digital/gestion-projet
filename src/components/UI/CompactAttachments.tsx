@@ -1,12 +1,14 @@
 import React, { useState, useRef } from 'react';
-import { Plus, X as XIcon, Eye, Image as ImageIcon, FileText, Music, Video, File, FileSpreadsheet, Presentation } from 'lucide-react';
+import { Plus, X as XIcon, Eye, Image as ImageIcon, FileText, Music, Video, File, FileSpreadsheet, Presentation, Link as LinkIcon } from 'lucide-react';
 import { Attachment } from '../../types';
 
 interface CompactAttachmentsProps {
   attachments: Attachment[];
   isEditing: boolean;
   onAddFiles: (files: FileList) => void;
+  onAddLink?: (url: string, name?: string) => void;
   onRemoveAttachment: (attachmentId: string) => void;
+  onInsertToDescription?: (url: string, name: string, type: string) => void;
   className?: string;
 }
 
@@ -14,11 +16,17 @@ export function CompactAttachments({
   attachments,
   isEditing,
   onAddFiles,
+  onAddLink,
   onRemoveAttachment,
+  onInsertToDescription,
   className = ''
 }: CompactAttachmentsProps) {
   const [isDragging, setIsDragging] = useState(false);
+  const [isAddingLink, setIsAddingLink] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -56,6 +64,7 @@ export function CompactAttachments({
       case 'presentation': return <Presentation className="w-3 h-3" />;
       case 'audio': return <Music className="w-3 h-3" />;
       case 'video': return <Video className="w-3 h-3" />;
+      case 'link': return <LinkIcon className="w-3 h-3" />;
       default: return <File className="w-3 h-3" />;
     }
   };
@@ -68,6 +77,7 @@ export function CompactAttachments({
       case 'presentation': return 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20';
       case 'audio': return 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20';
       case 'video': return 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20';
+      case 'link': return 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20';
       default: return 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20';
     }
   };
@@ -82,6 +92,9 @@ export function CompactAttachments({
         {attachments.length > 0 && (
           <span className="text-xs text-gray-500 dark:text-gray-400">
             {attachments.length} fichier{attachments.length > 1 ? 's' : ''}
+            {isEditing && (
+              <span className="ml-1 text-gray-400 text-[10px]">(glissez-déposez pour ajouter)</span>
+            )}
           </span>
         )}
       </div>
@@ -103,17 +116,80 @@ export function CompactAttachments({
               ref={fileInputRef}
               type="file"
               multiple
-              accept="image/*,application/pdf,.doc,.docx,.txt,.xls,.xlsx"
+              accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.txt,.xls,.xlsx"
               onChange={handleFileSelect}
               className="hidden"
             />
-            <div className="flex items-center justify-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-              <Plus className="w-4 h-4" />
-              <span>Ajouter des fichiers</span>
-              <span className="text-gray-400">•</span>
-              <span>Max 10MB</span>
+            <div className="flex items-center justify-center gap-4 text-xs text-gray-600 dark:text-gray-400">
+              <div className="flex items-center gap-1.5">
+                <Plus className="w-4 h-4" />
+                <span>Ajouter des fichiers</span>
+              </div>
+              <span className="text-gray-300 dark:text-gray-600">|</span>
+              <div className="flex items-center gap-1.5">
+                <Music className="w-3.5 h-3.5" />
+                <Video className="w-3.5 h-3.5" />
+                <ImageIcon className="w-3.5 h-3.5" />
+              </div>
             </div>
           </div>
+
+          {/* Zone d'ajout de lien (YouTube, etc.) */}
+          {onAddLink && (
+            <div className="flex items-center gap-2">
+              {isAddingLink ? (
+                <div className="flex-1 flex items-center gap-2 animate-in fade-in slide-in-from-left-5 duration-200">
+                  <input
+                    type="url"
+                    value={linkUrl}
+                    onChange={(e) => setLinkUrl(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (linkUrl && onAddLink) {
+                          onAddLink(linkUrl);
+                          setLinkUrl('');
+                          setIsAddingLink(false);
+                        }
+                      }
+                    }}
+                    placeholder="https://youtube.com/..."
+                    className="flex-1 px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (linkUrl && onAddLink) {
+                        onAddLink(linkUrl);
+                        setLinkUrl('');
+                        setIsAddingLink(false);
+                      }
+                    }}
+                    className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    Ajouter
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingLink(false)}
+                    className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  >
+                    <XIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsAddingLink(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors"
+                >
+                  <LinkIcon className="w-3.5 h-3.5" />
+                  Ajouter un lien (YouTube, etc.)
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Badges des fichiers */}
           {attachments.length > 0 && (
@@ -130,6 +206,21 @@ export function CompactAttachments({
                   <span className="max-w-32 truncate font-medium">
                     {attachment.name}
                   </span>
+
+                  {/* Bouton pour insérer dans la description */}
+                  {onInsertToDescription && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onInsertToDescription(attachment.url, attachment.name, attachment.type);
+                      }}
+                      className="ml-1 opacity-0 group-hover:opacity-100 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-all duration-200"
+                      title="Insérer dans la description"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  )}
+
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
