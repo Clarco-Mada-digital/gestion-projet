@@ -1311,7 +1311,7 @@ export function ProjectsView() {
 
   // Can edit project details (name, desc, etc.) - Only Owner for Cloud, anyone for Local
   // We keep original rigorous check for project settings
-  const canEditProject = isLocal || isOwner;
+  const canEditProject = isLocal || isOwner || ['admin'].includes(currentUserRole as string);
 
   // Can manage tasks (create, edit, delete, toggle) - Member+
   const canManageTasks = isLocal || isOwner || ['admin', 'member'].includes(currentUserRole as string);
@@ -2213,7 +2213,7 @@ export function ProjectsView() {
                           </div>
                           {(() => {
                             const isMultiDay = isMultiDayTask(task.startDate, task.dueDate);
-                            
+
                             if (isMultiDay) {
                               // Tâche multi-jours : afficher la durée calculée
                               const duration = calculateDuration(task.startDate, task.dueDate);
