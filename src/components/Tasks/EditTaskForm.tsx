@@ -506,7 +506,6 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
                 onSubTasksChange={handleSubTasksChange}
                 project={project}
                 task={editedTask}
-                task={editedTask}
                 isEditing={isEditing}
                 canEdit={canEdit}
               />

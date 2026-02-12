@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Archive, AlertTriangle, Calendar, Cpu, ChevronDown, Loader2, LogOut, Clock, Eye, Edit2, CheckCircle2, Circle } from 'lucide-react';
+import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Archive, AlertTriangle, Calendar, Cpu, ChevronDown, Loader2, LogOut, Clock, Eye, Edit2, CheckCircle2, Circle, Check } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { firebaseService } from '../../services/collaboration/firebaseService';
 import { Card } from '../UI/Card';
