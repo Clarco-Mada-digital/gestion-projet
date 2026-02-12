@@ -48,16 +48,11 @@ const MODELS: Record<ProviderType, ModelOption[]> = {
     { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
   ],
   openrouter: [
-    { value: 'openrouter/auto', label: '🤖 Auto (Meilleur modèle gratuit adapté)' },
-    { value: 'google/gemma-7b-it:free', label: 'Google: Gemma 7B (Gratuit)' },
-    { value: 'mistralai/mistral-7b-instruct:free', label: 'Mistral 7B (Gratuit)' },
-    { value: 'huggingfaceh4/zephyr-7b-beta:free', label: 'Zephyr 7B (Gratuit)' },
-    { value: 'openai/gpt-3.5-turbo', label: 'OpenAI: GPT-3.5 Turbo' },
+    { value: 'anthropic/claude-3-haiku', label: 'Anthropic: Claude 3 Haiku' },
     { value: 'openai/gpt-4-turbo', label: 'OpenAI: GPT-4 Turbo' },
     { value: 'openai/gpt-4o', label: 'OpenAI: GPT-4o' },
     { value: 'anthropic/claude-3-opus', label: 'Anthropic: Claude 3 Opus' },
     { value: 'anthropic/claude-3-sonnet', label: 'Anthropic: Claude 3 Sonnet' },
-    { value: 'anthropic/claude-3-haiku', label: 'Anthropic: Claude 3 Haiku' },
     { value: 'google/gemini-pro-1.5', label: 'Google: Gemini Pro 1.5' },
     { value: 'mistralai/mistral-large', label: 'Mistral: Large' },
     { value: 'meta-llama/llama-3-70b-instruct', label: 'Meta: Llama 3 70B' },
@@ -392,7 +387,6 @@ export const AISettings: React.FC<AISettingsProps> = ({
           <div className="flex-1">
             <p className="font-medium text-gray-700 dark:text-gray-300">Note sur les modèles</p>
             <p>Plus le modèle est puissant, plus il sera capable de comprendre des tâches complexes. Les modèles OpenRouter sont mis à jour dynamiquement.</p>
-            <p className="mt-1 text-amber-600 dark:text-amber-400 font-medium">🎁 OpenRouter : Accès gratuit disponible sans clé API (limité quotidiennement)</p>
           </div>
         </div>
       </div>
@@ -461,8 +455,8 @@ export const AISettings: React.FC<AISettingsProps> = ({
                         label={<span className={labelStyle}>{apiKeyLabel}</span>}
                         rules={[
                           {
-                            required: isOpenAI,
-                            message: isOpenAI ? `Veuillez entrer votre ${apiKeyLabel}` : `La clé API est optionnelle pour OpenRouter (accès limité sans clé)`
+                            required: true,
+                            message: `Veuillez entrer votre ${apiKeyLabel}`
                           }
                         ]}
                         className="mb-4"

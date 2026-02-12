@@ -6,6 +6,7 @@ import { AppState } from '../context/AppContext';
 export interface GeneratedSubTask {
   title: string;
   description?: string;
+  group?: string; // Groupe optionnel pour l'organisation
 }
 
 export type AIMessage = {
@@ -203,9 +204,29 @@ ${appDataInfo}
         }
 
         const data: AIResponse = await response.json();
-        const content = data.choices[0].message.content;
+        console.log('Réponse API brute dans generateAIResponse:', JSON.stringify(data, null, 2));
+        
+        // Extraire le contenu - certains modèles le mettent dans reasoning, d'autres dans content
+        let content = data.choices[0].message.content;
+        const reasoning = data.choices[0].message.reasoning;
+        
+        // Si le content est vide mais reasoning a du contenu, utiliser reasoning
+        if (!content && reasoning) {
+          content = reasoning;
+          console.log('Utilisation du reasoning comme contenu dans generateAIResponse (models avec reasoning séparé)');
+        }
+        
+        console.log('Contenu extrait dans generateAIResponse:', content);
 
         if (!content) {
+          console.error('Structure de la réponse API dans generateAIResponse:', {
+            hasChoices: !!data.choices,
+            choicesLength: data.choices?.length,
+            firstChoice: data.choices?.[0],
+            hasMessage: !!data.choices?.[0]?.message,
+            messageContent: data.choices?.[0]?.message?.content,
+            reasoning: data.choices?.[0]?.message?.reasoning
+          });
           throw new Error('Réponse de l\'IA invalide');
         }
 
@@ -242,6 +263,14 @@ ${appDataInfo}
         ? settings.openaiApiKey?.trim()
         : settings.openrouterApiKey?.trim();
 
+      console.log('Paramètres generateSubTasksWithAI:', {
+        provider: settings.provider,
+        effectiveProvider,
+        hasApiKey: !!apiKey,
+        openaiModel: settings.openaiModel,
+        openrouterModel: settings.openrouterModel
+      });
+
       // Pour OpenRouter, permettre l'utilisation sans clé API (accès limité)
       if (effectiveProvider === 'openrouter' && !apiKey) {
         console.log('Utilisation d\'OpenRouter sans clé API pour la génération de sous-tâches (accès limité)');
@@ -253,6 +282,8 @@ ${appDataInfo}
       let model = effectiveProvider === 'openai'
         ? settings.openaiModel || 'gpt-3.5-turbo'
         : settings.openrouterModel || 'google/gemma-7b-it:free';
+
+      console.log('Modèle sélectionné:', model);
 
       // Gérer le modèle Auto pour OpenRouter
       if (effectiveProvider === 'openrouter' && model === 'openrouter/auto') {
@@ -267,6 +298,7 @@ ${appDataInfo}
 
       // Préparer le prompt concis
       const prompt = this.buildSubTaskPrompt(project, task, existingSubTasks);
+      console.log('Prompt envoyé à l\'IA:', prompt);
 
       // Préparer les en-têtes
       const headers: HeadersInit = {
@@ -284,24 +316,32 @@ ${appDataInfo}
         headers['Authorization'] = `Bearer ${apiKey}`;
       }
 
+      const requestBody = {
+        model: model,
+        messages: [
+          {
+            role: 'system',
+            content: 'Tu es un assistant concis qui aide à décomposer les tâches en sous-tâches.'
+          },
+          {
+            role: 'user',
+            content: `${prompt} (Génère uniquement 3-5 sous-tâches maximum, sois concis)`
+          }
+        ],
+        temperature: 0.5,  // Réponse plus prévisible
+        max_tokens: 1000,  // Augmenté pour éviter les réponses coupées
+      };
+
+      console.log('Requête API:', {
+        endpoint,
+        headers: { ...headers, Authorization: headers.Authorization ? '[HIDDEN]' : undefined },
+        body: requestBody
+      });
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          model: provider === 'openrouter' && model === 'openrouter/auto' ? actualModel : model,
-          messages: [
-            {
-              role: 'system',
-              content: 'Tu es un assistant concis qui aide à décomposer les tâches en sous-tâches.'
-            },
-            {
-              role: 'user',
-              content: `${prompt} (Génère uniquement 3-5 sous-tâches maximum, sois concis)`
-            }
-          ],
-          temperature: 0.5,  // Réponse plus prévisible
-          max_tokens: 500,   // Réduit pour économiser les crédits
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -310,10 +350,30 @@ ${appDataInfo}
       }
 
       const data = await response.json();
-      const content = data.choices?.[0]?.message?.content;
+      console.log('Réponse API brute dans generateSubTasksWithAI:', JSON.stringify(data, null, 2));
+      
+      // Extraire le contenu - certains modèles le mettent dans reasoning, d'autres dans content
+      let content = data.choices?.[0]?.message?.content;
+      const reasoning = data.choices?.[0]?.message?.reasoning;
+      
+      // Si le content est vide mais reasoning a du contenu, utiliser reasoning
+      if (!content && reasoning) {
+        content = reasoning;
+        console.log('Utilisation du reasoning comme contenu (models avec reasoning séparé)');
+      }
+      
+      console.log('Contenu extrait dans generateSubTasksWithAI:', content);
 
       if (!content) {
-        throw new Error('Réponse de l\'IA invalide');
+        console.error('Structure de la réponse API dans generateSubTasksWithAI:', {
+          hasChoices: !!data.choices,
+          choicesLength: data.choices?.length,
+          firstChoice: data.choices?.[0],
+          hasMessage: !!data.choices?.[0]?.message,
+          messageContent: data.choices?.[0]?.message?.content,
+          reasoning: data.choices?.[0]?.message?.reasoning
+        });
+        throw new Error('Réponse de l\'IA invalide - pas de contenu trouvé');
       }
 
       // Parser la réponse pour extraire les sous-tâches
@@ -335,33 +395,67 @@ ${appDataInfo}
       prompt += `Description: ${task.description.substring(0, 200)}${task.description.length > 200 ? '...' : ''}\n\n`;
     }
 
-    // Lister les sous-tâches existantes de manière concise
+    // Lister les sous-tâches existantes avec leurs titres exacts pour éviter les doublons
     if (existingSubTasks.length > 0) {
-      prompt += 'Sous-tâches existantes :\n';
-      existingSubTasks.slice(0, 3).forEach((st) => {
-        prompt += `- ${st.title}${st.completed ? ' ✓' : ''}\n`;
+      prompt += 'Sous-tâches existantes (NE PAS DUPLIQUER):\n';
+      existingSubTasks.forEach((st, index) => {
+        prompt += `${index + 1}. "${st.title}"${st.completed ? ' (terminée)' : ''}\n`;
       });
-      if (existingSubTasks.length > 3) prompt += `... (${existingSubTasks.length - 3} de plus)\n`;
       prompt += '\n';
     }
 
-    // Instructions claires et concises
-    prompt += `Génère 3-5 sous-tâches pour cette tâche.\n`;
-    prompt += `Format JSON : [{"title":"Tâche 1","description":"..."},...]`;
+    // Instructions améliorées avec groupement et évitement de doublons
+    prompt += `Génère 3-5 nouvelles sous-tâches pour cette tâche.\n`;
+    prompt += `IMPORTANT:\n`;
+    prompt += `- NE PAS générer de sous-tâches qui existent déjà dans la liste ci-dessus\n`;
+    prompt += `- Regroupe les sous-tâches similaires par catégories logiques si possible\n`;
+    prompt += `- Sois spécifique et actionnable\n`;
+    prompt += `- Format JSON avec groupes optionnels:\n`;
+    prompt += `{"group":"Nom du groupe","tasks":[{"title":"Sous-tâche 1","description":"..."},{"title":"Sous-tâche 2","description":"..."}]}\n`;
+    prompt += `Si pas de groupe, utilise: [{"title":"Tâche 1","description":"..."},...]`;
 
     return prompt;
   }
 
   private static parseSubTasksResponse(content: string): GeneratedSubTask[] {
+    console.log('Contenu à parser dans parseSubTasksResponse:', content);
+    
     try {
       // Essayer d'extraire le JSON de la réponse
       const jsonMatch = content.match(/\[\s*\{.*\}\s*\]/s);
+      console.log('JSON match trouvé:', jsonMatch?.[0]);
+      
       if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+        const parsed = JSON.parse(jsonMatch[0]);
+        console.log('JSON parsé avec succès:', parsed);
+        
+        // Vérifier si c'est le format avec groupes
+        if (parsed.length > 0 && parsed[0].group && parsed[0].tasks) {
+          console.log('Format avec groupes détecté');
+          // Aplatir les groupes en une liste simple de sous-tâches
+          const flattenedTasks: GeneratedSubTask[] = [];
+          parsed.forEach((group: any) => {
+            if (group.tasks && Array.isArray(group.tasks)) {
+              group.tasks.forEach((task: any) => {
+                flattenedTasks.push({
+                  title: task.title || 'Sous-tâche sans titre',
+                  description: task.description || '',
+                  group: group.group || 'Sans groupe'
+                });
+              });
+            }
+          });
+          return flattenedTasks;
+        }
+        
+        // Format standard (sans groupes)
+        return parsed;
       }
 
       // Si pas de JSON valide, essayer de parser manuellement
       const lines = content.split('\n').filter(line => line.trim() !== '');
+      console.log('Lignes à parser manuellement:', lines);
+      
       const subTasks: GeneratedSubTask[] = [];
 
       for (const line of lines) {
@@ -374,7 +468,9 @@ ${appDataInfo}
         }
       }
 
-      return subTasks.length > 0 ? subTasks : [{ title: 'Sous-tâche générée', description: '' }];
+      const result = subTasks.length > 0 ? subTasks : [{ title: 'Sous-tâche générée', description: '' }];
+      console.log('Résultat final du parsing:', result);
+      return result;
     } catch (error) {
       console.error('Erreur lors du parsing de la réponse des sous-tâches:', error);
       return [{ title: 'Sous-tâche générée', description: '' }];
@@ -388,32 +484,32 @@ ${appDataInfo}
     description: string
   ): Promise<{ title: string; description: string }> {
     try {
-      const { provider } = settings;
-      const apiKey = provider === 'openai'
+      const effectiveProvider = settings.provider || 'openrouter';
+      const apiKey = effectiveProvider === 'openai'
         ? settings.openaiApiKey?.trim()
         : settings.openrouterApiKey?.trim();
 
       // Pour OpenRouter, permettre l'utilisation sans clé API (accès limité)
-      if (provider === 'openrouter' && !apiKey) {
+      if (effectiveProvider === 'openrouter' && !apiKey) {
         console.log('Utilisation d\'OpenRouter sans clé API pour la génération de tâches (accès limité)');
-      } else if (provider === 'openai' && !apiKey) {
+      } else if (effectiveProvider === 'openai' && !apiKey) {
         throw new Error('Clé API OpenAI requise pour utiliser OpenAI');
       }
 
-      const endpoint = provider === 'openai'
+      const endpoint = effectiveProvider === 'openai'
         ? 'https://api.openai.com/v1/chat/completions'
         : 'https://openrouter.ai/api/v1/chat/completions';
 
-      const model = provider === 'openai'
-        ? settings.openaiModel
-        : settings.openrouterModel;
+      // Utiliser un modèle plus léger pour OpenRouter
+      let model = effectiveProvider === 'openai'
+        ? settings.openaiModel || 'gpt-3.5-turbo'
+        : settings.openrouterModel || 'google/gemma-7b-it:free';
 
       // Gérer le modèle Auto pour OpenRouter
-      if (provider === 'openrouter' && model === 'openrouter/auto') {
+      if (effectiveProvider === 'openrouter' && model === 'openrouter/auto') {
         // Pour le modèle Auto, utiliser un modèle gratuit de base
-        const actualModel = 'google/gemma-7b-it:free';
+        model = 'google/gemma-7b-it:free';
         console.log('Utilisation du modèle Auto OpenRouter -> google/gemma-7b-it:free pour generateTask');
-        // Utiliser actualModel pour le reste de la fonction
       }
 
       // Construire le prompt pour générer une tâche
@@ -427,12 +523,12 @@ ${appDataInfo}
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(provider === 'openrouter' && { 'HTTP-Referer': window.location.origin }),
+          ...(effectiveProvider === 'openrouter' && { 'HTTP-Referer': window.location.origin }),
           // Ajouter l'authentification uniquement si une clé est fournie
           ...(apiKey && { 'Authorization': `Bearer ${apiKey}` })
         },
         body: JSON.stringify({
-          model: provider === 'openrouter' && model === 'openrouter/auto' ? actualModel : model,
+          model: model,
           messages: [
             {
               role: 'system',
@@ -451,9 +547,29 @@ ${appDataInfo}
       }
 
       const data = await response.json();
-      const content = data.choices?.[0]?.message?.content;
+      console.log('Réponse API brute dans generateTask:', JSON.stringify(data, null, 2));
+      
+      // Extraire le contenu - certains modèles le mettent dans reasoning, d'autres dans content
+      let content = data.choices?.[0]?.message?.content;
+      const reasoning = data.choices?.[0]?.message?.reasoning;
+      
+      // Si le content est vide mais reasoning a du contenu, utiliser reasoning
+      if (!content && reasoning) {
+        content = reasoning;
+        console.log('Utilisation du reasoning comme contenu dans generateTask (models avec reasoning séparé)');
+      }
+      
+      console.log('Contenu extrait dans generateTask:', content);
 
       if (!content) {
+        console.error('Structure de la réponse API dans generateTask:', {
+          hasChoices: !!data.choices,
+          choicesLength: data.choices?.length,
+          firstChoice: data.choices?.[0],
+          hasMessage: !!data.choices?.[0]?.message,
+          messageContent: data.choices?.[0]?.message?.content,
+          reasoning: data.choices?.[0]?.message?.reasoning
+        });
         throw new Error('Réponse de l\'IA invalide');
       }
 
@@ -519,7 +635,7 @@ ${appDataInfo}
         method: 'POST',
         headers,
         body: JSON.stringify({
-          model: provider === 'openrouter' && model === 'openrouter/auto' ? actualModel : model,
+          model: model,
           messages: [
             {
               role: 'system',
@@ -544,7 +660,21 @@ ${appDataInfo}
       }
 
       const data = await response.json();
-      return data.choices?.[0]?.message?.content || 'Aucune réponse générée';
+      console.log('Réponse API brute dans testConnection:', JSON.stringify(data, null, 2));
+      
+      // Extraire le contenu - certains modèles le mettent dans reasoning, d'autres dans content
+      let content = data.choices?.[0]?.message?.content;
+      const reasoning = data.choices?.[0]?.message?.reasoning;
+      
+      // Si le content est vide mais reasoning a du contenu, utiliser reasoning
+      if (!content && reasoning) {
+        content = reasoning;
+        console.log('Utilisation du reasoning comme contenu dans testConnection (models avec reasoning séparé)');
+      }
+      
+      console.log('Contenu extrait dans testConnection:', content);
+      
+      return content || 'Aucune réponse générée';
 
     } catch (error) {
       console.error('Erreur lors de la génération de texte avec IA:', error);
@@ -606,7 +736,7 @@ ${appDataInfo}
         method: 'POST',
         headers,
         body: JSON.stringify({
-          model: provider === 'openrouter' && model === 'openrouter/auto' ? actualModel : model,
+          model: model,
           messages: [{ role: 'user' as const, content: message }],
           max_tokens: 5, // Nombre minimal de tokens pour le test
         }),
@@ -651,25 +781,33 @@ ${appDataInfo}
     project: { name: string; description?: string; tasks?: any[] }
   ): Promise<any[]> {
     try {
-      const { provider } = settings;
-      const apiKey = provider === 'openai'
+      const effectiveProvider = settings.provider || 'openrouter';
+      const apiKey = effectiveProvider === 'openai'
         ? settings.openaiApiKey?.trim()
         : settings.openrouterApiKey?.trim();
 
       // Pour OpenRouter, permettre l'utilisation sans clé API (accès limité)
-      if (provider === 'openrouter' && !apiKey) {
+      if (effectiveProvider === 'openrouter' && !apiKey) {
         console.log('Utilisation d\'OpenRouter sans clé API pour la génération multiple de tâches (accès limité)');
-      } else if (provider === 'openai' && !apiKey) {
+      } else if (effectiveProvider === 'openai' && !apiKey) {
         throw new Error('Clé API OpenAI requise pour utiliser OpenAI');
       }
 
-      const endpoint = provider === 'openai'
+      const endpoint = effectiveProvider === 'openai'
         ? 'https://api.openai.com/v1/chat/completions'
         : 'https://openrouter.ai/api/v1/chat/completions';
 
-      const model = (provider === 'openai'
-        ? settings.openaiModel
-        : settings.openrouterModel) || (provider === 'openai' ? 'gpt-3.5-turbo' : 'google/gemma-7b-it:free');
+      // Utiliser un modèle plus léger pour OpenRouter
+      let model = effectiveProvider === 'openai'
+        ? settings.openaiModel || 'gpt-3.5-turbo'
+        : settings.openrouterModel || 'google/gemma-7b-it:free';
+
+      // Gérer le modèle Auto pour OpenRouter
+      if (effectiveProvider === 'openrouter' && model === 'openrouter/auto') {
+        // Pour le modèle Auto, utiliser un modèle gratuit de base
+        model = 'google/gemma-7b-it:free';
+        console.log('Utilisation du modèle Auto OpenRouter -> google/gemma-7b-it:free pour generateTasks');
+      }
 
       // Préparer le prompt
       let prompt = `Génère 3 à 5 tâches pertinentes pour le projet "${project.name}".`;
@@ -687,12 +825,12 @@ ${appDataInfo}
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(provider === 'openrouter' && { 'HTTP-Referer': window.location.origin }),
+          ...(effectiveProvider === 'openrouter' && { 'HTTP-Referer': window.location.origin }),
           // Ajouter l'authentification uniquement si une clé est fournie
           ...(apiKey && { 'Authorization': `Bearer ${apiKey}` })
         },
         body: JSON.stringify({
-          model: provider === 'openrouter' && model === 'openrouter/auto' ? actualModel : model,
+          model: model,
           messages: [
             {
               role: 'system',
@@ -711,9 +849,31 @@ ${appDataInfo}
       }
 
       const data = await response.json();
-      const content = data.choices?.[0]?.message?.content;
+      console.log('Réponse API brute dans generateTasks:', JSON.stringify(data, null, 2));
+      
+      // Extraire le contenu - certains modèles le mettent dans reasoning, d'autres dans content
+      let content = data.choices?.[0]?.message?.content;
+      const reasoning = data.choices?.[0]?.message?.reasoning;
+      
+      // Si le content est vide mais reasoning a du contenu, utiliser reasoning
+      if (!content && reasoning) {
+        content = reasoning;
+        console.log('Utilisation du reasoning comme contenu dans generateTasks (models avec reasoning séparé)');
+      }
+      
+      console.log('Contenu extrait dans generateTasks:', content);
 
-      if (!content) throw new Error('Aucun contenu généré');
+      if (!content) {
+        console.error('Structure de la réponse API dans generateTasks:', {
+          hasChoices: !!data.choices,
+          choicesLength: data.choices?.length,
+          firstChoice: data.choices?.[0],
+          hasMessage: !!data.choices?.[0]?.message,
+          messageContent: data.choices?.[0]?.message?.content,
+          reasoning: data.choices?.[0]?.message?.reasoning
+        });
+        throw new Error('Aucun contenu généré');
+      }
 
       // Extraire le JSON
       const jsonMatch = content.match(/\[\s*\{.*\}\s*\]/s);
