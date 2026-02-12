@@ -10,9 +10,10 @@ interface TaskCommentsProps {
   taskId: string;
   projectId: string;
   project: Project;
+  canComment?: boolean;
 }
 
-export function TaskComments({ taskId, projectId, project }: TaskCommentsProps) {
+export function TaskComments({ taskId, projectId, project, canComment = true }: TaskCommentsProps) {
   const { state } = useApp();
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -194,64 +195,66 @@ export function TaskComments({ taskId, projectId, project }: TaskCommentsProps) 
       </div>
 
       {/* Zone d'ajout de commentaire */}
-      <div className="relative">
-        <div className="flex gap-2">
-          <div className="flex-1 relative">
-            <textarea
-              ref={textareaRef}
-              value={newComment}
-              onChange={handleInputChange}
-              placeholder="Ajouter un commentaire... (utilisez @ pour mentionner)"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey && !showMentions) {
-                  e.preventDefault();
-                  handleSubmit(e as any);
-                }
-              }}
-              className="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[80px] resize-none"
-            />
+      {canComment && (
+        <div className="relative">
+          <div className="flex gap-2">
+            <div className="flex-1 relative">
+              <textarea
+                ref={textareaRef}
+                value={newComment}
+                onChange={handleInputChange}
+                placeholder="Ajouter un commentaire... (utilisez @ pour mentionner)"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey && !showMentions) {
+                    e.preventDefault();
+                    handleSubmit(e as any);
+                  }
+                }}
+                className="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[80px] resize-none"
+              />
 
-            {/* Dropdown mentions */}
-            {showMentions && (
-              <div className="absolute bottom-full left-0 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 mb-2 overflow-hidden">
-                <div className="p-2 border-b border-gray-100 dark:border-gray-700 text-xs font-medium text-gray-500">
-                  Mentionner un membre du projet
+              {/* Dropdown mentions */}
+              {showMentions && (
+                <div className="absolute bottom-full left-0 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 mb-2 overflow-hidden">
+                  <div className="p-2 border-b border-gray-100 dark:border-gray-700 text-xs font-medium text-gray-500">
+                    Mentionner un membre du projet
+                  </div>
+                  <div className="max-h-40 overflow-y-auto">
+                    {projectMembers
+                      .filter(u => u.name?.toLowerCase().includes(mentionSearch.toLowerCase()) || u.email?.toLowerCase().includes(mentionSearch.toLowerCase()))
+                      .map(user => (
+                        <button
+                          key={user.id}
+                          type="button"
+                          onClick={() => insertMention(user)}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm"
+                        >
+                          <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-xs text-blue-600">
+                            {user.name?.[0] || user.email[0]}
+                          </div>
+                          <span className="truncate">{user.name || user.email}</span>
+                        </button>
+                      ))}
+                    {projectMembers.filter(u => u.name?.toLowerCase().includes(mentionSearch.toLowerCase()) || u.email?.toLowerCase().includes(mentionSearch.toLowerCase())).length === 0 && (
+                      <div className="p-3 text-center text-xs text-gray-500 italic">
+                        Aucun membre du projet trouvé
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="max-h-40 overflow-y-auto">
-                  {projectMembers
-                    .filter(u => u.name?.toLowerCase().includes(mentionSearch.toLowerCase()) || u.email?.toLowerCase().includes(mentionSearch.toLowerCase()))
-                    .map(user => (
-                      <button
-                        key={user.id}
-                        type="button"
-                        onClick={() => insertMention(user)}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm"
-                      >
-                        <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-xs text-blue-600">
-                          {user.name?.[0] || user.email[0]}
-                        </div>
-                        <span className="truncate">{user.name || user.email}</span>
-                      </button>
-                    ))}
-                  {projectMembers.filter(u => u.name?.toLowerCase().includes(mentionSearch.toLowerCase()) || u.email?.toLowerCase().includes(mentionSearch.toLowerCase())).length === 0 && (
-                    <div className="p-3 text-center text-xs text-gray-500 italic">
-                      Aucun membre du projet trouvé
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+              )}
+            </div>
+            <button
+              type="submit"
+              onClick={(e) => handleSubmit(e as any)}
+              disabled={!newComment.trim() || isSubmitting}
+              className="self-end p-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl transition-colors shadow-lg shadow-blue-500/20"
+            >
+              <Send className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            type="submit"
-            onClick={(e) => handleSubmit(e as any)}
-            disabled={!newComment.trim() || isSubmitting}
-            className="self-end p-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl transition-colors shadow-lg shadow-blue-500/20"
-          >
-            <Send className="w-5 h-5" />
-          </button>
         </div>
-      </div>
+      )}
     </div>
   );
 }

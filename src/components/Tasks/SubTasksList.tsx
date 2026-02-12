@@ -14,9 +14,10 @@ export interface SubTasksListProps {
   project: Project;
   task: Task;
   isEditing?: boolean;
+  canEdit?: boolean;
 }
 
-export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, isEditing = false }: SubTasksListProps) {
+export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, isEditing = false, canEdit = true }: SubTasksListProps) {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newGroupName, setNewGroupName] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -81,6 +82,7 @@ export function SubTasksList({ subTasks = [], onSubTasksChange, project, task, i
   };
 
   const toggleTask = (id: string) => {
+    if (!canEdit) return;
     const now = new Date().toISOString();
     const updated = subTasks.map(task =>
       task.id === id ? {

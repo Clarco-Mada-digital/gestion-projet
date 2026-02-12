@@ -167,13 +167,23 @@ export function KanbanView() {
   useEffect(() => {
     let tasksToDisplay = [];
 
+    const filterViewerProjects = (p: any) => {
+      // Exclure les projets dont on est seulement viewer
+      if (p.source === 'firebase' &&
+        p.ownerId !== state.cloudUser?.uid &&
+        p.memberRoles?.[state.cloudUser?.uid || ''] === 'viewer') {
+        return false;
+      }
+      return true;
+    };
+
     if (selectedProjectIds.length === 0) {
       tasksToDisplay = state.projects
-        .filter(project => project.status === 'active')
+        .filter(project => project.status === 'active' && filterViewerProjects(project))
         .flatMap(p => p.tasks);
     } else {
       tasksToDisplay = state.projects
-        .filter(p => selectedProjectIds.includes(p.id) && p.status === 'active')
+        .filter(p => selectedProjectIds.includes(p.id) && p.status === 'active' && filterViewerProjects(p))
         .flatMap(p => p.tasks);
     }
 

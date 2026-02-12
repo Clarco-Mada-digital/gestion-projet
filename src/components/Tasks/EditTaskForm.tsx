@@ -54,12 +54,18 @@ interface EditTaskFormProps {
   task: Task;
   onClose: () => void;
   project: Project;
+  canEdit?: boolean;
 }
 
-export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
+export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: EditTaskFormProps) {
   const { state, dispatch } = useApp();
   const currentUserRole = project.memberRoles?.[state.cloudUser?.uid || ''] || 'member';
-  const canEdit = project.source !== 'firebase' || project.ownerId === state.cloudUser?.uid || currentUserRole === 'admin' || currentUserRole === 'member';
+  // Ensure canEdit logic correctly identifies viewers as unable to edit
+  const canEdit = canEditProp !== undefined ? canEditProp : (
+    (!project.source || project.source === 'local') ||
+    project.ownerId === state.cloudUser?.uid ||
+    ['admin', 'member'].includes(currentUserRole)
+  );
 
   // State initial avec validation
   const [editedTask, setEditedTask] = useState<Task>(() => {
@@ -500,7 +506,9 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                 onSubTasksChange={handleSubTasksChange}
                 project={project}
                 task={editedTask}
+                task={editedTask}
                 isEditing={isEditing}
+                canEdit={canEdit}
               />
             </div>
           </div>
@@ -610,7 +618,7 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                 ))}
 
               {/* Menu déroulant pour ajouter un assigné */}
-              {isEditing && (
+              {isEditing && canEdit && (
                 <div className="relative">
                   <button
                     type="button"
@@ -718,8 +726,9 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
                     <XIcon className="w-4 h-4" />
                   </button>
                 </div>
-              ) : (
+              ) : !isAddingTag && canEdit && (
                 <button
+                  type="button"
                   onClick={() => setIsAddingTag(true)}
                   className="flex items-center px-4 py-2 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800/30 transition-colors duration-200"
                 >
@@ -752,6 +761,7 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
             taskId={editedTask.id}
             projectId={editedTask.projectId}
             project={project}
+            canComment={canEdit}
           />
 
           {/* Pied de page fixe */}
@@ -775,7 +785,7 @@ export function EditTaskForm({ task, onClose, project }: EditTaskFormProps) {
             </div>
           </div>
         </form>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }

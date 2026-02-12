@@ -64,7 +64,15 @@ export function TodayView() {
 
   // Récupérer toutes les tâches des projets actifs groupées par projet
   const projectsWithTodayTasks = state.projects
-    .filter(project => project.status === 'active') // Ne prendre que les projets actifs
+    .filter(project => {
+      // Exclure les projets dont on est seulement viewer
+      if (project.source === 'firebase' &&
+        project.ownerId !== state.cloudUser?.uid &&
+        project.memberRoles?.[state.cloudUser?.uid || ''] === 'viewer') {
+        return false;
+      }
+      return project.status === 'active';
+    }) // Ne prendre que les projets actifs et non-viewer
     .map(project => ({
       ...project,
       tasks: project.tasks.filter(task =>
@@ -73,9 +81,17 @@ export function TodayView() {
     }))
     .filter(project => project.tasks.length > 0);
 
-  // Toutes les tâches des projets actifs pour les calculs
+  // Toutes les tâches des projets actifs (et non viewer) pour les calculs
   const allTasks = state.projects
-    .filter(project => project.status === 'active')
+    .filter(project => {
+      // Exclure les projets dont on est seulement viewer
+      if (project.source === 'firebase' &&
+        project.ownerId !== state.cloudUser?.uid &&
+        project.memberRoles?.[state.cloudUser?.uid || ''] === 'viewer') {
+        return false;
+      }
+      return project.status === 'active';
+    })
     .flatMap(p => p.tasks);
 
   // Tâches en retard (uniquement des projets actifs)

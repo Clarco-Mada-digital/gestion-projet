@@ -1304,18 +1304,16 @@ export function ProjectsView() {
     setManagingMembersProject(project);
   };
 
-  const isOwnerOrMember = editingProject && (
-    !editingProject.source ||
-    editingProject.source === 'local' ||
-    state.cloudUser?.uid === editingProject.ownerId ||
-    editingProject.members?.includes(state.cloudUser?.uid || '')
-  );
+  const currentUserRole = editingProject?.memberRoles?.[state.cloudUser?.uid || ''] || 'member';
+  const isOwner = state.cloudUser?.uid === editingProject?.ownerId;
+  const isLocal = !editingProject?.source || editingProject?.source === 'local';
 
-  const canEditProject = isOwnerOrMember && (
-    !editingProject?.source ||
-    editingProject.source === 'local' ||
-    state.cloudUser?.uid === editingProject.ownerId
-  );
+  // Can edit project details (name, desc, etc.) - Only Owner for Cloud, anyone for Local
+  // We keep original rigorous check for project settings
+  const canEditProject = isLocal || isOwner;
+
+  // Can manage tasks (create, edit, delete, toggle) - Member+
+  const canManageTasks = isLocal || isOwner || ['admin', 'member'].includes(currentUserRole as string);
 
   return (
     <div className="space-y-8">
@@ -2064,23 +2062,25 @@ export function ProjectsView() {
               <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                 Tâches du projet ({editingProject?.tasks?.length || 0})
               </h3>
-              <button
-                onClick={generateTasksWithAI}
-                disabled={isGeneratingTasks}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors"
-              >
-                {isGeneratingTasks ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Génération...
-                  </>
-                ) : (
-                  <>
-                    <Cpu className="w-4 h-4" />
-                    Générer avec l'IA
-                  </>
-                )}
-              </button>
+              {canManageTasks && (
+                <button
+                  onClick={generateTasksWithAI}
+                  disabled={isGeneratingTasks}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors"
+                >
+                  {isGeneratingTasks ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Génération...
+                    </>
+                  ) : (
+                    <>
+                      <Cpu className="w-4 h-4" />
+                      Générer avec l'IA
+                    </>
+                  )}
+                </button>
+              )}
             </div>
 
             {editingProject?.tasks?.length ? (
@@ -2096,17 +2096,20 @@ export function ProjectsView() {
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-start gap-3 flex-1">
                           {/* Raccourci pour marquer comme terminé */}
-                          <button
-                            onClick={(e) => toggleTaskStatus(task.id, e)}
-                            className={`mt-0.5 transition-colors ${task.status === 'done' ? 'text-green-500 hover:text-green-600' : 'text-gray-400 hover:text-blue-500'}`}
-                            title={task.status === 'done' ? "Marquer comme à faire" : "Marquer comme terminé"}
-                          >
-                            {task.status === 'done' ? (
-                              <CheckCircle2 className="w-5 h-5" />
-                            ) : (
-                              <Circle className="w-5 h-5" />
-                            )}
-                          </button>
+                          {canManageTasks && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleTaskStatus(task);
+                              }}
+                              className={`mt-1 w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${task.status === 'done'
+                                ? 'bg-green-500 border-green-500 text-white'
+                                : 'border-gray-300 dark:border-gray-500 hover:border-blue-500 dark:hover:border-blue-400'
+                                }`}
+                            >
+                              {task.status === 'done' && <Check className="w-3 h-3" />}
+                            </button>
+                          )}
 
                           <div className="flex-1">
                             <h4 className={`font-medium transition-colors line-clamp-2 ${task.status === 'done' ? 'text-gray-500 line-through' : 'text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400'}`}>
@@ -2137,28 +2140,30 @@ export function ProjectsView() {
                         </div>
 
                         {/* Actions */}
-                        <div className="flex items-center gap-1 ml-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openTaskModal(task);
-                            }}
-                            className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                            title="Modifier la tâche"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeTask(task.id, true);
-                            }}
-                            className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                            title="Supprimer la tâche"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
+                        {canManageTasks && (
+                          <div className="flex items-center gap-1 ml-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openTaskModal(task);
+                              }}
+                              className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                              title="Modifier la tâche"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeTask(task.id, true);
+                              }}
+                              className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                              title="Supprimer la tâche"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       {/* Description (tronquée) */}
@@ -2544,6 +2549,7 @@ export function ProjectsView() {
           task={editingTask}
           onClose={() => setEditingTask(null)}
           project={editingProject}
+          canEdit={canManageTasks}
         />
       )}
 

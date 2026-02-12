@@ -569,7 +569,7 @@ export function CalendarView() {
             <span className="text-gray-600 dark:text-gray-400 font-medium">Échéance aujourd'hui</span>
           </div>
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-amber-500 text-white text-[10px] font-bold rounded-lg flex items-center justify-center shadow-md" >11</div>
+            <div className="w-8 h-8 bg-amber-500 text-white text-[10px] font-bold rounded-lg flex items-center justify-center shadow-md" >{new Date().getDate()}</div>
             <span className="text-gray-600 dark:text-gray-400 font-medium">Aujourd'hui (Date actuelle)</span>
           </div>
         </div>
