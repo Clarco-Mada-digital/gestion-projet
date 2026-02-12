@@ -11,6 +11,7 @@ interface CoverImageUploadProps {
   projectId?: string;
   projectSource?: 'local' | 'firebase';
   className?: string;
+  canEdit?: boolean; // Nouvelle prop pour les permissions
 }
 
 export function CoverImageUpload({
@@ -20,11 +21,14 @@ export function CoverImageUpload({
   onImageRemoved,
   projectId,
   projectSource = 'local',
-  className = ''
+  className = '',
+  canEdit = true // Par défaut, on peut modifier
 }: CoverImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [imageUrl, setImageUrl] = useState(''); // Pour l'URL directe
+  const [showUrlInput, setShowUrlInput] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = useCallback(async (file: File) => {
@@ -123,6 +127,20 @@ export function CoverImageUpload({
     onImageRemoved();
   }, [onImageRemoved, currentImage, currentImagePublicId, projectSource]);
 
+  // Gérer l'URL directe
+  const handleUrlSubmit = useCallback(() => {
+    if (imageUrl.trim()) {
+      // Valider que c'est une URL d'image
+      if (imageUrl.match(/^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i)) {
+        onImageUploaded(imageUrl.trim());
+        setImageUrl('');
+        setShowUrlInput(false);
+      } else {
+        alert('Veuillez entrer une URL d\'image valide (jpg, png, gif, webp, svg)');
+      }
+    }
+  }, [imageUrl, onImageUploaded]);
+
   // Déterminer les limites selon le type de projet
   const maxSize = projectSource === 'firebase' ? 5 * 1024 * 1024 : 2 * 1024 * 1024;
   const maxSizeText = projectSource === 'firebase' ? '5MB' : '2MB';
@@ -138,23 +156,31 @@ export function CoverImageUpload({
               alt="Image de couverture"
               className="w-full h-48 object-cover"
             />
-            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 flex items-center justify-center">
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 space-x-2">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition-colors"
-                  disabled={isUploading}
-                >
-                  {isUploading ? 'Upload...' : 'Changer'}
-                </button>
-                <button
-                  onClick={handleRemoveImage}
-                  className="px-3 py-1 bg-red-600 text-white rounded-md text-sm hover:bg-red-700 transition-colors"
-                >
-                  Supprimer
-                </button>
+            {canEdit && (
+              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 flex items-center justify-center">
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 space-x-2">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition-colors"
+                    disabled={isUploading}
+                  >
+                    {isUploading ? 'Upload...' : 'Changer'}
+                  </button>
+                  <button
+                    onClick={() => setShowUrlInput(!showUrlInput)}
+                    className="px-3 py-1 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 transition-colors"
+                  >
+                    URL
+                  </button>
+                  <button
+                    onClick={handleRemoveImage}
+                    className="px-3 py-1 bg-red-600 text-white rounded-md text-sm hover:bg-red-700 transition-colors"
+                  >
+                    Supprimer
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {isUploading && (
@@ -168,68 +194,123 @@ export function CoverImageUpload({
         </div>
       ) : (
         // Zone d'upload quand il n'y a pas d'image
-        <div
-          className={`
-            relative border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all duration-300
-            ${isDragging ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 scale-[1.01]' : 'border-gray-300 dark:border-gray-600 hover:border-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-800/50'}
-            ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}
-          `}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileSelect}
-            className="hidden"
-            disabled={isUploading}
-          />
+        canEdit ? (
+          <div
+            className={`
+              relative border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all duration-300
+              ${isDragging ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 scale-[1.01]' : 'border-gray-300 dark:border-gray-600 hover:border-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-800/50'}
+              ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}
+            `}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelect}
+              className="hidden"
+              disabled={isUploading}
+            />
 
-          {isUploading ? (
-            <div className="py-4 space-y-3">
-              <div className="flex justify-center">
-                <div className="relative w-10 h-10">
-                  <div className="absolute inset-0 border-2 border-indigo-200 dark:border-indigo-900 rounded-full"></div>
-                  <div
-                    className="absolute inset-0 border-2 border-indigo-600 rounded-full animate-spin border-t-transparent"
-                  ></div>
+            {isUploading ? (
+              <div className="py-4 space-y-3">
+                <div className="flex justify-center">
+                  <div className="relative w-10 h-10">
+                    <div className="absolute inset-0 border-2 border-indigo-200 dark:border-indigo-900 rounded-full"></div>
+                    <div
+                      className="absolute inset-0 border-2 border-indigo-600 rounded-full animate-spin border-t-transparent"
+                    ></div>
+                  </div>
+                </div>
+                <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                  Optimisation et upload... {Math.round(uploadProgress)}%
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center py-2">
+                <div className="p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-full mb-3 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform">
+                  <ImageIcon className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                    {isDragging ? 'Déposez l\'image' : 'Image de couverture'}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    PNG, JPG ou WebP jusqu'à {maxSizeText}
+                  </p>
+                </div>
+
+                {/* Options d'upload */}
+                <div className="mt-3 flex items-center gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowUrlInput(!showUrlInput);
+                    }}
+                    className="px-3 py-1 bg-green-600 text-white rounded-md text-xs hover:bg-green-700 transition-colors"
+                  >
+                    📎 URL directe
+                  </button>
+                </div>
+
+                {/* Badges de statut discrets */}
+                <div className="mt-3 flex items-center gap-2">
+                  {projectSource === 'local' ? (
+                    <span className="flex items-center px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-[10px] font-medium text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-900/30">
+                      💾 Local (Base64)
+                    </span>
+                  ) : (
+                    <span className="flex items-center px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/20 text-[10px] font-medium text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/30">
+                      ☁️ Cloud (Cloudinary)
+                    </span>
+                  )}
                 </div>
               </div>
-              <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                Optimisation et upload... {Math.round(uploadProgress)}%
-              </p>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center py-2">
-              <div className="p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-full mb-3 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform">
-                <ImageIcon className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                  {isDragging ? 'Déposez l\'image' : 'Image de couverture'}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  PNG, JPG ou WebP jusqu'à {maxSizeText}
-                </p>
-              </div>
+            )}
+          </div>
+        ) : (
+          // Message pour les viewers
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <ImageIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+            <p className="text-sm">Aucune image de couverture</p>
+            <p className="text-xs mt-1">Vous n'avez pas les permissions pour modifier l'image</p>
+          </div>
+        )
+      )}
 
-              {/* Badges de statut discrets */}
-              <div className="mt-3 flex items-center gap-2">
-                {projectSource === 'local' ? (
-                  <span className="flex items-center px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-[10px] font-medium text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-900/30">
-                    💾 Local (Base64)
-                  </span>
-                ) : (
-                  <span className="flex items-center px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/20 text-[10px] font-medium text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/30">
-                    ☁️ Cloud (Cloudinary)
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
+      {/* Input pour l'URL directe */}
+      {showUrlInput && canEdit && (
+        <div className="flex gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <input
+            type="url"
+            placeholder="https://example.com/image.jpg"
+            value={imageUrl}
+            onChange={(e) => setImageUrl(e.target.value)}
+            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-sm"
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                handleUrlSubmit();
+              }
+            }}
+          />
+          <button
+            onClick={handleUrlSubmit}
+            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm"
+          >
+            Ajouter
+          </button>
+          <button
+            onClick={() => {
+              setShowUrlInput(false);
+              setImageUrl('');
+            }}
+            className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors text-sm"
+          >
+            Annuler
+          </button>
         </div>
       )}
     </div>

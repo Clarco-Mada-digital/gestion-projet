@@ -1908,6 +1908,7 @@ export function ProjectsView() {
               }}
               projectId={editingProject?.id}
               projectSource={editingProject?.source || 'local'}
+              canEdit={canEditProject}
             />
           </div>
 
