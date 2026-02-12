@@ -123,16 +123,21 @@ export const AISettings: React.FC<AISettingsProps> = ({
     }
   }, [externalValue, state.appSettings.aiSettings, form]);
 
+  // Observer les changements de valeurs pour le chargement des modèles
+  const provider = Form.useWatch('provider', form);
+  const openrouterApiKey = Form.useWatch('openrouterApiKey', form);
+
   // Récupérer les modèles dynamiques d'OpenRouter
   useEffect(() => {
     const fetchModels = async () => {
-      const provider = form.getFieldValue('provider');
-      const apiKey = provider === 'openrouter' ? form.getFieldValue('openrouterApiKey') : null;
+      // Utiliser les valeurs observées
+      const currentProvider = provider;
+      const currentApiKey = openrouterApiKey;
 
-      if (provider === 'openrouter' && apiKey && apiKey.startsWith('sk-or-')) {
+      if (currentProvider === 'openrouter' && currentApiKey && currentApiKey.startsWith('sk-or-')) {
         setIsFetchingModels(true);
         try {
-          const models = await AIService.fetchOpenRouterModels(apiKey);
+          const models = await AIService.fetchOpenRouterModels(currentApiKey);
           const mappedModels = models.map(m => ({
             value: m.id,
             label: `${m.name}`,
@@ -151,7 +156,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
     };
 
     fetchModels();
-  }, [form.getFieldValue('provider'), form.getFieldValue('openrouterApiKey')]);
+  }, [provider, openrouterApiKey]);
 
 
   const handleTestConnection = async (): Promise<void> => {

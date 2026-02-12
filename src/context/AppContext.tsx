@@ -655,14 +655,35 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       const incomingProjects = action.payload; // Projets venant du Cloud
       const incomingIds = new Set(incomingProjects.map(p => p.id));
 
-      // On garde les projets strictement locaux (pas de source firebase)
-      // ET qui ne sont pas déjà présents dans les projets entrants (pour éviter les doublons au moment du passage au cloud)
-      const localOnlyProjects = state.projects.filter(p =>
-        p.source !== 'firebase' && !incomingIds.has(p.id)
+      // 1. On garde les projets strictement locaux
+      const localOnlyProjects = state.projects.filter(p => p.source !== 'firebase');
+
+      // 2. On fusionne les projets Firebase entrants avec l'état local
+      const mergedFirebaseProjects = incomingProjects.map(incoming => {
+        const local = state.projects.find(p => p.id === incoming.id);
+        if (local && local.source === 'firebase') {
+          // Résolution de conflit : Si la version locale est plus récente, on la garde (changement en attente de sync)
+          if (new Date(local.updatedAt) > new Date(incoming.updatedAt)) {
+            return local;
+          }
+        }
+        return incoming;
+      });
+
+      // 3. On gère les projets Firebase locaux qui ne sont PAS dans la liste entrante
+      // Si un projet a lastSyncedAt, c'est qu'il a été supprimé du serveur -> on le supprime (ne pas l'inclure)
+      // Si un projet n'a PAS lastSyncedAt, c'est qu'il vient d'être créé localement et pas encore sync -> on le garde
+      const pendingCreationProjects = state.projects.filter(p =>
+        p.source === 'firebase' &&
+        !incomingIds.has(p.id) &&
+        !p.lastSyncedAt
       );
 
-      // On fusionne : locaux restants + nouveaux projets cloud
-      const updatedProjects = [...localOnlyProjects, ...incomingProjects];
+      const updatedProjects = [
+        ...localOnlyProjects,
+        ...mergedFirebaseProjects,
+        ...pendingCreationProjects
+      ];
 
       return {
         ...state,
@@ -742,7 +763,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const sharedProjects = await firebaseService.getSharedProjects();
         if (sharedProjects.length > 0) {
-          dispatch({ type: 'SYNC_PROJECTS', payload: sharedProjects });
+          // Check if data actually changed before dispatching to prevent re-renders
+          const currentFirebaseProjects = state.projects.filter(p => p.source === 'firebase');
+
+          // Simple check: different count or different last update timestamps
+          const hasChanged =
+            sharedProjects.length !== currentFirebaseProjects.length ||
+            JSON.stringify(sharedProjects.map(p => ({ id: p.id, updated: p.updatedAt }))) !==
+            JSON.stringify(currentFirebaseProjects.map(p => ({ id: p.id, updated: p.updatedAt })));
+
+          if (hasChanged) {
+            dispatch({ type: 'SYNC_PROJECTS', payload: sharedProjects });
+          }
         }
       } catch (error) {
         console.error("Erreur lors du rafraîchissement des données:", error);
@@ -754,10 +786,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       refreshData();
     }
 
-    // Polling toutes les 30 secondes
-    const interval = setInterval(refreshData, 30000);
+    // Polling toutes les 60 secondes (moins fréquent pour éviter les glitchs)
+    const interval = setInterval(refreshData, 60000);
     return () => clearInterval(interval);
-  }, [state.currentView, state.cloudUser]);
+  }, [state.currentView, state.cloudUser]); // REMOVED state.projects dependency
 
   // Synchronisation automatique des modifications vers Firebase
   useEffect(() => {
@@ -773,6 +805,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             await firebaseService.syncProject(project);
 
             // Mettre à jour localement pour marquer comme synchronisé
+            // NOTE: This dispatch might trigger the other effect, ensuring data is fresh.
+            // But since we update lastSyncedAt, it won't loop infinitely.
             dispatch({
               type: 'UPDATE_PROJECT',
               payload: { ...project, lastSyncedAt: syncTime }
@@ -784,21 +818,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
 
+    // Délai réduit à 2000ms pour plus de réactivité maintenant que le merge est intelligent
     const timer = setTimeout(syncModifiedProjects, 2000);
     return () => clearTimeout(timer);
   }, [state.projects, state.cloudUser, state.isLoading, dispatch]);
 
   // Effet pour charger les données initiales
   useEffect(() => {
-
-
     const loadInitialData = async () => {
       try {
         const savedData = localStorage.getItem('astroProjectManagerData');
+        const savedTheme = localStorage.getItem('astroProjectManagerTheme') as Theme | null;
 
         if (savedData) {
           const parsedData = JSON.parse(savedData);
-
 
           // S'assurer qu'il y a au moins un utilisateur
           const users = parsedData.users && parsedData.users.length > 0
@@ -809,27 +842,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const validViews: ViewMode[] = ['today', 'projects', 'kanban', 'calendar', 'settings'];
           const viewToSet = parsedData.currentView || 'today';
 
-
-
-
           // Mettre à jour l'état avec les données chargées
           dispatch({
             type: 'INIT_STATE',
             payload: {
               ...parsedData,
               users,
+              // Priorité au thème sauvegardé spécifiquement
+              theme: savedTheme || parsedData.theme || 'light',
               currentView: validViews.includes(viewToSet) ? viewToSet : 'today'
             }
           });
-
-
         } else {
-
           // Utiliser les valeurs par défaut avec des exemples
           dispatch({
             type: 'INIT_STATE',
             payload: {
               ...initialState,
+              theme: savedTheme || 'light',
               users: [defaultUser, ...exampleUsers],
               projects: exampleProjects
             }
@@ -859,8 +889,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (state.isLoading) return; // Ne pas sauvegarder pendant le chargement initial
 
     try {
-
-
       // Préparer les données à sauvegarder
       const { isLoading, error, notifications, ...dataToSave } = state;
 
@@ -869,8 +897,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // S'assurer que les notifications ne sont pas sauvegardées
         notifications: []
       }));
-
-
     } catch (error) {
       console.error('Erreur lors de la sauvegarde des données:', error);
     }
@@ -880,22 +906,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const theme = state.theme;
     document.documentElement.classList.toggle('dark', theme === 'dark');
-
-    // Sauvegarder le thème dans le localStorage pour la persistance
-    // entre les rechargements de page
     localStorage.setItem('astroProjectManagerTheme', theme);
   }, [state.theme]);
 
-  // Effet pour charger le thème au démarrage
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('astroProjectManagerTheme') as Theme | null;
-    if (savedTheme && savedTheme !== state.theme) {
-      dispatch({ type: 'SET_THEME', payload: savedTheme });
-    }
-  }, []);
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue = React.useMemo(() => ({ state, dispatch }), [state, dispatch]);
 
   return (
-    <AppContext.Provider value={{ state, dispatch }}>
+    <AppContext.Provider value={contextValue}>
       {children}
     </AppContext.Provider>
   );
