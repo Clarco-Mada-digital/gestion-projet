@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Plus, X as XIcon, Eye, Image as ImageIcon, FileText, Music, Video, File, FileSpreadsheet, Presentation, Link as LinkIcon } from 'lucide-react';
 import { Attachment } from '../../types';
+import { useModal } from '../../context/ModalContext';
 
 interface CompactAttachmentsProps {
   attachments: Attachment[];
@@ -25,6 +26,7 @@ export function CompactAttachments({
   const [isAddingLink, setIsAddingLink] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { openMediaViewer } = useModal();
 
 
 
@@ -42,6 +44,42 @@ export function CompactAttachments({
     if (e.dataTransfer.files) {
       onAddFiles(e.dataTransfer.files);
     }
+  };
+
+  const handleAttachmentClick = (attachment: Attachment) => {
+    // Convertir l'attachment en UploadedFile pour le MediaViewer
+    const uploadedFile = {
+      id: attachment.id,
+      name: attachment.name,
+      url: attachment.url,
+      type: attachment.type,
+      size: attachment.size,
+      uploadedAt: attachment.uploadedAt,
+      uploadedBy: attachment.uploadedBy || 'Utilisateur',
+      publicId: attachment.id,
+      projectId: '',
+      taskId: ''
+    };
+    
+    // Debug logs
+    console.log('CompactAttachments - Opening file:', {
+      originalAttachment: attachment,
+      convertedUploadedFile: uploadedFile
+    });
+    
+    // Ouvrir tous les fichiers dans le MediaViewer
+    openMediaViewer(uploadedFile, attachments.map(a => ({
+      id: a.id,
+      name: a.name,
+      url: a.url,
+      type: a.type,
+      size: a.size,
+      uploadedAt: a.uploadedAt,
+      uploadedBy: a.uploadedBy || 'Utilisateur',
+      publicId: a.id,
+      projectId: '',
+      taskId: ''
+    })));
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -241,13 +279,11 @@ export function CompactAttachments({
           {attachments.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
               {attachments.map((attachment) => (
-                <a
+                <button
                   key={attachment.id}
-                  href={attachment.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  onClick={() => handleAttachmentClick(attachment)}
                   className={`group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] border border-transparent transition-all cursor-pointer hover:scale-105 active:scale-95 ${getFileColor(attachment.type)}`}
-                  title={`${attachment.name} • ${(attachment.size / 1024).toFixed(1)} KB • Cliquez pour ouvrir`}
+                  title={`${attachment.name} • ${(attachment.size / 1024).toFixed(1)} KB • Cliquez pour aperçu`}
                 >
                   <span className="flex-shrink-0">
                     {getFileIcon(attachment.type)}
@@ -256,7 +292,7 @@ export function CompactAttachments({
                     {attachment.name}
                   </span>
                   <Eye className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-all duration-200" />
-                </a>
+                </button>
               ))}
             </div>
           ) : (

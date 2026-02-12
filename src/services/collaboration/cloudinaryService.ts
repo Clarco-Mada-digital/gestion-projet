@@ -194,6 +194,16 @@ export const cloudinaryService = {
     if (isAudioFile(name)) return 'audio';
     if (isDocumentFile(name)) return 'document';
 
+    // Si le nom est vide ou invalide, vérifier le type MIME plus en détail
+    if (!name || name.trim() === '') {
+      if (type.includes('jpg') || type.includes('jpeg') || type.includes('png') || 
+          type.includes('gif') || type.includes('webp') || type.includes('svg')) return 'image';
+      if (type.includes('mp4') || type.includes('mov') || type.includes('avi') || 
+          type.includes('webm') || type.includes('mkv')) return 'video';
+      if (type.includes('mp3') || type.includes('wav') || type.includes('ogg') || 
+          type.includes('m4a') || type.includes('aac')) return 'audio';
+    }
+
     return 'other';
   }
 };

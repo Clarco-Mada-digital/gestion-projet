@@ -1,4 +1,6 @@
 import { createContext, useState, ReactNode, useEffect, useContext } from 'react';
+import { UploadedFile } from '../services/collaboration/cloudinaryService';
+import { MediaViewer } from '../components/UI/MediaViewer';
 
 interface ModalOptions {
   title?: string;
@@ -11,6 +13,11 @@ interface ModalContextType {
   closeModal: () => void;
   modalContent: React.ReactNode | null;
   isModalOpen: boolean;
+  openMediaViewer: (file: UploadedFile, files?: UploadedFile[]) => void;
+  closeMediaViewer: () => void;
+  mediaViewerFile: UploadedFile | null;
+  mediaViewerFiles: UploadedFile[];
+  isMediaViewerOpen: boolean;
 }
 
 const ModalContext = createContext<ModalContextType | undefined>(undefined);
@@ -30,6 +37,10 @@ interface ModalProviderProps {
 export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
   const [modalContent, setModalContent] = useState<React.ReactNode | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [mediaViewerFile, setMediaViewerFile] = useState<UploadedFile | null>(null);
+  const [mediaViewerFiles, setMediaViewerFiles] = useState<UploadedFile[]>([]);
+  const [isMediaViewerOpen, setIsMediaViewerOpen] = useState(false);
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
 
   const openModal = (options: ModalOptions) => {
     setModalContent(
@@ -62,6 +73,36 @@ export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
     setIsModalOpen(false);
   };
 
+  const openMediaViewer = (file: UploadedFile, files: UploadedFile[] = []) => {
+    setMediaViewerFile(file);
+    setMediaViewerFiles(files.length > 0 ? files : [file]);
+    setCurrentMediaIndex(files.length > 0 ? files.findIndex(f => f.url === file.url) : 0);
+    setIsMediaViewerOpen(true);
+  };
+
+  const closeMediaViewer = () => {
+    setMediaViewerFile(null);
+    setMediaViewerFiles([]);
+    setIsMediaViewerOpen(false);
+    setCurrentMediaIndex(0);
+  };
+
+  const handleNextMedia = () => {
+    if (currentMediaIndex < mediaViewerFiles.length - 1) {
+      const nextIndex = currentMediaIndex + 1;
+      setCurrentMediaIndex(nextIndex);
+      setMediaViewerFile(mediaViewerFiles[nextIndex]);
+    }
+  };
+
+  const handlePreviousMedia = () => {
+    if (currentMediaIndex > 0) {
+      const prevIndex = currentMediaIndex - 1;
+      setCurrentMediaIndex(prevIndex);
+      setMediaViewerFile(mediaViewerFiles[prevIndex]);
+    }
+  };
+
   useEffect(() => {
     if (isModalOpen) {
       document.body.style.overflow = 'hidden';
@@ -75,7 +116,17 @@ export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
   }, [isModalOpen]);
 
   return (
-    <ModalContext.Provider value={{ openModal, closeModal, modalContent, isModalOpen }}>
+    <ModalContext.Provider value={{ 
+      openModal, 
+      closeModal, 
+      modalContent, 
+      isModalOpen,
+      openMediaViewer,
+      closeMediaViewer,
+      mediaViewerFile,
+      mediaViewerFiles,
+      isMediaViewerOpen
+    }}>
       {children}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -98,6 +149,18 @@ export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
             </div>
           </div>
         </div>
+      )}
+      
+      {/* MediaViewer Modal */}
+      {mediaViewerFile && (
+        <MediaViewer
+          file={mediaViewerFile}
+          files={mediaViewerFiles}
+          isOpen={isMediaViewerOpen}
+          onClose={closeMediaViewer}
+          onNext={mediaViewerFiles.length > 1 ? handleNextMedia : undefined}
+          onPrevious={mediaViewerFiles.length > 1 ? handlePreviousMedia : undefined}
+        />
       )}
     </ModalContext.Provider>
   );

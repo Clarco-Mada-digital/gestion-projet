@@ -503,9 +503,9 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
 
                       if (isVideo) {
                         return (
-                          <div style={{ marginTop: '0.5em', marginBottom: '0.5em' }}>
+                          <span style={{ display: 'block', marginTop: '0.5em', marginBottom: '0.5em' }}>
                             <video src={href} controls style={{ maxWidth: '100%', borderRadius: '8px' }} />
-                          </div>
+                          </span>
                         );
                       }
 
@@ -519,7 +519,7 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
 
                         if (videoId) {
                           return (
-                            <div style={{ marginTop: '0.5em', marginBottom: '0.5em', position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', borderRadius: '8px' }}>
+                            <span style={{ display: 'block', marginTop: '0.5em', marginBottom: '0.5em', position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', borderRadius: '8px' }}>
                               <iframe
                                 style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
                                 src={`https://www.youtube.com/embed/${videoId}`}
@@ -528,16 +528,16 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                 allowFullScreen
                               />
-                            </div>
+                            </span>
                           );
                         }
                       }
 
                       if (isAudio) {
                         return (
-                          <div style={{ marginTop: '0.5em', marginBottom: '0.5em', padding: '0.5em', backgroundColor: '#f3f4f6', borderRadius: '8px', display: 'flex', alignItems: 'center' }}>
+                          <span style={{ display: 'block', marginTop: '0.5em', marginBottom: '0.5em', padding: '0.5em', backgroundColor: '#f3f4f6', borderRadius: '8px' }}>
                             <audio src={href} controls style={{ width: '100%' }} />
-                          </div>
+                          </span>
                         );
                       }
 
