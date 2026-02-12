@@ -2064,7 +2064,7 @@ export function ProjectsView() {
               <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                 Tâches du projet ({editingProject?.tasks?.length || 0})
               </h3>
-              {canManageTasks && (
+              {canManageTasks && isEditingProjectModal && (
                 <button
                   onClick={generateTasksWithAI}
                   disabled={isGeneratingTasks}
