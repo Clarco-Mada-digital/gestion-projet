@@ -101,18 +101,30 @@ export function DataManagement() {
           throw new Error('Format de fichier invalide');
         }
 
-        // Mettre à jour l'état avec les données importées
+        // Mettre à jour l'état avec les données chargées
         dispatch({ type: 'IMPORT_DATA', payload: data });
 
-        // Sauvegarder dans le localStorage
-        localStorage.setItem('appState', JSON.stringify({
-          ...state,
-          projects: data.projects,
-          users: data.users,
-          theme: data.theme || state.theme,
-          emailSettings: data.emailSettings || state.emailSettings,
-          appSettings: data.appSettings || state.appSettings,
+        // Sauvegarder dans le localStorage avec les clés attendues par AppContext
+        const { projects, users, theme, emailSettings, appSettings } = data;
+
+        localStorage.setItem('astroProjectManagerData', JSON.stringify({
+          projects,
+          users,
+          theme,
+          currentView: state.currentView
         }));
+
+        if (emailSettings) {
+          localStorage.setItem('astroProjectManagerEmailSettings', JSON.stringify(emailSettings));
+        }
+
+        if (appSettings) {
+          localStorage.setItem('astroProjectManagerAppSettings', JSON.stringify(appSettings));
+        }
+
+        if (theme) {
+          localStorage.setItem('astroProjectManagerTheme', theme);
+        }
 
         setImportStatus({
           type: 'success',
@@ -153,7 +165,10 @@ export function DataManagement() {
   // Réinitialiser les données
   const handleReset = () => {
     if (window.confirm('Êtes-vous sûr de vouloir réinitialiser toutes les données ? Cette action est irréversible.')) {
-      localStorage.removeItem('appState');
+      localStorage.removeItem('astroProjectManagerData');
+      localStorage.removeItem('astroProjectManagerAppSettings');
+      localStorage.removeItem('astroProjectManagerEmailSettings');
+      localStorage.removeItem('astroProjectManagerTheme');
       window.location.reload();
     }
   };

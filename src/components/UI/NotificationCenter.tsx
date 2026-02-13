@@ -8,6 +8,7 @@ export function NotificationCenter() {
   const { state, dispatch } = useApp();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -107,7 +108,7 @@ export function NotificationCenter() {
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar">
-            {notifications.map((n) => (
+            {(showAll ? notifications : notifications.slice(0, 5)).map((n) => (
               <div
                 key={n.id}
                 className={`p-4 border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors relative group ${!n.isRead ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
@@ -140,6 +141,14 @@ export function NotificationCenter() {
                 </div>
               </div>
             ))}
+            {notifications.length > 5 && (
+              <button
+                onClick={() => setShowAll(!showAll)}
+                className="w-full py-3 text-xs text-blue-600 dark:text-blue-400 font-medium hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border-b border-gray-100 dark:border-gray-800"
+              >
+                {showAll ? 'Voir moins' : `Voir tout (${notifications.length})`}
+              </button>
+            )}
             {notifications.length === 0 && (
               <div className="p-8 text-center">
                 <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-3">

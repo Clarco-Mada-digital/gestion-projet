@@ -13,96 +13,30 @@ import { AboutView } from './components/Views/AboutView';
 import Chatbot from './components/Chatbot';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Fonction utilitaire pour charger l'état depuis le localStorage
-const loadStateFromLocalStorage = () => {
-  try {
-    const savedData = localStorage.getItem('astroProjectManagerData');
-    if (savedData) {
-      return JSON.parse(savedData);
-    }
-  } catch (error) {
-    console.error('Erreur lors du chargement des données depuis le localStorage:', error);
-  }
-  return null;
-};
-
 function AppContent() {
-  // Extraire toutes les valeurs nécessaires du contexte en un seul appel
-  const { state, dispatch } = useApp();
+  const { state } = useApp();
   const { currentView, appSettings } = state;
   const { fontSize = 'medium' } = appSettings || {};
 
   // Appliquer la classe de taille de police au body
   useEffect(() => {
-    // Supprimer les classes de taille de police existantes
     document.body.classList.remove('font-size-small', 'font-size-medium', 'font-size-large');
-
-    // Ajouter la classe de taille de police actuelle
     document.body.classList.add(`font-size-${fontSize}`);
-
-    // Mettre à jour la propriété CSS personnalisée pour la taille de police de base
     document.documentElement.style.setProperty('--font-size-base',
       fontSize === 'small' ? '0.875rem' :
         fontSize === 'large' ? '1.125rem' : '1rem'
     );
   }, [fontSize]);
 
-  // États de chargement
   const [isLoading, setIsLoading] = useState(true);
-  const [hasLoaded, setHasLoaded] = useState(false);
 
-  // Effet pour le chargement initial
   useEffect(() => {
-    let isMounted = true;
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
 
-    const initializeApp = async () => {
-      try {
-        // Charger les données depuis le localStorage
-        const savedData = loadStateFromLocalStorage();
-        if (savedData) {
-          // Mettre à jour l'état avec les données chargées
-          if (savedData.currentView) {
-            dispatch({ type: 'SET_VIEW', payload: savedData.currentView });
-          }
-
-          if (savedData.theme) {
-            dispatch({ type: 'SET_THEME', payload: savedData.theme });
-          }
-
-          if (savedData.appSettings) {
-            dispatch({ type: 'UPDATE_APP_SETTINGS', payload: savedData.appSettings });
-          }
-        }
-      } catch (error) {
-        console.error('Erreur lors de l\'initialisation:', error);
-      } finally {
-        // Simuler un temps de chargement minimum
-        await new Promise(resolve => setTimeout(resolve, 800));
-        if (isMounted) {
-          setIsLoading(false);
-          setHasLoaded(true);
-        }
-      }
-    };
-
-    if (!hasLoaded) {
-      initializeApp();
-    }
-
-    return () => {
-      isMounted = false;
-    };
-  }, [dispatch, hasLoaded]);
-
-  // Effet pour suivre les changements de vue
-  useEffect(() => {
-    if (hasLoaded && !isLoading) {
-
-
-    }
-  }, [currentView, hasLoaded, isLoading]);
-
-  // Écran de chargement
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -115,25 +49,16 @@ function AppContent() {
     );
   }
 
-  // Fonction pour afficher la vue active
   const renderView = () => {
     switch (currentView) {
-      case 'today':
-        return <TodayView />;
-      case 'projects':
-        return <ProjectsView />;
-      case 'kanban':
-        return <KanbanView />;
-      case 'calendar':
-        return <CalendarView />;
-      case 'reports':
-        return <ReportView />;
-      case 'settings':
-        return <SettingsView />;
-      case 'about':
-        return <AboutView />;
-      default:
-        return <TodayView />;
+      case 'today': return <TodayView />;
+      case 'projects': return <ProjectsView />;
+      case 'kanban': return <KanbanView />;
+      case 'calendar': return <CalendarView />;
+      case 'reports': return <ReportView />;
+      case 'settings': return <SettingsView />;
+      case 'about': return <AboutView />;
+      default: return <TodayView />;
     }
   };
 
@@ -158,7 +83,6 @@ function AppContent() {
   );
 }
 
-// Composant pour regrouper les fournisseurs
 function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <AppProvider>
@@ -174,7 +98,6 @@ export default function App() {
     <AppProviders>
       <ChatbotProvider>
         <AppContent />
-        {/* <DebugPanel /> */}
       </ChatbotProvider>
     </AppProviders>
   );

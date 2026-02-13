@@ -299,6 +299,14 @@ export interface ReportEntry {
   };
 }
 
+export interface CommentReaction {
+  id: string;
+  commentId: string;
+  userId: string;
+  emoji: string;
+  createdAt: string;
+}
+
 export interface Comment {
   id: string;
   taskId: string;
@@ -310,6 +318,8 @@ export interface Comment {
   mentions: string[]; // Liste des IDs des utilisateurs mentionnés
   createdAt: string;
   updatedAt: string;
+  parentId?: string; // ID du commentaire parent pour les réponses
+  reactions?: CommentReaction[]; // Liste des réactions au commentaire
 }
 
 export type ActivityType =
@@ -321,6 +331,8 @@ export type ActivityType =
   | 'task_completed'
   | 'task_deleted'
   | 'comment_added'
+  | 'reply_added'
+  | 'reaction_added'
   | 'member_added';
 
 export interface Activity {
@@ -341,7 +353,7 @@ export interface Notification {
   userId: string;
   title: string;
   message: string;
-  type: 'mention' | 'task_assigned' | 'deadline_approaching' | 'project_update';
+  type: 'mention' | 'task_assigned' | 'deadline_approaching' | 'project_update' | 'reply_added' | 'reaction_added';
   link?: string;
   isRead: boolean;
   createdAt: string;

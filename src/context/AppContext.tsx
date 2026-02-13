@@ -636,11 +636,11 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
 
         return {
           ...state,
-          projects: data.projects || [],
-          users: data.users || [],
-          theme: data.theme || 'light',
-          emailSettings: data.emailSettings || {},
-          appSettings: data.appSettings || {},
+          projects: data.projects || state.projects,
+          users: data.users || state.users,
+          theme: data.theme || state.theme,
+          emailSettings: data.emailSettings ? { ...state.emailSettings, ...data.emailSettings } : state.emailSettings,
+          appSettings: data.appSettings ? { ...state.appSettings, ...data.appSettings } : state.appSettings,
         };
       } catch (error) {
         console.error("Erreur lors de l'importation des données:", error);
@@ -844,6 +844,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const validViews: ViewMode[] = ['today', 'projects', 'kanban', 'calendar', 'settings'];
           const viewToSet = parsedData.currentView || 'today';
 
+          // Charger les paramètres email sauvegardés de manière sécurisée
+          let emailSettings = initialState.emailSettings;
+          if (savedEmailSettings) {
+            try {
+              const parsedEmailSettings = JSON.parse(savedEmailSettings);
+              if (parsedEmailSettings && (parsedEmailSettings.serviceId || parsedEmailSettings.userId)) {
+                emailSettings = { ...initialState.emailSettings, ...parsedEmailSettings };
+              } else {
+                // Fallback vers l'ancien emplacement dans parsedData si le nouveau est vide
+                if (parsedData.emailSettings && (parsedData.emailSettings.serviceId || parsedData.emailSettings.userId)) {
+                  emailSettings = { ...initialState.emailSettings, ...parsedData.emailSettings };
+                }
+              }
+            } catch (error) {
+              console.error('Erreur lors du chargement des paramètres email:', error);
+            }
+          } else if (parsedData.emailSettings) {
+            // Si pas de clé séparée, regarder dans le blob principal
+            emailSettings = { ...initialState.emailSettings, ...parsedData.emailSettings };
+          }
+
           // Charger les paramètres d'apparence sauvegardés
           let appSettings = initialAppSettings;
           if (savedAppSettings) {
@@ -852,17 +873,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             } catch (error) {
               console.error('Erreur lors du chargement des paramètres d\'apparence:', error);
             }
-          }
-
-          // Charger les paramètres email sauvegardés de manière sécurisée
-          let emailSettings = initialState.emailSettings;
-          if (savedEmailSettings) {
-            try {
-              const parsedEmailSettings = JSON.parse(savedEmailSettings);
-              emailSettings = { ...initialState.emailSettings, ...parsedEmailSettings };
-            } catch (error) {
-              console.error('Erreur lors du chargement des paramètres email:', error);
-            }
+          } else if (parsedData.appSettings) {
+            appSettings = { ...initialAppSettings, ...parsedData.appSettings };
           }
 
           // Mettre à jour l'état avec les données chargées
@@ -938,46 +950,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [state.emailSettings, state.isLoading]);
 
-  // Effet de récupération d'urgence des paramètres email
-  useEffect(() => {
-    if (state.isLoading) return;
 
-    // Vérifier si les paramètres email sont vides (perdus)
-    const hasEmptyEmailSettings = !state.emailSettings.serviceId && 
-                                  !state.emailSettings.templateId && 
-                                  !state.emailSettings.userId;
-
-    if (hasEmptyEmailSettings) {
-      // Essayer de récupérer depuis l'ancien emplacement
-      try {
-        const oldData = localStorage.getItem('astroProjectManagerData');
-        if (oldData) {
-          const parsed = JSON.parse(oldData);
-          if (parsed.emailSettings && (parsed.emailSettings.serviceId || parsed.emailSettings.templateId || parsed.emailSettings.userId)) {
-            console.log('Récupération des paramètres email depuis l\'ancien emplacement');
-            dispatch({ type: 'UPDATE_EMAIL_SETTINGS', payload: parsed.emailSettings });
-            return;
-          }
-        }
-      } catch (error) {
-        console.error('Erreur lors de la récupération des paramètres email:', error);
-      }
-
-      // Essayer de récupérer depuis le nouvel emplacement
-      try {
-        const emailSettings = localStorage.getItem('astroProjectManagerEmailSettings');
-        if (emailSettings) {
-          const parsed = JSON.parse(emailSettings);
-          if (parsed.serviceId || parsed.templateId || parsed.userId) {
-            console.log('Récupération des paramètres email depuis le nouvel emplacement');
-            dispatch({ type: 'UPDATE_EMAIL_SETTINGS', payload: parsed });
-          }
-        }
-      } catch (error) {
-        console.error('Erreur lors de la récupération des paramètres email:', error);
-      }
-    }
-  }, [state.emailSettings, state.isLoading]);
 
   // Effet séparé pour sauvegarder les paramètres d'apparence
   useEffect(() => {

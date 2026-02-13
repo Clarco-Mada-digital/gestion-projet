@@ -52,9 +52,10 @@ export const commentService = {
       const comments: Comment[] = [];
       snapshot.forEach((doc) => {
         const data = doc.data();
+        // S'assurer que l'ID Firestore prévaut sur tout ID éventuellement stocké dans les données
         comments.push({
-          id: doc.id,
           ...data,
+          id: doc.id,
           createdAt: data.createdAt ? (data.createdAt as Timestamp).toDate().toISOString() : new Date().toISOString(),
           updatedAt: data.updatedAt ? (data.updatedAt as Timestamp).toDate().toISOString() : new Date().toISOString()
         } as Comment);
@@ -70,14 +71,45 @@ export const commentService = {
   },
 
   /**
-   * Supprime un commentaire
+   * Supprime un commentaire et ses réponses
    */
   async deleteComment(commentId: string): Promise<void> {
     if (!ensureInitialized()) return;
     try {
+      // 1. Supprimer le commentaire lui-même
       await deleteDoc(doc(db, 'comments', commentId));
+
+      // 2. Supprimer toutes les réponses associées
+      const { getDocs, query, collection, where, writeBatch } = await import('firebase/firestore');
+      const q = query(collection(db, 'comments'), where('parentId', '==', commentId));
+      const snapshot = await getDocs(q);
+
+      if (!snapshot.empty) {
+        const batch = writeBatch(db);
+        snapshot.forEach((doc) => {
+          batch.delete(doc.ref);
+        });
+        await batch.commit();
+      }
     } catch (error) {
       console.error("Erreur lors de la suppression du commentaire:", error);
+    }
+  },
+
+  /**
+   * Met à jour les réactions d'un commentaire
+   */
+  async updateCommentReactions(commentId: string, reactions: any[]): Promise<void> {
+    if (!ensureInitialized()) return;
+    try {
+      const { updateDoc, doc } = await import('firebase/firestore');
+      const commentRef = doc(db, 'comments', commentId);
+      await updateDoc(commentRef, {
+        reactions: reactions,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour des réactions:", error);
     }
   }
 };

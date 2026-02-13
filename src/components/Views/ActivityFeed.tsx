@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Activity as ActivityIcon, CheckCircle2, MessageSquare, PlusCircle, UserPlus, RefreshCw, Trash2, Archive } from 'lucide-react';
 import { Activity, ActivityType } from '../../types';
 import { activityService } from '../../services/collaboration/activityService';
@@ -40,6 +40,8 @@ export function ActivityFeed({ projectId }: ActivityFeedProps) {
     switch (type) {
       case 'task_completed': return <CheckCircle2 className="w-4 h-4 text-green-500" />;
       case 'comment_added': return <MessageSquare className="w-4 h-4 text-blue-500" />;
+      case 'reply_added': return <MessageSquare className="w-4 h-4 text-indigo-500" />;
+      case 'reaction_added': return <MessageSquare className="w-4 h-4 text-pink-500" />;
       case 'task_created': return <PlusCircle className="w-4 h-4 text-purple-500" />;
       case 'member_added': return <UserPlus className="w-4 h-4 text-orange-500" />;
       case 'project_updated': return <RefreshCw className="w-4 h-4 text-blue-400" />;
@@ -56,6 +58,8 @@ export function ActivityFeed({ projectId }: ActivityFeedProps) {
     switch (activity.type) {
       case 'task_completed': return <>{actor} a terminé la tâche {target}</>;
       case 'comment_added': return <>{actor} a commenté la tâche {target}</>;
+      case 'reply_added': return <>{actor} a répondu à un commentaire sur {target}</>;
+      case 'reaction_added': return <>{actor} a réagi à un commentaire sur {target}</>;
       case 'task_created': return <>{actor} a créé la tâche {target}</>;
       case 'member_added': return <>{actor} a ajouté un membre au projet</>;
       case 'project_updated': return <>{actor} a mis à jour le projet</>;
@@ -66,6 +70,10 @@ export function ActivityFeed({ projectId }: ActivityFeedProps) {
       default: return <>{actor} a effectué une action</>;
     }
   };
+
+  const [showAll, setShowAll] = useState(false);
+  const displayLimit = 5;
+  const displayedActivities = showAll ? activities : activities.slice(0, displayLimit);
 
   if (isLoading) {
     return (
@@ -82,6 +90,14 @@ export function ActivityFeed({ projectId }: ActivityFeedProps) {
           <ActivityIcon className="w-5 h-5 text-blue-500 font-bold" />
           Fil d'activité
         </h3>
+        {activities.length > displayLimit && (
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium"
+          >
+            {showAll ? 'Réduire' : `Voir tout (${activities.length})`}
+          </button>
+        )}
       </div>
 
       <div className="relative">
@@ -89,8 +105,8 @@ export function ActivityFeed({ projectId }: ActivityFeedProps) {
         <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-100 dark:bg-gray-800 ml-[-1px]"></div>
 
         <div className="space-y-8">
-          {activities.map((activity) => (
-            <div key={activity.id} className="relative flex items-start gap-4">
+          {displayedActivities.map((activity) => (
+            <div key={activity.id} className="relative flex items-start gap-4 animate-in fade-in slide-in-from-left-2 duration-300">
               <div className="relative z-10 flex-shrink-0 w-8 h-8 rounded-full bg-white dark:bg-gray-900 border-2 border-gray-50 dark:border-gray-800 flex items-center justify-center shadow-sm">
                 {getActivityIcon(activity.type)}
               </div>
