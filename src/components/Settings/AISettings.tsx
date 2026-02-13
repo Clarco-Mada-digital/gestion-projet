@@ -8,6 +8,7 @@ import {
   InputNumber,
   Form
 } from 'antd';
+import { EyeOutlined, EyeInvisibleOutlined } from '@ant-design/icons';
 import type { FormInstance } from 'antd/es/form';
 import { AIService } from '../../services/aiService';
 import '../../styles/ai-settings.css';
@@ -463,14 +464,26 @@ export const AISettings: React.FC<AISettingsProps> = ({
                       >
                         <Input.Password
                           placeholder={isOpenAI ? 'sk-...' : 'sk-or-...'}
-                          className={`${inputClassName} dark:bg-gray-700 dark:text-white dark:border-gray-600`}
+                          className={`${inputClassName} flex dark:bg-gray-700 dark:text-white dark:border-gray-600`}
                           style={{
                             backgroundColor: isDarkMode ? '#374151' : '#ffffff',
                             color: isDarkMode ? '#ffffff' : '#1f2937',
                             borderColor: isDarkMode ? '#4b5563' : '#d1d5db',
                           }}
-                          visibilityToggle={true}
+                          iconRender={(visible) => (visible ? 
+                            <EyeOutlined style={{ 
+                              color: isDarkMode ? '#60a5fa' : '#3b82f6',
+                              fontSize: '14px',
+                              verticalAlign: 'middle'
+                            }} className="transition-colors" /> : 
+                            <EyeInvisibleOutlined style={{ 
+                              color: isDarkMode ? '#9ca3af' : '#6b7280',
+                              fontSize: '14px',
+                              verticalAlign: 'middle'
+                            }} className="transition-colors" />
+                          )}
                           autoComplete="off"
+                          defaultValue=""
                         />
                       </Form.Item>
                     );
