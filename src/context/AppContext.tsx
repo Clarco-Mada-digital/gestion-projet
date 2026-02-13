@@ -829,6 +829,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const savedData = localStorage.getItem('astroProjectManagerData');
         const savedTheme = localStorage.getItem('astroProjectManagerTheme') as Theme | null;
+        const savedAppSettings = localStorage.getItem('astroProjectManagerAppSettings');
 
         if (savedData) {
           const parsedData = JSON.parse(savedData);
@@ -842,6 +843,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const validViews: ViewMode[] = ['today', 'projects', 'kanban', 'calendar', 'settings'];
           const viewToSet = parsedData.currentView || 'today';
 
+          // Charger les paramètres d'apparence sauvegardés
+          let appSettings = initialAppSettings;
+          if (savedAppSettings) {
+            try {
+              appSettings = { ...initialAppSettings, ...JSON.parse(savedAppSettings) };
+            } catch (error) {
+              console.error('Erreur lors du chargement des paramètres d\'apparence:', error);
+            }
+          }
+
           // Mettre à jour l'état avec les données chargées
           dispatch({
             type: 'INIT_STATE',
@@ -850,7 +861,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               users,
               // Priorité au thème sauvegardé spécifiquement
               theme: savedTheme || parsedData.theme || 'light',
-              currentView: validViews.includes(viewToSet) ? viewToSet : 'today'
+              currentView: validViews.includes(viewToSet) ? viewToSet : 'today',
+              appSettings
             }
           });
         } else {
@@ -902,12 +914,89 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [state]);
 
+  // Effet séparé pour sauvegarder les paramètres d'apparence
+  useEffect(() => {
+    if (state.isLoading) return; // Ne pas sauvegarder pendant le chargement initial
+
+    try {
+      localStorage.setItem('astroProjectManagerAppSettings', JSON.stringify(state.appSettings));
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde des paramètres d\'apparence:', error);
+    }
+  }, [state.appSettings, state.isLoading]);
+
+  // Effet pour sauvegarder le thème immédiatement
+  useEffect(() => {
+    if (state.isLoading) return; // Ne pas sauvegarder pendant le chargement initial
+
+    try {
+      localStorage.setItem('astroProjectManagerTheme', state.theme);
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde du thème:', error);
+    }
+  }, [state.theme, state.isLoading]);
+
   // Appliquer le thème
   useEffect(() => {
     const theme = state.theme;
     document.documentElement.classList.toggle('dark', theme === 'dark');
-    localStorage.setItem('astroProjectManagerTheme', theme);
   }, [state.theme]);
+
+  // Appliquer les paramètres d'apparence au chargement et lors des changements
+  useEffect(() => {
+    if (state.isLoading) return;
+
+    // Appliquer la couleur d'accent
+    if (state.appSettings.accentColor) {
+      const colorMap: Record<string, string> = {
+        blue: '#3b82f6',
+        indigo: '#6366f1',
+        purple: '#a855f7',
+        pink: '#ec4899',
+        red: '#ef4444',
+        orange: '#f97316',
+        yellow: '#eab308',
+        green: '#22c55e',
+        emerald: '#10b981',
+        teal: '#14b8a6',
+        cyan: '#06b6d4',
+      };
+
+      const color = colorMap[state.appSettings.accentColor] || '#3b82f6';
+      document.documentElement.style.setProperty('--primary-color', color);
+
+      // Injecter les styles pour la couleur d'accent
+      const styleId = 'dynamic-theme-styles';
+      let styleEl = document.getElementById(styleId) as HTMLStyleElement;
+      if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = styleId;
+        document.head.appendChild(styleEl);
+      }
+
+      styleEl.innerHTML = `
+        :root {
+          --color-primary: ${color};
+        }
+        
+        /* Override common blue classes */
+        .bg-blue-500 { background-color: ${color} !important; }
+        .bg-blue-600 { background-color: ${color} !important; filter: brightness(0.9); }
+        .hover\\:bg-blue-600:hover { background-color: ${color} !important; filter: brightness(0.9); }
+        .hover\\:bg-blue-700:hover { background-color: ${color} !important; filter: brightness(0.8); }
+        .text-blue-500 { color: ${color} !important; }
+        .text-blue-600 { color: ${color} !important; filter: brightness(0.9); }
+        .border-blue-500 { border-color: ${color} !important; }
+        .focus\\:ring-blue-500:focus { --tw-ring-color: ${color} !important; }
+      `;
+    }
+
+    // Appliquer la taille de police
+    const fontSize = state.appSettings.fontSize || 'medium';
+    document.documentElement.classList.remove('font-size-small', 'font-size-medium', 'font-size-large');
+    document.documentElement.classList.add(`font-size-${fontSize}`);
+
+  }, [state.appSettings, state.isLoading]);
 
   // Memoize context value to prevent unnecessary re-renders
   const contextValue = React.useMemo(() => ({ state, dispatch }), [state, dispatch]);

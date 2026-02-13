@@ -18,6 +18,7 @@ type AIResponse = {
   choices: {
     message: {
       content: string;
+      reasoning?: string;
     };
   }[];
 };
@@ -141,7 +142,7 @@ ${appDataInfo}
 
       // Pour OpenRouter, permettre l'utilisation sans clé API (accès limité)
       if (effectiveProvider === 'openrouter' && !apiKey) {
-        console.log('Utilisation d\'OpenRouter sans clé API (accès limité)');
+        // Utilisation sans clé API
       } else if (effectiveProvider === 'openai' && !apiKey) {
         throw new Error('Clé API OpenAI requise pour utiliser OpenAI');
       }
@@ -204,7 +205,6 @@ ${appDataInfo}
         }
 
         const data: AIResponse = await response.json();
-        console.log('Réponse API brute dans generateAIResponse:', JSON.stringify(data, null, 2));
         
         // Extraire le contenu - certains modèles le mettent dans reasoning, d'autres dans content
         let content = data.choices[0].message.content;
@@ -213,20 +213,9 @@ ${appDataInfo}
         // Si le content est vide mais reasoning a du contenu, utiliser reasoning
         if (!content && reasoning) {
           content = reasoning;
-          console.log('Utilisation du reasoning comme contenu dans generateAIResponse (models avec reasoning séparé)');
         }
-        
-        console.log('Contenu extrait dans generateAIResponse:', content);
 
         if (!content) {
-          console.error('Structure de la réponse API dans generateAIResponse:', {
-            hasChoices: !!data.choices,
-            choicesLength: data.choices?.length,
-            firstChoice: data.choices?.[0],
-            hasMessage: !!data.choices?.[0]?.message,
-            messageContent: data.choices?.[0]?.message?.content,
-            reasoning: data.choices?.[0]?.message?.reasoning
-          });
           throw new Error('Réponse de l\'IA invalide');
         }
 
@@ -263,17 +252,10 @@ ${appDataInfo}
         ? settings.openaiApiKey?.trim()
         : settings.openrouterApiKey?.trim();
 
-      console.log('Paramètres generateSubTasksWithAI:', {
-        provider: settings.provider,
-        effectiveProvider,
-        hasApiKey: !!apiKey,
-        openaiModel: settings.openaiModel,
-        openrouterModel: settings.openrouterModel
-      });
 
       // Pour OpenRouter, permettre l'utilisation sans clé API (accès limité)
       if (effectiveProvider === 'openrouter' && !apiKey) {
-        console.log('Utilisation d\'OpenRouter sans clé API pour la génération de sous-tâches (accès limité)');
+        // Utilisation sans clé API
       } else if (effectiveProvider === 'openai' && !apiKey) {
         throw new Error('Clé API OpenAI requise pour utiliser OpenAI');
       }
@@ -283,13 +265,11 @@ ${appDataInfo}
         ? settings.openaiModel || 'gpt-3.5-turbo'
         : settings.openrouterModel || 'google/gemma-7b-it:free';
 
-      console.log('Modèle sélectionné:', model);
 
       // Gérer le modèle Auto pour OpenRouter
       if (effectiveProvider === 'openrouter' && model === 'openrouter/auto') {
         // Pour le modèle Auto, utiliser un modèle gratuit de base
         model = 'google/gemma-7b-it:free';
-        console.log('Utilisation du modèle Auto OpenRouter -> google/gemma-7b-it:free');
       }
 
       const endpoint = effectiveProvider === 'openai'
@@ -298,7 +278,6 @@ ${appDataInfo}
 
       // Préparer le prompt concis
       const prompt = this.buildSubTaskPrompt(project, task, existingSubTasks);
-      console.log('Prompt envoyé à l\'IA:', prompt);
 
       // Préparer les en-têtes
       const headers: HeadersInit = {
@@ -332,11 +311,6 @@ ${appDataInfo}
         max_tokens: 1000,  // Augmenté pour éviter les réponses coupées
       };
 
-      console.log('Requête API:', {
-        endpoint,
-        headers: { ...headers, Authorization: headers.Authorization ? '[HIDDEN]' : undefined },
-        body: requestBody
-      });
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -350,7 +324,6 @@ ${appDataInfo}
       }
 
       const data = await response.json();
-      console.log('Réponse API brute dans generateSubTasksWithAI:', JSON.stringify(data, null, 2));
       
       // Extraire le contenu - certains modèles le mettent dans reasoning, d'autres dans content
       let content = data.choices?.[0]?.message?.content;
@@ -359,20 +332,9 @@ ${appDataInfo}
       // Si le content est vide mais reasoning a du contenu, utiliser reasoning
       if (!content && reasoning) {
         content = reasoning;
-        console.log('Utilisation du reasoning comme contenu (models avec reasoning séparé)');
       }
-      
-      console.log('Contenu extrait dans generateSubTasksWithAI:', content);
 
       if (!content) {
-        console.error('Structure de la réponse API dans generateSubTasksWithAI:', {
-          hasChoices: !!data.choices,
-          choicesLength: data.choices?.length,
-          firstChoice: data.choices?.[0],
-          hasMessage: !!data.choices?.[0]?.message,
-          messageContent: data.choices?.[0]?.message?.content,
-          reasoning: data.choices?.[0]?.message?.reasoning
-        });
         throw new Error('Réponse de l\'IA invalide - pas de contenu trouvé');
       }
 
@@ -418,20 +380,15 @@ ${appDataInfo}
   }
 
   private static parseSubTasksResponse(content: string): GeneratedSubTask[] {
-    console.log('Contenu à parser dans parseSubTasksResponse:', content);
-    
     try {
       // Essayer d'extraire le JSON de la réponse
       const jsonMatch = content.match(/\[\s*\{.*\}\s*\]/s);
-      console.log('JSON match trouvé:', jsonMatch?.[0]);
       
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        console.log('JSON parsé avec succès:', parsed);
         
         // Vérifier si c'est le format avec groupes
         if (parsed.length > 0 && parsed[0].group && parsed[0].tasks) {
-          console.log('Format avec groupes détecté');
           // Aplatir les groupes en une liste simple de sous-tâches
           const flattenedTasks: GeneratedSubTask[] = [];
           parsed.forEach((group: any) => {
@@ -454,7 +411,6 @@ ${appDataInfo}
 
       // Si pas de JSON valide, essayer de parser manuellement
       const lines = content.split('\n').filter(line => line.trim() !== '');
-      console.log('Lignes à parser manuellement:', lines);
       
       const subTasks: GeneratedSubTask[] = [];
 
@@ -469,7 +425,6 @@ ${appDataInfo}
       }
 
       const result = subTasks.length > 0 ? subTasks : [{ title: 'Sous-tâche générée', description: '' }];
-      console.log('Résultat final du parsing:', result);
       return result;
     } catch (error) {
       console.error('Erreur lors du parsing de la réponse des sous-tâches:', error);
@@ -491,7 +446,7 @@ ${appDataInfo}
 
       // Pour OpenRouter, permettre l'utilisation sans clé API (accès limité)
       if (effectiveProvider === 'openrouter' && !apiKey) {
-        console.log('Utilisation d\'OpenRouter sans clé API pour la génération de tâches (accès limité)');
+        // Utilisation sans clé API
       } else if (effectiveProvider === 'openai' && !apiKey) {
         throw new Error('Clé API OpenAI requise pour utiliser OpenAI');
       }
@@ -509,7 +464,6 @@ ${appDataInfo}
       if (effectiveProvider === 'openrouter' && model === 'openrouter/auto') {
         // Pour le modèle Auto, utiliser un modèle gratuit de base
         model = 'google/gemma-7b-it:free';
-        console.log('Utilisation du modèle Auto OpenRouter -> google/gemma-7b-it:free pour generateTask');
       }
 
       // Construire le prompt pour générer une tâche
@@ -547,7 +501,6 @@ ${appDataInfo}
       }
 
       const data = await response.json();
-      console.log('Réponse API brute dans generateTask:', JSON.stringify(data, null, 2));
       
       // Extraire le contenu - certains modèles le mettent dans reasoning, d'autres dans content
       let content = data.choices?.[0]?.message?.content;
@@ -556,20 +509,9 @@ ${appDataInfo}
       // Si le content est vide mais reasoning a du contenu, utiliser reasoning
       if (!content && reasoning) {
         content = reasoning;
-        console.log('Utilisation du reasoning comme contenu dans generateTask (models avec reasoning séparé)');
       }
-      
-      console.log('Contenu extrait dans generateTask:', content);
 
       if (!content) {
-        console.error('Structure de la réponse API dans generateTask:', {
-          hasChoices: !!data.choices,
-          choicesLength: data.choices?.length,
-          firstChoice: data.choices?.[0],
-          hasMessage: !!data.choices?.[0]?.message,
-          messageContent: data.choices?.[0]?.message?.content,
-          reasoning: data.choices?.[0]?.message?.reasoning
-        });
         throw new Error('Réponse de l\'IA invalide');
       }
 
@@ -660,7 +602,6 @@ ${appDataInfo}
       }
 
       const data = await response.json();
-      console.log('Réponse API brute dans testConnection:', JSON.stringify(data, null, 2));
       
       // Extraire le contenu - certains modèles le mettent dans reasoning, d'autres dans content
       let content = data.choices?.[0]?.message?.content;
@@ -669,10 +610,7 @@ ${appDataInfo}
       // Si le content est vide mais reasoning a du contenu, utiliser reasoning
       if (!content && reasoning) {
         content = reasoning;
-        console.log('Utilisation du reasoning comme contenu dans testConnection (models avec reasoning séparé)');
       }
-      
-      console.log('Contenu extrait dans testConnection:', content);
       
       return content || 'Aucune réponse générée';
 
@@ -788,7 +726,7 @@ ${appDataInfo}
 
       // Pour OpenRouter, permettre l'utilisation sans clé API (accès limité)
       if (effectiveProvider === 'openrouter' && !apiKey) {
-        console.log('Utilisation d\'OpenRouter sans clé API pour la génération multiple de tâches (accès limité)');
+        // Utilisation sans clé API
       } else if (effectiveProvider === 'openai' && !apiKey) {
         throw new Error('Clé API OpenAI requise pour utiliser OpenAI');
       }
@@ -806,7 +744,6 @@ ${appDataInfo}
       if (effectiveProvider === 'openrouter' && model === 'openrouter/auto') {
         // Pour le modèle Auto, utiliser un modèle gratuit de base
         model = 'google/gemma-7b-it:free';
-        console.log('Utilisation du modèle Auto OpenRouter -> google/gemma-7b-it:free pour generateTasks');
       }
 
       // Préparer le prompt
@@ -849,7 +786,6 @@ ${appDataInfo}
       }
 
       const data = await response.json();
-      console.log('Réponse API brute dans generateTasks:', JSON.stringify(data, null, 2));
       
       // Extraire le contenu - certains modèles le mettent dans reasoning, d'autres dans content
       let content = data.choices?.[0]?.message?.content;
@@ -858,20 +794,9 @@ ${appDataInfo}
       // Si le content est vide mais reasoning a du contenu, utiliser reasoning
       if (!content && reasoning) {
         content = reasoning;
-        console.log('Utilisation du reasoning comme contenu dans generateTasks (models avec reasoning séparé)');
       }
-      
-      console.log('Contenu extrait dans generateTasks:', content);
 
       if (!content) {
-        console.error('Structure de la réponse API dans generateTasks:', {
-          hasChoices: !!data.choices,
-          choicesLength: data.choices?.length,
-          firstChoice: data.choices?.[0],
-          hasMessage: !!data.choices?.[0]?.message,
-          messageContent: data.choices?.[0]?.message?.content,
-          reasoning: data.choices?.[0]?.message?.reasoning
-        });
         throw new Error('Aucun contenu généré');
       }
 
