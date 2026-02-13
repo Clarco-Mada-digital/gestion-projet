@@ -12,7 +12,10 @@ import {
   ChevronRight,
   FileText,
   Eye,
-  Loader2
+  Loader2,
+  ZoomIn,
+  ZoomOut,
+  RotateCw
 } from 'lucide-react';
 import { UploadedFile, cloudinaryService } from '../../services/collaboration/cloudinaryService';
 
@@ -39,6 +42,8 @@ export function MediaViewer({
   const [isLoading, setIsLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [rotation, setRotation] = useState(0);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -166,6 +171,9 @@ export function MediaViewer({
       if (containerRef.current.requestFullscreen) {
         containerRef.current.requestFullscreen();
       }
+      // Réinitialiser le zoom quand on entre en plein écran
+      setZoomLevel(1);
+      setRotation(0);
     } else {
       if (document.exitFullscreen) {
         document.exitFullscreen();
@@ -203,6 +211,28 @@ export function MediaViewer({
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  const handleZoomIn = () => {
+    setZoomLevel(prev => {
+      const newZoom = Math.min(prev + 0.25, 3);
+      // Limiter le zoom pour que l'image reste visible
+      const maxZoom = Math.min(3, Math.floor(Math.min(window.innerWidth / 200, window.innerHeight / 200)) * 0.5);
+      return Math.min(newZoom, maxZoom);
+    });
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel(prev => Math.max(prev - 0.25, 0.5));
+  };
+
+  const handleRotate = () => {
+    setRotation(prev => (prev + 90) % 360);
+  };
+
+  const resetZoom = () => {
+    setZoomLevel(1);
+    setRotation(0);
+  };
+
   const handleDownload = () => {
     const link = document.createElement('a');
     link.href = file.url;
@@ -216,23 +246,73 @@ export function MediaViewer({
     switch (category) {
       case 'image':
         return (
-          <div className="flex items-center justify-center h-full">
+          <div className="flex items-center justify-center h-full relative overflow-hidden">
             {isLoading && (
-              <div className="absolute inset-0 flex items-center justify-center">
+              <div className="absolute inset-0 flex items-center justify-center z-20">
                 <Loader2 className="w-8 h-8 animate-spin text-white" />
               </div>
             )}
-            <img
-              src={file.url}
-              alt={file.name}
-              className="max-w-full max-h-full object-contain"
-              onLoad={() => setIsLoading(false)}
-              onError={() => {
-                setIsLoading(false);
-                // En cas d'erreur, on peut afficher un message ou une icône
-                console.error('Erreur lors du chargement de l\'image:', file.url);
-              }}
-            />
+            <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+              <div 
+                className="relative flex items-center justify-center"
+                style={{ 
+                  transform: `scale(${zoomLevel}) rotate(${rotation}deg)`,
+                  transition: 'transform 0.2s ease-in-out',
+                  maxWidth: '100vw',
+                  maxHeight: '100vh'
+                }}
+              >
+                <img
+                  src={file.url}
+                  alt={file.name}
+                  className="max-w-[90vw] max-h-[80vh] object-contain"
+                  style={{
+                    maxWidth: `${90 / zoomLevel}vw`,
+                    maxHeight: `${80 / zoomLevel}vh`
+                  }}
+                  onLoad={() => setIsLoading(false)}
+                  onError={() => {
+                    setIsLoading(false);
+                    console.error('Erreur lors du chargement de l\'image:', file.url);
+                  }}
+                />
+              </div>
+            </div>
+            
+            {/* Contrôles de zoom pour les images */}
+            <div className="absolute bottom-4 left-4 flex items-center space-x-2 bg-black/60 backdrop-blur-sm rounded-lg p-2">
+              <button
+                onClick={handleZoomOut}
+                className="p-1 text-white hover:bg-white/20 rounded transition-colors"
+                title="Zoom arrière"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+              <span className="text-white text-xs font-medium min-w-[3rem] text-center">
+                {Math.round(zoomLevel * 100)}%
+              </span>
+              <button
+                onClick={handleZoomIn}
+                className="p-1 text-white hover:bg-white/20 rounded transition-colors"
+                title="Zoom avant"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
+              <button
+                onClick={handleRotate}
+                className="p-1 text-white hover:bg-white/20 rounded transition-colors"
+                title="Rotationner"
+              >
+                <RotateCw className="w-4 h-4" />
+              </button>
+              <button
+                onClick={resetZoom}
+                className="p-1 text-white hover:bg-white/20 rounded transition-colors"
+                title="Réinitialiser"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         );
 
@@ -280,28 +360,14 @@ export function MediaViewer({
 
       case 'document':
         return (
-          <div className={`flex flex-col ${isFullscreen ? 'h-full' : 'items-center justify-center h-full'} space-y-4 p-8`}>
-            {!isFullscreen && (
-              <div className="w-32 h-32 bg-red-500 rounded-lg flex items-center justify-center">
-                <FileText className="w-16 h-16 text-white" />
-              </div>
-            )}
-            <div className={`${isFullscreen ? 'h-full' : 'text-center'} flex-1 flex flex-col`}>
-              {!isFullscreen && (
-                <>
-                  <h3 className="text-xl font-semibold text-white mb-2">{file.name}</h3>
-                  <p className="text-gray-300 mb-4">
-                    {file.url.toLowerCase().includes('.pdf') ? 'Document PDF' : 'Document'}
-                  </p>
-                </>
-              )}
-              
+          <div className={`flex flex-col ${isFullscreen ? 'h-full' : 'items-center justify-center h-full'} p-4`}>
+            <div className={`${isFullscreen ? 'h-full' : 'w-screen flex-1'} flex flex-col`}>
               {/* Aperçu intégré pour les PDF */}
               {file.url.toLowerCase().includes('.pdf') && (
-                <div className={`mb-4 w-full ${isFullscreen ? 'h-full' : 'max-w-4xl max-h-96'} bg-white rounded-lg overflow-hidden flex-1`}>
+                <div className={`flex-1 ${isFullscreen ? 'h-[calc(100vh-8rem)]' : 'h-[calc(100vh-14rem)]'} bg-white rounded-lg overflow-hidden shadow-2xl`}>
                   <iframe
                     src={file.url}
-                    className={`w-full ${isFullscreen ? 'h-full' : 'h-96'} border-0`}
+                    className="w-full h-full border-0"
                     title={`Aperçu PDF: ${file.name}`}
                     onError={(e) => {
                       console.error('Erreur lors du chargement du PDF:', file.url);
@@ -313,10 +379,10 @@ export function MediaViewer({
               
               {/* Aperçu pour les fichiers texte */}
               {(file.url.toLowerCase().match(/\.(txt|md|csv|json|xml)$/i)) && (
-                <div className={`mb-4 w-full ${isFullscreen ? 'h-full' : 'max-w-4xl max-h-96'} bg-white rounded-lg overflow-hidden flex-1`}>
+                <div className={`flex-1 ${isFullscreen ? 'h-[calc(100vh-8rem)]' : 'h-[calc(100vh-14rem)]'} bg-white rounded-lg overflow-hidden shadow-2xl`}>
                   <iframe
                     src={file.url}
-                    className={`w-full ${isFullscreen ? 'h-full' : 'h-96'} border-0`}
+                    className="w-full h-full border-0"
                     title={`Aperçu texte: ${file.name}`}
                     onError={(e) => {
                       console.error('Erreur lors du chargement du fichier texte:', file.url);
@@ -326,26 +392,71 @@ export function MediaViewer({
                 </div>
               )}
               
-              {!isFullscreen && (
-                <div className="flex space-x-3">
-                  <button
-                    onClick={handleDownload}
-                    className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <Download className="w-5 h-5" />
-                    <span>Télécharger</span>
-                  </button>
-                  
-                  {/* Bouton pour ouvrir dans un nouvel onglet si l'aperçu échoue */}
-                  <button
-                    onClick={() => window.open(file.url, '_blank')}
-                    className="flex items-center space-x-2 px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                  >
-                    <Eye className="w-5 h-5" />
-                    <span>Ouvrir</span>
-                  </button>
+              {/* Message pour les autres types de documents */}
+              {!file.url.toLowerCase().includes('.pdf') && !file.url.toLowerCase().match(/\.(txt|md|csv|json|xml)$/i) && (
+                <div className="flex-1 flex items-center justify-center bg-gray-100 rounded-lg">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-gray-400 rounded-lg flex items-center justify-center mb-4">
+                      <FileText className="w-8 h-8 text-white" />
+                    </div>
+                    <h3 className="text-gray-700 font-medium mb-2">{file.name}</h3>
+                    <p className="text-gray-500 text-sm mb-4">Aperçu non disponible pour ce type de fichier</p>
+                    <div className="flex justify-center space-x-3">
+                      <button
+                        onClick={handleDownload}
+                        className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        <Download className="w-4 h-4" />
+                        <span>Télécharger</span>
+                      </button>
+                      <button
+                        onClick={() => window.open(file.url, '_blank')}
+                        className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                      >
+                        <Eye className="w-4 h-4" />
+                        <span>Ouvrir</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
+              
+              {/* Barre d'informations en bas */}
+              <div className="flex items-center justify-between p-3 bg-gray-800/50 w-full lg:w-1/2 mx-auto backdrop-blur-sm rounded-lg border border-gray-700/50 mt-4">
+                <div className="flex items-center space-x-3">
+                  {/* Icône de type de fichier */}
+                  <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center">
+                    <FileText className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-white font-medium text-sm">{file.name}</h3>
+                    <p className="text-gray-300 text-xs">
+                      {file.url.toLowerCase().includes('.pdf') ? 'PDF' : 
+                       file.url.toLowerCase().match(/\.(doc|docx)$/i) ? 'Word' :
+                       file.url.toLowerCase().match(/\.(xls|xlsx)$/i) ? 'Excel' :
+                       file.url.toLowerCase().match(/\.(ppt|pptx)$/i) ? 'PowerPoint' : 'Document'}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Actions */}
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={handleDownload}
+                    className="p-2 text-blue-400 hover:text-blue-300 hover:bg-white/10 rounded-lg transition-all"
+                    title="Télécharger"
+                  >
+                    <Download className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => window.open(file.url, '_blank')}
+                    className="p-2 text-gray-400 hover:text-gray-300 hover:bg-white/10 rounded-lg transition-all"
+                    title="Ouvrir dans un nouvel onglet"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         );
@@ -422,56 +533,56 @@ export function MediaViewer({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
       <div 
         ref={containerRef}
-        className="relative w-full h-full flex flex-col"
+        className="relative w-screen h-screen flex flex-col"
       >
         {/* Header */}
-        <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/80 to-transparent p-4">
+        <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/80 to-transparent p-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <h2 className="text-white font-medium truncate max-w-md">{file.name}</h2>
-              <span className="text-gray-300 text-sm">
+            <div className="flex items-center space-x-3 flex-1 min-w-0">
+              <h2 className="text-white font-medium truncate text-sm">{file.name}</h2>
+              <span className="text-gray-300 text-xs flex-shrink-0">
                 {category.charAt(0).toUpperCase() + category.slice(1)}
               </span>
             </div>
             
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1 flex-shrink-0">
               {/* Navigation buttons */}
               {hasMultipleFiles && (
                 <>
                   <button
                     onClick={onPrevious}
                     disabled={currentIndex === 0}
-                    className="p-2 text-white hover:bg-white/20 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="p-1.5 text-white hover:bg-white/20 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <ChevronLeft className="w-5 h-5" />
+                    <ChevronLeft className="w-4 h-4" />
                   </button>
-                  <span className="text-white text-sm">
+                  <span className="text-white text-xs min-w-[3rem] text-center">
                     {currentIndex + 1} / {files.length}
                   </span>
                   <button
                     onClick={onNext}
                     disabled={currentIndex === files.length - 1}
-                    className="p-2 text-white hover:bg-white/20 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="p-1.5 text-white hover:bg-white/20 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <ChevronRight className="w-5 h-5" />
+                    <ChevronRight className="w-4 h-4" />
                   </button>
                 </>
               )}
 
               <button
                 onClick={handleDownload}
-                className="p-2 text-white hover:bg-white/20 rounded-full transition-colors"
+                className="p-1.5 text-white hover:bg-white/20 rounded-full transition-colors"
                 title="Télécharger"
               >
-                <Download className="w-5 h-5" />
+                <Download className="w-4 h-4" />
               </button>
 
               <button
                 onClick={onClose}
-                className="p-2 text-white hover:bg-white/20 rounded-full transition-colors"
+                className="p-1.5 text-white hover:bg-white/20 rounded-full transition-colors"
                 title="Fermer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
