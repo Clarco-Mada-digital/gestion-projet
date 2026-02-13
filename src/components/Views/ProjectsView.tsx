@@ -1035,6 +1035,16 @@ export function ProjectsView() {
     const task = editingProject.tasks?.find(t => t.id === taskId);
     if (!task) return;
 
+    // Vérifier les sous-tâches avant de marquer comme terminé
+    if (task.status !== 'done' && task.subTasks && task.subTasks.length > 0) {
+      const incompleteSubTasks = task.subTasks.filter(st => !st.completed);
+      if (incompleteSubTasks.length > 0) {
+        const message = `Impossible de marquer cette tâche comme terminée car ${incompleteSubTasks.length} sous-tâche(s) ne sont pas terminée(s) :\n\n${incompleteSubTasks.map(st => `• ${st.title}`).join('\n')}`;
+        alert(message);
+        return;
+      }
+    }
+
     const newStatus = task.status === 'done' ? 'todo' : 'done';
     const updatedTask = {
       ...task,
@@ -2102,7 +2112,7 @@ export function ProjectsView() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleToggleTaskStatus(task);
+                                toggleTaskStatus(task.id);
                               }}
                               className={`mt-1 w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${task.status === 'done'
                                 ? 'bg-green-500 border-green-500 text-white'

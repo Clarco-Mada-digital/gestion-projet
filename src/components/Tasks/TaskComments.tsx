@@ -126,31 +126,67 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
 
       // Envoyer des notifications aux mentions
       // Extraire les mentions du commentaire avec une regex plus robuste
-      const mentionRegex = /@(\w+)/g;
+      // Capture @ suivi de n'importe quels caractères sauf espaces et ponctuation de fin
+      const mentionRegex = /@([^\s@]+(?:\s+[^\s@]+)*?)(?=\s|$)/g;
       const mentions = newComment.match(mentionRegex) || [];
 
       if (mentions.length > 0) {
-        // Pour chaque membre du projet mentionné via @Nom
-        project.members?.forEach(async (memberId) => {
-          const member = state.users.find(u => u.id === memberId);
-          if (!member) return;
+        console.log('Mentions détectées:', mentions);
+        
+        // Déterminer la liste des utilisateurs à vérifier
+        const usersToCheck = project.source === 'firebase' && project.members && project.members.length > 0
+          ? project.members.map(memberId => state.users.find(u => u.id === memberId)).filter(Boolean)
+          : state.users;
 
-          // Vérifier si ce membre est mentionné
-          const isMentioned = mentions.some(mention => 
-            mention[1].toLowerCase() === (member.name?.toLowerCase() || member.email?.toLowerCase())
-          );
+        console.log('Utilisateurs à vérifier:', usersToCheck.map(u => ({ id: u?.id, name: u?.name, email: u?.email })));
 
-          if (isMentioned && member.id !== currentUser.uid) {
-            // Envoyer la notification au membre mentionné
-            await notificationService.sendNotification({
-              userId: member.id,
-              title: 'Vous avez été mentionné',
-              message: `${currentUser.displayName || 'Un utilisateur'} vous a mentionné dans un commentaire: "${newComment.substring(0, 50)}${newComment.length > 50 ? '...' : ''}"`,
-              type: 'mention',
-              link: `/projects/${project.id}/tasks/${taskId}`
-            });
+        // Pour chaque utilisateur potentiellement mentionné
+        for (const user of usersToCheck) {
+          if (!user || user.id === currentUser.uid) continue;
+
+          // Vérifier si cet utilisateur est mentionné
+          const isMentioned = mentions.some(mention => {
+            const mentionText = mention.substring(1).trim().toLowerCase(); // Enlever @ et trim
+            const userName = (user.name || '').toLowerCase();
+            const userEmail = (user.email || '').toLowerCase();
+            
+            // Correspondance exacte avec le nom
+            if (userName === mentionText) return true;
+            
+            // Correspondance avec le nom sans espaces (pour les noms composés)
+            const userNameNoSpaces = userName.replace(/\s+/g, '').toLowerCase();
+            const mentionNoSpaces = mentionText.replace(/\s+/g, '').toLowerCase();
+            if (userNameNoSpaces === mentionNoSpaces) return true;
+            
+            // Correspondance avec l'email (partie avant @)
+            const emailLocal = userEmail.split('@')[0];
+            if (emailLocal === mentionText) return true;
+            
+            // Correspondance partielle (premier mot du nom)
+            const firstName = userName.split(' ')[0];
+            if (firstName === mentionText) return true;
+            
+            return false;
+          });
+
+          console.log(`Utilisateur ${user.name} (${user.email}) mentionné:`, isMentioned);
+
+          if (isMentioned) {
+            try {
+              // Envoyer la notification à l'utilisateur mentionné
+              await notificationService.sendNotification({
+                userId: user.id,
+                title: 'Vous avez été mentionné',
+                message: `${currentUser.displayName || 'Un utilisateur'} vous a mentionné dans un commentaire: "${newComment.substring(0, 50)}${newComment.length > 50 ? '...' : ''}"`,
+                type: 'mention',
+                link: `/projects/${project.id}/tasks/${taskId}`
+              });
+              console.log(`Notification envoyée à ${user.name}`);
+            } catch (error) {
+              console.error(`Erreur lors de l'envoi de la notification à ${user.name}:`, error);
+            }
           }
-        });
+        }
       }
 
       setNewComment('');
