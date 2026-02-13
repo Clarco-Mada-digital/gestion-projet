@@ -830,6 +830,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const savedData = localStorage.getItem('astroProjectManagerData');
         const savedTheme = localStorage.getItem('astroProjectManagerTheme') as Theme | null;
         const savedAppSettings = localStorage.getItem('astroProjectManagerAppSettings');
+        const savedEmailSettings = localStorage.getItem('astroProjectManagerEmailSettings');
 
         if (savedData) {
           const parsedData = JSON.parse(savedData);
@@ -853,6 +854,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
           }
 
+          // Charger les paramètres email sauvegardés de manière sécurisée
+          let emailSettings = initialState.emailSettings;
+          if (savedEmailSettings) {
+            try {
+              const parsedEmailSettings = JSON.parse(savedEmailSettings);
+              emailSettings = { ...initialState.emailSettings, ...parsedEmailSettings };
+            } catch (error) {
+              console.error('Erreur lors du chargement des paramètres email:', error);
+            }
+          }
+
           // Mettre à jour l'état avec les données chargées
           dispatch({
             type: 'INIT_STATE',
@@ -862,7 +874,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               // Priorité au thème sauvegardé spécifiquement
               theme: savedTheme || parsedData.theme || 'light',
               currentView: validViews.includes(viewToSet) ? viewToSet : 'today',
-              appSettings
+              appSettings,
+              emailSettings
             }
           });
         } else {
@@ -896,13 +909,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadInitialData();
   }, []);
 
-  // Effet pour sauvegarder les données dans le localStorage
+  // Effet pour sauvegarder les données principales (sans emailSettings et appSettings)
   useEffect(() => {
     if (state.isLoading) return; // Ne pas sauvegarder pendant le chargement initial
 
     try {
-      // Préparer les données à sauvegarder
-      const { isLoading, error, notifications, ...dataToSave } = state;
+      // Préparer les données à sauvegarder en excluant les paramètres sensibles
+      const { isLoading, error, notifications, emailSettings, appSettings, ...dataToSave } = state;
 
       localStorage.setItem('astroProjectManagerData', JSON.stringify({
         ...dataToSave,
@@ -910,9 +923,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         notifications: []
       }));
     } catch (error) {
-      console.error('Erreur lors de la sauvegarde des données:', error);
+      console.error('Erreur lors de la sauvegarde des données principales:', error);
     }
-  }, [state]);
+  }, [state.projects, state.users, state.theme, state.currentView, state.selectedProject, state.reports, state.isLoading]);
+
+  // Effet séparé pour sauvegarder les paramètres email (sécurisé)
+  useEffect(() => {
+    if (state.isLoading) return; // Ne pas sauvegarder pendant le chargement initial
+
+    try {
+      localStorage.setItem('astroProjectManagerEmailSettings', JSON.stringify(state.emailSettings));
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde des paramètres email:', error);
+    }
+  }, [state.emailSettings, state.isLoading]);
+
+  // Effet de récupération d'urgence des paramètres email
+  useEffect(() => {
+    if (state.isLoading) return;
+
+    // Vérifier si les paramètres email sont vides (perdus)
+    const hasEmptyEmailSettings = !state.emailSettings.serviceId && 
+                                  !state.emailSettings.templateId && 
+                                  !state.emailSettings.userId;
+
+    if (hasEmptyEmailSettings) {
+      // Essayer de récupérer depuis l'ancien emplacement
+      try {
+        const oldData = localStorage.getItem('astroProjectManagerData');
+        if (oldData) {
+          const parsed = JSON.parse(oldData);
+          if (parsed.emailSettings && (parsed.emailSettings.serviceId || parsed.emailSettings.templateId || parsed.emailSettings.userId)) {
+            console.log('Récupération des paramètres email depuis l\'ancien emplacement');
+            dispatch({ type: 'UPDATE_EMAIL_SETTINGS', payload: parsed.emailSettings });
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Erreur lors de la récupération des paramètres email:', error);
+      }
+
+      // Essayer de récupérer depuis le nouvel emplacement
+      try {
+        const emailSettings = localStorage.getItem('astroProjectManagerEmailSettings');
+        if (emailSettings) {
+          const parsed = JSON.parse(emailSettings);
+          if (parsed.serviceId || parsed.templateId || parsed.userId) {
+            console.log('Récupération des paramètres email depuis le nouvel emplacement');
+            dispatch({ type: 'UPDATE_EMAIL_SETTINGS', payload: parsed });
+          }
+        }
+      } catch (error) {
+        console.error('Erreur lors de la récupération des paramètres email:', error);
+      }
+    }
+  }, [state.emailSettings, state.isLoading]);
 
   // Effet séparé pour sauvegarder les paramètres d'apparence
   useEffect(() => {
