@@ -111,5 +111,22 @@ export const commentService = {
     } catch (error) {
       console.error("Erreur lors de la mise à jour des réactions:", error);
     }
+  },
+
+  /**
+   * Met à jour le contenu d'un commentaire
+   */
+  async updateComment(commentId: string, content: string): Promise<void> {
+    if (!ensureInitialized()) return;
+    try {
+      const { updateDoc, doc } = await import('firebase/firestore');
+      const commentRef = doc(db, 'comments', commentId);
+      await updateDoc(commentRef, {
+        content: content,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour du commentaire:", error);
+    }
   }
 };

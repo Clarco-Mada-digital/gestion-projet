@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, User as UserIcon, Heart, ThumbsUp, Laugh, MessageCircle, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Send, User as UserIcon, Heart, ThumbsUp, Laugh, MessageCircle, Trash2, ChevronDown, ChevronUp, Edit2, Save, X } from 'lucide-react';
 import { Comment, User, Project, CommentReaction } from '../../types';
 import { commentService } from '../../services/collaboration/commentService';
 import { notificationService } from '../../services/collaboration/notificationService';
@@ -14,7 +14,7 @@ const CommentContent: React.FC<{ content: string; isReply?: boolean }> = ({ cont
   // Fonction pour colorer les mentions
   const colorizeMentions = (text: string) => {
     // Regex améliorée pour capturer les mentions @nom ou @nom complet
-    const mentionRegex = /@([a-zA-Z0-9À-ÿ][a-zA-Z0-9À-ÿ\s\-_']*[a-zA-Z0-9À-ÿ])/g;
+    const mentionRegex = /@([a-zA-Z0-9À-ÿ]+(?:[\s\-_'][a-zA-Z0-9À-ÿ]+)*)/g;
 
     const elements: JSX.Element[] = [];
     let lastIndex = 0;
@@ -28,30 +28,23 @@ const CommentContent: React.FC<{ content: string; isReply?: boolean }> = ({ cont
         );
       }
 
-      // Ajouter le @ en texte normal et le nom coloré
-      elements.push(
-        <span key={match.index} style={{ color: 'inherit' }}>@</span>
-      );
-
+      // Ajouter la mention complète (@ + nom) en un seul span
       elements.push(
         <span
-          key={`${match.index}-name`}
+          key={match.index}
           style={{
-            backgroundColor: accentColor + '20', // 20% d'opacité
+            backgroundColor: accentColor + '15',
             color: accentColor,
-            padding: '2px 6px',
-            borderRadius: '6px',
+            padding: '1px 4px',
+            borderRadius: '4px',
             fontWeight: '600',
             fontSize: '0.875rem',
-            lineHeight: '1.25rem',
-            display: 'inline-block',
-            transition: 'all 0.2s ease',
-            cursor: 'pointer'
+            display: 'inline',
+            margin: '0 1px'
           }}
-          className="mention-highlight hover:opacity-80"
-          title={`Mention: ${match[1]}`}
+          className="mention-highlight"
         >
-          {match[1]}
+          @{match[1]}
         </span>
       );
 
@@ -182,12 +175,43 @@ const CommentReactions: React.FC<{
 // Composant pour les réponses aux commentaires
 const CommentReply: React.FC<{
   comment: Comment,
-  onReply: (content: string, parentId: string) => void
-}> = ({ comment, onReply }) => {
+  onReply: (content: string, parentId: string) => void,
+  members: User[]
+}> = ({ comment, onReply, members }) => {
   const [isReplying, setIsReplying] = useState(false);
   const [replyContent, setReplyContent] = useState('');
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionSearch, setMentionSearch] = useState('');
+  const [cursorPos, setCursorPos] = useState(0);
   const { state } = useApp();
   const accentColor = state.appSettings?.accentColor || '#3B82F6';
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    const pos = e.target.selectionStart;
+    setReplyContent(value);
+    setCursorPos(pos);
+
+    const lastAtIdx = value.lastIndexOf('@', pos - 1);
+    if (lastAtIdx !== -1 && (lastAtIdx === 0 || value[lastAtIdx - 1] === ' ' || value[lastAtIdx - 1] === '\n')) {
+      const search = value.substring(lastAtIdx + 1, pos);
+      if (!search.includes(' ')) {
+        setMentionSearch(search);
+        setShowMentions(true);
+        return;
+      }
+    }
+    setShowMentions(false);
+  };
+
+  const insertMention = (user: User) => {
+    const lastAtIdx = replyContent.lastIndexOf('@', cursorPos - 1);
+    const before = replyContent.substring(0, lastAtIdx);
+    const after = replyContent.substring(cursorPos);
+    const mentionText = `@${user.name || user.email}  `;
+    setReplyContent(before + mentionText + after);
+    setShowMentions(false);
+  };
 
   const handleReply = () => {
     if (replyContent.trim()) {
@@ -210,15 +234,41 @@ const CommentReply: React.FC<{
         </button>
       ) : (
         <div className="space-y-2">
-          <textarea
-            value={replyContent}
-            onChange={(e) => setReplyContent(e.target.value)}
-            placeholder={`Répondre à ${comment.authorName}...`}
-            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm resize-none focus:ring-2 focus:border-transparent"
-            style={{ '--focus-ring-color': accentColor } as React.CSSProperties}
-            rows={3}
-            autoFocus
-          />
+          <div className="relative">
+            <textarea
+              value={replyContent}
+              onChange={handleInputChange}
+              placeholder={`Répondre à ${comment.authorName}...`}
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm resize-none focus:ring-2 focus:border-transparent"
+              style={{ '--focus-ring-color': accentColor } as React.CSSProperties}
+              rows={3}
+              autoFocus
+            />
+
+            {showMentions && (
+              <div className="absolute bottom-full left-0 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 mb-2 overflow-hidden">
+                <div className="max-h-40 overflow-y-auto">
+                  {members
+                    .filter(u => u.name?.toLowerCase().includes(mentionSearch.toLowerCase()) || u.email?.toLowerCase().includes(mentionSearch.toLowerCase()))
+                    .map(user => (
+                      <button
+                        key={user.id}
+                        type="button"
+                        onClick={() => insertMention(user)}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 text-xs transition-colors"
+                      >
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center bg-blue-500 text-[10px] text-white">
+                          {user.name?.[0] || user.email[0]}
+                        </div>
+                        <span className="truncate font-medium text-gray-900 dark:text-white">
+                          {user.name || user.email}
+                        </span>
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
           <div className="flex gap-2">
             <button
               onClick={() => {
@@ -263,6 +313,8 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
   const [cursorPos, setCursorPos] = useState(0);
   const [projectMembers, setProjectMembers] = useState<User[]>([]);
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -323,13 +375,45 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
   };
 
   const insertMention = (user: User) => {
-    const lastAtIdx = newComment.lastIndexOf('@', cursorPos - 1);
-    const before = newComment.substring(0, lastAtIdx);
-    const after = newComment.substring(cursorPos);
-    const mentionText = `@${user.name || user.email} `;
-    setNewComment(before + mentionText + after);
+    let content = '';
+    let setContent: (val: string) => void;
+
+    if (editingCommentId) {
+      content = editContent;
+      setContent = setEditContent;
+    } else {
+      content = newComment;
+      setContent = setNewComment;
+    }
+
+    const lastAtIdx = content.lastIndexOf('@', cursorPos - 1);
+    const before = content.substring(0, lastAtIdx);
+    const after = content.substring(cursorPos);
+    const mentionText = `@${user.name || user.email}  `; // Double espace
+    setContent(before + mentionText + after);
     setShowMentions(false);
-    textareaRef.current?.focus();
+
+    if (!editingCommentId) {
+      textareaRef.current?.focus();
+    }
+  };
+
+  const handleEditInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    const pos = e.target.selectionStart;
+    setEditContent(value);
+    setCursorPos(pos);
+
+    const lastAtIdx = value.lastIndexOf('@', pos - 1);
+    if (lastAtIdx !== -1 && (lastAtIdx === 0 || value[lastAtIdx - 1] === ' ' || value[lastAtIdx - 1] === '\n')) {
+      const search = value.substring(lastAtIdx + 1, pos);
+      if (!search.includes(' ')) {
+        setMentionSearch(search);
+        setShowMentions(true);
+        return;
+      }
+    }
+    setShowMentions(false);
   };
 
   const handleReactionAdd = async (commentId: string, emoji: string) => {
@@ -537,6 +621,27 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
     }
   };
 
+  const startEdit = (comment: Comment) => {
+    setEditingCommentId(comment.id);
+    setEditContent(comment.content);
+  };
+
+  const cancelEdit = () => {
+    setEditingCommentId(null);
+    setEditContent('');
+  };
+
+  const handleUpdate = async (commentId: string) => {
+    if (!editContent.trim()) return;
+    try {
+      await commentService.updateComment(commentId, editContent);
+      setEditingCommentId(null);
+      setEditContent('');
+    } catch (error) {
+      // Fail silently
+    }
+  };
+
   const toggleExpand = (commentId: string) => {
     setExpandedComments(prev => ({
       ...prev,
@@ -551,7 +656,7 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
       </h3>
 
       {/* Liste des commentaires */}
-      <div className="space-y-6 mb-6 max-h-[550px] pr-2 custom-scrollbar pb-32">
+      <div className="space-y-6 mb-6 max-h-[550px] overflow-y-auto pr-2 custom-scrollbar pb-32">
         {comments
           .filter(c => !c.parentId) // Top-level comments
           .map((parentComment) => (
@@ -572,7 +677,61 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
                       <span className="font-bold text-sm text-gray-900 dark:text-white">{parentComment.authorName}</span>
                       <span className="text-[10px] text-gray-400">{new Date(parentComment.createdAt).toLocaleString()}</span>
                     </div>
-                    <CommentContent content={parentComment.content} />
+                    {editingCommentId === parentComment.id ? (
+                      <div className="space-y-2">
+                        <div className="relative">
+                          <textarea
+                            value={editContent}
+                            onChange={handleEditInputChange}
+                            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm resize-none focus:ring-2 focus:border-transparent"
+                            rows={3}
+                            autoFocus
+                          />
+
+                          {showMentions && (
+                            <div className="absolute bottom-full left-0 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 mb-2 overflow-hidden">
+                              <div className="max-h-40 overflow-y-auto">
+                                {projectMembers
+                                  .filter(u => u.name?.toLowerCase().includes(mentionSearch.toLowerCase()) || u.email?.toLowerCase().includes(mentionSearch.toLowerCase()))
+                                  .map(user => (
+                                    <button
+                                      key={user.id}
+                                      type="button"
+                                      onClick={() => insertMention(user)}
+                                      className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 text-xs transition-colors"
+                                    >
+                                      <div className="w-6 h-6 rounded-full flex items-center justify-center bg-blue-500 text-[10px] text-white">
+                                        {user.name?.[0] || user.email[0]}
+                                      </div>
+                                      <span className="truncate font-medium text-gray-900 dark:text-white">
+                                        {user.name || user.email}
+                                      </span>
+                                    </button>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            onClick={cancelEdit}
+                            className="px-3 py-1 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                          >
+                            Annuler
+                          </button>
+                          <button
+                            onClick={() => handleUpdate(parentComment.id)}
+                            className="px-3 py-1 text-xs text-white rounded-lg flex items-center gap-1.5"
+                            style={{ backgroundColor: state.appSettings?.accentColor || '#3B82F6' }}
+                          >
+                            <Save className="w-3.5 h-3.5" />
+                            Sauvegarder
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <CommentContent content={parentComment.content} />
+                    )}
 
                     {/* Réactions au commentaire */}
                     {(parentComment.reactions && parentComment.reactions.length > 0) || true ? (
@@ -590,7 +749,20 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
                     <CommentReply
                       comment={parentComment}
                       onReply={(content, parentId) => handleReply(content, parentId)}
+                      members={projectMembers}
                     />
+
+                    {/* Bouton de suppression - Plus visible */}
+                    {/* Bouton de modification */}
+                    {(state.cloudUser?.uid === parentComment.authorId || !state.cloudUser) && editingCommentId !== parentComment.id && (
+                      <button
+                        onClick={() => startEdit(parentComment)}
+                        className="text-[11px] text-gray-500 hover:text-blue-600 font-medium transition-colors flex items-center gap-1.5 py-1 px-2 hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-lg"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                        Modifier
+                      </button>
+                    )}
 
                     {/* Bouton de suppression - Plus visible */}
                     {(state.cloudUser?.uid === parentComment.authorId || !state.cloudUser) && (
@@ -639,7 +811,60 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
                               <span className="font-semibold text-xs text-gray-900 dark:text-white">{reply.authorName}</span>
                               <span className="text-[9px] text-gray-400">{new Date(reply.createdAt).toLocaleString()}</span>
                             </div>
-                            <CommentContent content={reply.content} isReply />
+                            {editingCommentId === reply.id ? (
+                              <div className="space-y-2">
+                                <div className="relative">
+                                  <textarea
+                                    value={editContent}
+                                    onChange={handleEditInputChange}
+                                    className="w-full px-2 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm resize-none focus:ring-2 focus:border-transparent"
+                                    rows={2}
+                                    autoFocus
+                                  />
+                                  {showMentions && (
+                                    <div className="absolute bottom-full left-0 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 mb-2 overflow-hidden">
+                                      <div className="max-h-40 overflow-y-auto">
+                                        {projectMembers
+                                          .filter(u => u.name?.toLowerCase().includes(mentionSearch.toLowerCase()) || u.email?.toLowerCase().includes(mentionSearch.toLowerCase()))
+                                          .map(user => (
+                                            <button
+                                              key={user.id}
+                                              type="button"
+                                              onClick={() => insertMention(user)}
+                                              className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 text-xs transition-colors"
+                                            >
+                                              <div className="w-6 h-6 rounded-full flex items-center justify-center bg-blue-500 text-[10px] text-white">
+                                                {user.name?.[0] || user.email[0]}
+                                              </div>
+                                              <span className="truncate font-medium text-gray-900 dark:text-white">
+                                                {user.name || user.email}
+                                              </span>
+                                            </button>
+                                          ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex gap-2 justify-end">
+                                  <button
+                                    onClick={cancelEdit}
+                                    className="px-2 py-1 text-[10px] text-gray-600 dark:text-gray-400"
+                                  >
+                                    Annuler
+                                  </button>
+                                  <button
+                                    onClick={() => handleUpdate(reply.id)}
+                                    className="px-2 py-1 text-[10px] text-white rounded flex items-center gap-1"
+                                    style={{ backgroundColor: state.appSettings?.accentColor || '#3B82F6' }}
+                                  >
+                                    <Save className="w-2.5 h-2.5" />
+                                    OK
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <CommentContent content={reply.content} isReply />
+                            )}
 
                             {/* Réactions aux réponses */}
                             {reply.reactions && reply.reactions.length > 0 && (
@@ -652,16 +877,29 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
                             )}
                           </div>
 
-                          {/* Bouton de suppression pour réponse */}
-                          {(state.cloudUser?.uid === reply.authorId || !state.cloudUser) && (
-                            <button
-                              onClick={() => handleDelete(reply.id)}
-                              className="mt-1 text-[10px] text-red-500 hover:text-red-600 font-medium transition-colors ml-2 flex items-center gap-1"
-                            >
-                              <Trash2 className="w-2.5 h-2.5" />
-                              Supprimer
-                            </button>
-                          )}
+                          <div className="flex items-center gap-3">
+                            {/* Bouton de modification pour réponse */}
+                            {(state.cloudUser?.uid === reply.authorId || !state.cloudUser) && editingCommentId !== reply.id && (
+                              <button
+                                onClick={() => startEdit(reply)}
+                                className="mt-1 text-[10px] text-gray-500 hover:text-blue-600 font-medium transition-colors ml-2 flex items-center gap-1"
+                              >
+                                <Edit2 className="w-2.5 h-2.5" />
+                                Modifier
+                              </button>
+                            )}
+
+                            {/* Bouton de suppression pour réponse */}
+                            {(state.cloudUser?.uid === reply.authorId || !state.cloudUser) && (
+                              <button
+                                onClick={() => handleDelete(reply.id)}
+                                className="mt-1 text-[10px] text-red-500 hover:text-red-600 font-medium transition-colors flex items-center gap-1"
+                              >
+                                <Trash2 className="w-2.5 h-2.5" />
+                                Supprimer
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Check, ExternalLink } from 'lucide-react';
+import { Bell, Check, ExternalLink, Trash2 } from 'lucide-react';
 import { Notification } from '../../types';
 import { notificationService } from '../../services/collaboration/notificationService';
 import { useApp } from '../../context/AppContext';
@@ -37,9 +37,22 @@ export function NotificationCenter() {
     await notificationService.markAsRead(id);
   };
 
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await notificationService.deleteNotification(id);
+  };
+
   const handleMarkAllAsRead = async () => {
     if (notifications.length > 0) {
       await notificationService.markAllAsRead(notifications);
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (state.cloudUser && notifications.length > 0) {
+      if (window.confirm('Voulez-vous supprimer toutes vos notifications ?')) {
+        await notificationService.clearAllNotifications(state.cloudUser.uid, notifications);
+      }
     }
   };
 
@@ -51,23 +64,31 @@ export function NotificationCenter() {
       notificationService.markAsRead(n.id);
     }
 
-    // Parser le lien : /projects/${projectId}?task=${taskId}
+    // Parser le lien
     try {
-      // Pour les chemins relatifs, on ajoute l'origine
       const link = n.link.startsWith('/') ? `${window.location.origin}${n.link}` : n.link;
       const url = new URL(link);
       const pathParts = url.pathname.split('/');
 
-      // Format attendu: /projects/:projectId
+      // Format 1: /projects/:projectId?task=:taskId
+      // Format 2: /projects/:projectId/tasks/:taskId
       const projectIndex = pathParts.indexOf('projects');
       const projectId = projectIndex !== -1 ? pathParts[projectIndex + 1] : null;
-      const taskId = url.searchParams.get('task');
+
+      let taskId = url.searchParams.get('task');
+      if (!taskId && projectIndex !== -1 && pathParts[projectIndex + 2] === 'tasks') {
+        taskId = pathParts[projectIndex + 3];
+      }
 
       if (projectId && taskId) {
         dispatch({
           type: 'NAVIGATE_TO_TASK',
           payload: { projectId, taskId }
         });
+        setIsOpen(false);
+      } else if (projectId) {
+        dispatch({ type: 'SET_SELECTED_PROJECT', payload: projectId });
+        dispatch({ type: 'SET_VIEW', payload: 'projects' });
         setIsOpen(false);
       } else {
         // Fallback pour les liens simples
@@ -97,14 +118,24 @@ export function NotificationCenter() {
         <div className="absolute right-0 top-12 w-80 max-h-[480px] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 z-[100] flex flex-col animate-in fade-in zoom-in duration-200">
           <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
             <h3 className="font-bold text-gray-900 dark:text-white">Notifications</h3>
-            {unreadCount > 0 && (
-              <button
-                onClick={handleMarkAllAsRead}
-                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                Tout marquer comme lu
-              </button>
-            )}
+            <div className="flex gap-2">
+              {unreadCount > 0 && (
+                <button
+                  onClick={handleMarkAllAsRead}
+                  className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  Tout lire
+                </button>
+              )}
+              {notifications.length > 0 && (
+                <button
+                  onClick={handleClearAll}
+                  className="text-[10px] text-red-500 hover:underline"
+                >
+                  Tout effacer
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar">
@@ -114,18 +145,27 @@ export function NotificationCenter() {
                 className={`p-4 border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors relative group ${!n.isRead ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
               >
                 <div className="flex justify-between items-start mb-1">
-                  <h4 className={`text-sm font-semibold truncate pr-6 ${!n.isRead ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
+                  <h4 className={`text-sm font-semibold truncate pr-12 ${!n.isRead ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
                     {n.title}
                   </h4>
-                  {!n.isRead && (
+                  <div className="flex items-center gap-1">
+                    {!n.isRead && (
+                      <button
+                        onClick={(e) => handleMarkAsRead(n.id, e)}
+                        className="p-1 rounded-md text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-950 transition-colors"
+                        title="Marquer comme lu"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     <button
-                      onClick={(e) => handleMarkAsRead(n.id, e)}
-                      className="p-1 rounded-md text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-950 transition-colors"
-                      title="Marquer comme lu"
+                      onClick={(e) => handleDelete(n.id, e)}
+                      className="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors opacity-0 group-hover:opacity-100"
+                      title="Supprimer"
                     >
-                      <Check className="w-3 h-3" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
-                  )}
+                  </div>
                 </div>
                 <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-2">{n.message}</p>
                 <div className="flex justify-between items-center">

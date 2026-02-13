@@ -97,5 +97,35 @@ export const notificationService = {
     } catch (error) {
       console.error("Erreur lors du marquage groupé des notifications:", error);
     }
+  },
+
+  /**
+   * Supprime une notification
+   */
+  async deleteNotification(notificationId: string): Promise<void> {
+    if (!ensureInitialized()) return;
+    try {
+      const { deleteDoc, doc } = await import('firebase/firestore');
+      await deleteDoc(doc(db, 'notifications', notificationId));
+    } catch (error) {
+      console.error("Erreur lors de la suppression de la notification:", error);
+    }
+  },
+
+  /**
+   * Supprime toutes les notifications d'un utilisateur
+   */
+  async clearAllNotifications(userId: string, notifications: Notification[]): Promise<void> {
+    if (!ensureInitialized() || notifications.length === 0) return;
+    try {
+      const { writeBatch, doc } = await import('firebase/firestore');
+      const batch = writeBatch(db);
+      notifications.forEach(n => {
+        batch.delete(doc(db, 'notifications', n.id));
+      });
+      await batch.commit();
+    } catch (error) {
+      console.error("Erreur lors du nettoyage des notifications:", error);
+    }
   }
 };
