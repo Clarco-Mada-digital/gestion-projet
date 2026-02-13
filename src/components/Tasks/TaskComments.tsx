@@ -1,10 +1,253 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, User as UserIcon } from 'lucide-react';
-import { Comment, User, Project } from '../../types';
+import { Send, User as UserIcon, Heart, ThumbsUp, Laugh, MessageCircle } from 'lucide-react';
+import { Comment, User, Project, CommentReaction } from '../../types';
 import { commentService } from '../../services/collaboration/commentService';
 import { notificationService } from '../../services/collaboration/notificationService';
 import { activityService } from '../../services/collaboration/activityService';
 import { useApp } from '../../context/AppContext';
+
+// Composant pour afficher le contenu avec les mentions colorées
+const CommentContent: React.FC<{ content: string; isReply?: boolean }> = ({ content, isReply = false }) => {
+  const { state } = useApp();
+  const accentColor = state.appSettings?.accentColor || '#3B82F6'; // Bleu par défaut
+
+  // Fonction pour colorer les mentions
+  const colorizeMentions = (text: string) => {
+    // Regex améliorée pour capturer les mentions @nom ou @nom complet
+    const mentionRegex = /@([a-zA-Z0-9À-ÿ][a-zA-Z0-9À-ÿ\s\-_']*[a-zA-Z0-9À-ÿ])/g;
+    
+    const elements: JSX.Element[] = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = mentionRegex.exec(text)) !== null) {
+      // Ajouter le texte avant la mention
+      if (match.index > lastIndex) {
+        elements.push(
+          <span key={lastIndex}>{text.substring(lastIndex, match.index)}</span>
+        );
+      }
+
+      // Ajouter le @ en texte normal et le nom coloré
+      elements.push(
+        <span key={match.index} style={{ color: 'inherit' }}>@</span>
+      );
+      
+      elements.push(
+        <span
+          key={`${match.index}-name`}
+          style={{
+            backgroundColor: accentColor + '20', // 20% d'opacité
+            color: accentColor,
+            padding: '2px 6px',
+            borderRadius: '6px',
+            fontWeight: '600',
+            fontSize: '0.875rem',
+            lineHeight: '1.25rem',
+            display: 'inline-block',
+            transition: 'all 0.2s ease',
+            cursor: 'pointer'
+          }}
+          className="mention-highlight hover:opacity-80"
+          title={`Mention: ${match[1]}`}
+        >
+          {match[1]}
+        </span>
+      );
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Ajouter le reste du texte après la dernière mention
+    if (lastIndex < text.length) {
+      elements.push(
+        <span key={lastIndex}>{text.substring(lastIndex)}</span>
+      );
+    }
+
+    return <>{elements}</>;
+  };
+
+  return (
+    <p className={`text-sm whitespace-pre-wrap leading-relaxed ${
+      isReply 
+        ? 'text-gray-600 dark:text-gray-400 italic border-l-2 border-blue-200 dark:border-blue-800 pl-3 bg-blue-50/30 dark:bg-blue-900/20 rounded-r-lg'
+        : 'text-gray-700 dark:text-gray-300'
+    }`}>
+      {colorizeMentions(content)}
+    </p>
+  );
+};
+
+// Composant pour les réactions avec emojis
+const CommentReactions: React.FC<{ 
+  commentId: string, 
+  reactions: CommentReaction[], 
+  onReactionAdd: (emoji: string) => void,
+  onReactionRemove: (reactionId: string) => void 
+}> = ({ commentId, reactions, onReactionAdd, onReactionRemove }) => {
+  const { state } = useApp();
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const accentColor = state.appSettings?.accentColor || '#3B82F6';
+
+  // Emojis populaires
+  const popularEmojis = ['👍', '❤️', '😂', '🎉', '😮', '😢', '👏', '🔥', '💯', '🤔'];
+
+  // Grouper les réactions par emoji
+  const reactionsByEmoji = reactions.reduce((acc, reaction) => {
+    if (!acc[reaction.emoji]) {
+      acc[reaction.emoji] = [];
+    }
+    acc[reaction.emoji].push(reaction);
+    return acc;
+  }, {} as Record<string, CommentReaction[]>);
+
+  // Vérifier si l'utilisateur actuel a déjà réagi
+  const currentUserReaction = reactions.find(r => r.userId === state.cloudUser?.uid);
+
+  const handleReactionClick = (emoji: string) => {
+    const existingReaction = reactions.find(r => r.userId === state.cloudUser?.uid && r.emoji === emoji);
+    
+    if (existingReaction) {
+      // Retirer la réaction
+      onReactionRemove(existingReaction.id);
+    } else {
+      // Ajouter la réaction
+      onReactionAdd(emoji);
+    }
+    setShowEmojiPicker(false);
+  };
+
+  return (
+    <div className="relative">
+      <div className="flex items-center gap-1 mt-2">
+        {Object.entries(reactionsByEmoji).map(([emoji, emojiReactions]) => {
+          const hasCurrentUserReaction = emojiReactions.some(r => r.userId === state.cloudUser?.uid);
+          
+          return (
+            <button
+              key={emoji}
+              onClick={() => handleReactionClick(emoji)}
+              className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
+                hasCurrentUserReaction 
+                  ? 'text-white border-2' 
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 border border-transparent'
+              }`}
+              style={hasCurrentUserReaction ? {
+                borderColor: accentColor,
+                backgroundColor: accentColor
+              } : {}}
+              title={`${emojiReactions.map(r => r.userId).join(', ')} ${emoji}`}
+            >
+              <span className="text-sm">{emoji}</span>
+              <span className="text-xs">{emojiReactions.length}</span>
+            </button>
+          );
+        })}
+        
+        {/* Bouton pour ajouter une réaction */}
+        <button
+          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+          className="flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 border border-transparent transition-all duration-200 text-xs"
+          title="Ajouter une réaction"
+        >
+          <span>+</span>
+        </button>
+      </div>
+
+      {/* Sélecteur d'emojis */}
+      {showEmojiPicker && (
+        <div className="absolute bottom-full left-0 mb-2 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-3 z-50">
+          <div className="grid grid-cols-5 gap-2">
+            {popularEmojis.map((emoji) => {
+              const hasReaction = reactions.some(r => r.userId === state.cloudUser?.uid && r.emoji === emoji);
+              
+              return (
+                <button
+                  key={emoji}
+                  onClick={() => handleReactionClick(emoji)}
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center text-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                    hasReaction ? 'ring-2 ring-blue-500' : ''
+                  }`}
+                  title={emoji}
+                >
+                  {emoji}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Composant pour les réponses aux commentaires
+const CommentReply: React.FC<{
+  comment: Comment,
+  onReply: (content: string, parentId: string) => void
+}> = ({ comment, onReply }) => {
+  const [isReplying, setIsReplying] = useState(false);
+  const [replyContent, setReplyContent] = useState('');
+  const { state } = useApp();
+  const accentColor = state.appSettings?.accentColor || '#3B82F6';
+
+  const handleReply = () => {
+    if (replyContent.trim()) {
+      onReply(replyContent, comment.id);
+      setReplyContent('');
+      setIsReplying(false);
+    }
+  };
+
+  return (
+    <div className="ml-8 mt-3">
+      {!isReplying ? (
+        <button
+          onClick={() => setIsReplying(true)}
+          className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+          style={{ color: accentColor }}
+        >
+          <MessageCircle className="w-3 h-3" />
+          Répondre
+        </button>
+      ) : (
+        <div className="space-y-2">
+          <textarea
+            value={replyContent}
+            onChange={(e) => setReplyContent(e.target.value)}
+            placeholder={`Répondre à ${comment.authorName}...`}
+            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm resize-none focus:ring-2 focus:border-transparent"
+            style={{ '--focus-ring-color': accentColor } as React.CSSProperties}
+            rows={3}
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setIsReplying(false);
+                setReplyContent('');
+              }}
+              className="px-3 py-1 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+            >
+              Annuler
+            </button>
+            <button
+              onClick={handleReply}
+              className="px-3 py-1 text-xs text-white rounded-lg transition-all duration-200 hover:scale-105 active:scale-95"
+              style={{
+                backgroundColor: accentColor,
+                boxShadow: `0 4px 6px -1px ${accentColor}20`
+              }}
+            >
+              Répondre
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface TaskCommentsProps {
   taskId: string;
@@ -91,6 +334,123 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
     textareaRef.current?.focus();
   };
 
+  const handleReactionAdd = async (commentId: string, emoji: string) => {
+    if (!state.cloudUser) return;
+    
+    try {
+      const reaction: CommentReaction = {
+        id: Date.now().toString(),
+        commentId,
+        userId: state.cloudUser.uid,
+        emoji,
+        createdAt: new Date().toISOString()
+      };
+      
+      // Mettre à jour le commentaire avec la nouvelle réaction
+      const updatedComments = comments.map(comment => {
+        if (comment.id === commentId) {
+          return {
+            ...comment,
+            reactions: [...(comment.reactions || []), reaction]
+          };
+        }
+        return comment;
+      });
+      
+      setComments(updatedComments);
+      
+      // Envoyer une notification à l'auteur du commentaire (si ce n'est pas soi-même)
+      const comment = comments.find(c => c.id === commentId);
+      if (comment && comment.authorId !== state.cloudUser.uid) {
+        await notificationService.sendNotification({
+          userId: comment.authorId,
+          title: 'Nouvelle réaction',
+          message: `${state.cloudUser.displayName || 'Un utilisateur'} a réagi à votre commentaire avec ${emoji}`,
+          type: 'reaction_added',
+          link: `/projects/${projectId}/tasks/${taskId}`
+        });
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout de la réaction:', error);
+    }
+  };
+
+  const handleReactionRemove = async (commentId: string, reactionId: string) => {
+    if (!state.cloudUser) return;
+    
+    try {
+      // Mettre à jour le commentaire en retirant la réaction
+      const updatedComments = comments.map(comment => {
+        if (comment.id === commentId) {
+          return {
+            ...comment,
+            reactions: (comment.reactions || []).filter(r => r.id !== reactionId)
+          };
+        }
+        return comment;
+      });
+      
+      setComments(updatedComments);
+    } catch (error) {
+      console.error('Erreur lors du retrait de la réaction:', error);
+    }
+  };
+
+  const handleReply = async (content: string, parentId: string) => {
+    if (!state.cloudUser || !content.trim()) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      const commentData: Comment = {
+        id: Date.now().toString(),
+        taskId,
+        projectId,
+        authorId: state.cloudUser.uid,
+        authorName: state.cloudUser.displayName || 'Anonyme',
+        authorAvatar: (state.cloudUser as any).photoURL || '',
+        content: content.trim(),
+        mentions: [], // TODO: Extraire les mentions
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        parentId, // Important: indique que c'est une réponse
+        reactions: []
+      };
+
+      const commentId = await commentService.addComment(commentData);
+      
+      // Ajouter le nouveau commentaire à la liste
+      setComments(prev => [...prev, { ...commentData, id: commentId }]);
+      
+      // Envoyer une notification à l'auteur du commentaire parent
+      const parentComment = comments.find(c => c.id === parentId);
+      if (parentComment && parentComment.authorId !== state.cloudUser.uid) {
+        await notificationService.sendNotification({
+          userId: parentComment.authorId,
+          title: 'Nouvelle réponse',
+          message: `${state.cloudUser.displayName || 'Un utilisateur'} a répondu à votre commentaire: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`,
+          type: 'reply_added',
+          link: `/projects/${projectId}/tasks/${taskId}`
+        });
+      }
+      
+      // Envoyer une activité
+      await activityService.addActivity({
+        type: 'comment_added',
+        actorId: state.cloudUser.uid,
+        actorName: state.cloudUser.displayName || 'Anonyme',
+        targetId: taskId,
+        targetName: project.tasks.find(t => t.id === taskId)?.title || 'Tâche',
+        details: content.substring(0, 50) + (content.length > 50 ? '...' : '')
+      });
+      
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout de la réponse:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim() || isSubmitting) return;
@@ -133,10 +493,8 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
       if (mentions.length > 0) {
         console.log('Mentions détectées:', mentions);
         
-        // Déterminer la liste des utilisateurs à vérifier
-        const usersToCheck = project.source === 'firebase' && project.members && project.members.length > 0
-          ? project.members.map(memberId => state.users.find(u => u.id === memberId)).filter(Boolean)
-          : state.users;
+        // Utiliser projectMembers qui contient les utilisateurs chargés
+        const usersToCheck = projectMembers.length > 0 ? projectMembers : state.users;
 
         console.log('Utilisateurs à vérifier:', usersToCheck.map(u => ({ id: u?.id, name: u?.name, email: u?.email })));
 
@@ -150,22 +508,40 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
             const userName = (user.name || '').toLowerCase();
             const userEmail = (user.email || '').toLowerCase();
             
+            console.log(`Vérification pour ${user.name} (${user.email}):`);
+            console.log(`  Mention text: "${mentionText}"`);
+            console.log(`  User name: "${userName}"`);
+            console.log(`  User email: "${userEmail}"`);
+            
             // Correspondance exacte avec le nom
-            if (userName === mentionText) return true;
+            if (userName === mentionText) {
+              console.log(`  ✅ Correspondance exacte avec le nom`);
+              return true;
+            }
             
             // Correspondance avec le nom sans espaces (pour les noms composés)
             const userNameNoSpaces = userName.replace(/\s+/g, '').toLowerCase();
             const mentionNoSpaces = mentionText.replace(/\s+/g, '').toLowerCase();
-            if (userNameNoSpaces === mentionNoSpaces) return true;
+            if (userNameNoSpaces === mentionNoSpaces) {
+              console.log(`  ✅ Correspondance avec le nom sans espaces`);
+              return true;
+            }
             
             // Correspondance avec l'email (partie avant @)
             const emailLocal = userEmail.split('@')[0];
-            if (emailLocal === mentionText) return true;
+            if (emailLocal === mentionText) {
+              console.log(`  ✅ Correspondance avec l'email local`);
+              return true;
+            }
             
             // Correspondance partielle (premier mot du nom)
             const firstName = userName.split(' ')[0];
-            if (firstName === mentionText) return true;
+            if (firstName === mentionText) {
+              console.log(`  ✅ Correspondance avec le prénom`);
+              return true;
+            }
             
+            console.log(`  ❌ Aucune correspondance trouvée`);
             return false;
           });
 
@@ -225,8 +601,20 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
                   <span className="font-semibold text-sm text-gray-900 dark:text-white">{comment.authorName}</span>
                   <span className="text-[10px] text-gray-400">{new Date(comment.createdAt).toLocaleString()}</span>
                 </div>
-                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{comment.content}</p>
+                <CommentContent content={comment.content} isReply={!!comment.parentId} />
+                
+                {/* Réactions au commentaire */}
+                {comment.reactions && comment.reactions.length > 0 && (
+                  <CommentReactions
+                    commentId={comment.id}
+                    reactions={comment.reactions}
+                    onReactionAdd={(emoji) => handleReactionAdd(comment.id, emoji)}
+                    onReactionRemove={(reactionId) => handleReactionRemove(comment.id, reactionId)}
+                  />
+                )}
               </div>
+              
+              {/* Bouton de suppression */}
               {(state.cloudUser?.uid === comment.authorId || !state.cloudUser) && (
                 <button
                   onClick={() => handleDelete(comment.id)}
@@ -235,6 +623,12 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
                   Supprimer
                 </button>
               )}
+              
+              {/* Réponse au commentaire */}
+              <CommentReply
+                comment={comment}
+                onReply={(content, parentId) => handleReply(content, parentId)}
+              />
             </div>
           </div>
         ))}
@@ -248,27 +642,47 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
         <div className="relative">
           <div className="flex gap-2">
             <div className="flex-1 relative">
-              <textarea
-                ref={textareaRef}
-                value={newComment}
-                onChange={handleInputChange}
-                placeholder="Ajouter un commentaire... (utilisez @ pour mentionner)"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey && !showMentions) {
-                    e.preventDefault();
-                    handleSubmit(e as any);
-                  }
-                }}
-                className="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[80px] resize-none"
-              />
+              <div className="relative">
+                <textarea
+                  ref={textareaRef}
+                  value={newComment}
+                  onChange={handleInputChange}
+                  placeholder="Ajouter un commentaire... (utilisez @ pour mentionner)"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && !showMentions) {
+                      e.preventDefault();
+                      handleSubmit(e as any);
+                    }
+                  }}
+                  className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:border-transparent text-sm min-h-[80px] resize-none transition-all duration-200"
+                  style={{
+                    '--focus-ring-color': state.appSettings?.accentColor || '#3B82F6'
+                  } as React.CSSProperties}
+                />
+                
+                {/* Indicateur visuel pour les mentions */}
+                {newComment.includes('@') && (
+                  <div className="absolute top-2 right-2 text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: state.appSettings?.accentColor || '#3B82F6' }}></span>
+                    <span>Mentions activées</span>
+                  </div>
+                )}
+              </div>
 
               {/* Dropdown mentions */}
               {showMentions && (
-                <div className="absolute bottom-full left-0 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 mb-2 overflow-hidden">
-                  <div className="p-2 border-b border-gray-100 dark:border-gray-700 text-xs font-medium text-gray-500">
+                <div className="absolute bottom-full left-0 w-72 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 mb-2 overflow-hidden">
+                  <div 
+                    className="p-3 border-b border-gray-100 dark:border-gray-700 text-xs font-medium text-gray-500 flex items-center gap-2"
+                    style={{ 
+                      backgroundColor: (state.appSettings?.accentColor || '#3B82F6') + '10',
+                      color: state.appSettings?.accentColor || '#3B82F6'
+                    }}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-current"></span>
                     Mentionner un membre du projet
                   </div>
-                  <div className="max-h-40 overflow-y-auto">
+                  <div className="max-h-48 overflow-y-auto">
                     {projectMembers
                       .filter(u => u.name?.toLowerCase().includes(mentionSearch.toLowerCase()) || u.email?.toLowerCase().includes(mentionSearch.toLowerCase()))
                       .map(user => (
@@ -276,16 +690,28 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
                           key={user.id}
                           type="button"
                           onClick={() => insertMention(user)}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm"
+                          className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 text-sm transition-colors duration-150 group"
                         >
-                          <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-xs text-blue-600">
+                          <div 
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium text-white"
+                            style={{ backgroundColor: state.appSettings?.accentColor || '#3B82F6' }}
+                          >
                             {user.name?.[0] || user.email[0]}
                           </div>
-                          <span className="truncate">{user.name || user.email}</span>
+                          <div className="flex-1 min-w-0">
+                            <span className="truncate font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                              {user.name || user.email}
+                            </span>
+                            {user.name && user.email && (
+                              <span className="text-xs text-gray-400 dark:text-gray-500 truncate block">
+                                {user.email}
+                              </span>
+                            )}
+                          </div>
                         </button>
                       ))}
                     {projectMembers.filter(u => u.name?.toLowerCase().includes(mentionSearch.toLowerCase()) || u.email?.toLowerCase().includes(mentionSearch.toLowerCase())).length === 0 && (
-                      <div className="p-3 text-center text-xs text-gray-500 italic">
+                      <div className="p-4 text-center text-xs text-gray-500 italic">
                         Aucun membre du projet trouvé
                       </div>
                     )}
@@ -297,7 +723,11 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
               type="submit"
               onClick={(e) => handleSubmit(e as any)}
               disabled={!newComment.trim() || isSubmitting}
-              className="self-end p-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl transition-colors shadow-lg shadow-blue-500/20"
+              className="self-end p-3 text-white rounded-xl transition-all duration-200 shadow-lg disabled:opacity-50 hover:scale-105 active:scale-95"
+              style={{
+                backgroundColor: state.appSettings?.accentColor || '#3B82F6',
+                boxShadow: `0 10px 15px -3px ${(state.appSettings?.accentColor || '#3B82F6')}20`
+              }}
             >
               <Send className="w-5 h-5" />
             </button>
