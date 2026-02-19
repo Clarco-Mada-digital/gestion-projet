@@ -72,30 +72,58 @@ export const firebaseService = {
   },
 
   /**
-   * Connexion avec Google incluant les permissions calendrier
+   * Connexion avec Google pour Firebase (Authentification de l'application)
    */
-  async login(): Promise<{ user: FirebaseUser; accessToken?: string }> {
+  async login(): Promise<{ user: FirebaseUser }> {
     if (!ensureInitialized()) throw new Error("Firebase n'est pas configuré");
     const provider = new GoogleAuthProvider();
-
-    // Demander l'accès au calendrier
-    provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
 
     try {
       const result = await signInWithPopup(auth, provider);
 
-      // Récupération de l'access token Google pour l'API Calendar
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      const accessToken = credential?.accessToken || undefined;
-
-      // Sauvegarder le profil pour qu'on puisse le retrouver par email plus tard
       if (result.user) {
         await this.saveUserProfile(result.user);
       }
 
-      return { user: result.user, accessToken };
+      return { user: result.user };
     } catch (error) {
-      console.error("Erreur de connexion:", error);
+      console.error("Erreur de connexion Firebase:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Authentification spécifique pour Google Calendar (indépendante de Firebase)
+   */
+  async loginCalendar(): Promise<{ accessToken: string; email: string }> {
+    if (!ensureInitialized()) throw new Error("Firebase n'est pas configuré");
+    const provider = new GoogleAuthProvider();
+
+    // Demander UNIQUEMENT l'accès au calendrier
+    provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+
+    // Forcer le choix du compte et le consentement pour l'access_type offline
+    provider.setCustomParameters({
+      prompt: 'select_account consent',
+      access_type: 'offline'
+    });
+
+    try {
+      // On utilise signInWithPopup mais on ne s'occupe que du credential
+      const result = await signInWithPopup(auth, provider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      const accessToken = credential?.accessToken;
+
+      if (!accessToken) {
+        throw new Error("Impossible de récupérer le jeton d'accès Google Calendar");
+      }
+
+      return {
+        accessToken,
+        email: result.user.email || 'Inconnu'
+      };
+    } catch (error) {
+      console.error("Erreur d'authentification Agenda:", error);
       throw error;
     }
   },

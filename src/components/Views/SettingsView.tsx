@@ -433,58 +433,57 @@ export function SettingsView() {
                         <p className="text-xs text-gray-500">Synchronisez vos événements Gmail</p>
                       </div>
                     </div>
-                    {state.cloudUser ? (
-                      state.googleAccessToken ? (
-                        <span className="px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-lg flex items-center">
-                          <Check className="w-3 h-3 mr-1" /> SYNC ACTIVE
+                    {state.googleAccessToken ? (
+                      <div className="flex flex-col items-end">
+                        <span className="px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-lg flex items-center mb-1">
+                          <Check className="w-3 h-3 mr-1" /> AGENDA LIÉ
                         </span>
-                      ) : (
-                        <span className="px-2 py-1 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-lg flex items-center">
-                          <Bell className="w-3 h-3 mr-1" /> ACTION REQUISE
-                        </span>
-                      )
+                        {state.calendarEmail && (
+                          <span className="text-[10px] text-gray-500 truncate max-w-[150px]">
+                            {state.calendarEmail}
+                          </span>
+                        )}
+                      </div>
                     ) : (
                       <span className="px-2 py-1 bg-gray-100 text-gray-700 text-[10px] font-bold rounded-lg">NON CONNECTÉ</span>
                     )}
                   </div>
-                  <button
-                    className={`w-full py-3 rounded-xl text-sm font-bold transition-all bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/30 flex items-center justify-center space-x-2`}
-                    onClick={async () => {
-                      if (!state.cloudUser) {
+
+                  <div className="space-y-2">
+                    <button
+                      className={`w-full py-3 rounded-xl text-sm font-bold transition-all ${state.googleAccessToken ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/30'} text-white shadow-lg flex items-center justify-center space-x-2`}
+                      onClick={async () => {
                         try {
                           setIsLoading(true);
-                          const result = await firebaseService.login();
+                          const result = await firebaseService.loginCalendar();
                           if (result) {
-                            dispatch({ type: 'SET_CLOUD_USER', payload: result.user });
                             dispatch({ type: 'SET_GOOGLE_TOKEN', payload: result.accessToken });
-                            setSuccess('Connexion Google Calendar réussie !');
+                            dispatch({ type: 'SET_CALENDAR_EMAIL', payload: result.email });
+                            setSuccess('Connexion à l\'agenda réussie !');
                           }
                         } catch (err: any) {
-                          setError('Échec de la connexion Google : ' + err.message);
+                          setError('Échec de la connexion Agenda : ' + err.message);
                         } finally {
                           setIsLoading(false);
                         }
-                      } else {
-                        // Si déjà connecté, on peut forcer une reconnexion pour rafraîchir le token
-                        if (confirm("Votre compte est déjà lié. Voulez-vous rafraîchir la connexion pour synchroniser l'agenda ?")) {
-                          try {
-                            setIsLoading(true);
-                            const result = await firebaseService.login();
-                            if (result) {
-                              dispatch({ type: 'SET_GOOGLE_TOKEN', payload: result.accessToken });
-                              setSuccess('Synchronisation mise à jour !');
-                            }
-                          } catch (err: any) {
-                            setError('Échec du rafraîchissement : ' + err.message);
-                          } finally {
-                            setIsLoading(false);
-                          }
-                        }
-                      }
-                    }}
-                  >
-                    {(!state.cloudUser || !state.googleAccessToken) ? 'Se connecter & Synchroniser' : 'Actualiser la synchronisation'}
-                  </button>
+                      }}
+                    >
+                      <CalendarIcon className="w-4 h-4" />
+                      <span>{state.googleAccessToken ? 'Changer de compte Agenda' : 'Connecter mon Agenda Google'}</span>
+                    </button>
+
+                    {state.googleAccessToken && (
+                      <button
+                        className="w-full py-2 text-xs font-medium text-gray-500 hover:text-red-500 transition-colors"
+                        onClick={() => {
+                          dispatch({ type: 'SET_GOOGLE_TOKEN', payload: undefined });
+                          dispatch({ type: 'SET_CALENDAR_EMAIL', payload: undefined });
+                        }}
+                      >
+                        Déconnecter l'agenda
+                      </button>
+                    )}
+                  </div>
                 </Card>
 
                 {/* Microsoft Outlook */}

@@ -9,6 +9,7 @@ export interface AppState {
   users: User[];
   cloudUser: FirebaseUser | null;
   googleAccessToken?: string;
+  calendarEmail?: string;
   theme: 'light' | 'dark';
   currentView: string;
   emailSettings: EmailSettings;
@@ -49,6 +50,7 @@ type AppAction =
   | { type: 'EXPORT_DATA' }
   | { type: 'SET_CLOUD_USER'; payload: FirebaseUser | null }
   | { type: 'SET_GOOGLE_TOKEN'; payload: string | undefined }
+  | { type: 'SET_CALENDAR_EMAIL'; payload: string | undefined }
   | { type: 'SYNC_PROJECTS'; payload: Project[] }
   | { type: 'ADD_REPORT'; payload: ReportEntry }
   | { type: 'DELETE_REPORT'; payload: string }
@@ -110,17 +112,6 @@ export interface EmailJsSettings {
   isEnabled: boolean;
 }
 
-// Interface pour les paramètres EmailJS
-export interface EmailJsSettings {
-  serviceId: string;
-  templateId: string;
-  userId: string;
-  accessToken?: string;
-  fromEmail: string;
-  fromName: string;
-  isEnabled: boolean;
-}
-
 // Paramètres par défaut de l'application
 const initialAppSettings: AppSettings & { aiSettings: AISettings } = {
   theme: 'light',
@@ -161,6 +152,8 @@ const initialState: AppState = {
     }
   }],
   cloudUser: null,
+  googleAccessToken: undefined,
+  calendarEmail: undefined,
   theme: 'light',
   currentView: 'today',
   emailSettings: {
@@ -479,6 +472,8 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       return { ...state, cloudUser: action.payload };
     case 'SET_GOOGLE_TOKEN':
       return { ...state, googleAccessToken: action.payload };
+    case 'SET_CALENDAR_EMAIL':
+      return { ...state, calendarEmail: action.payload };
     case 'SYNC_PROJECTS': {
       const incomingProjects = action.payload; // Projets venant du Cloud
       const incomingIds = new Set(incomingProjects.map(p => p.id));
@@ -754,8 +749,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (state.isLoading) return; // Ne pas sauvegarder pendant le chargement initial
 
     try {
-      // Préparer les données à sauvegarder en excluant les paramètres sensibles
-      const { isLoading, error, notifications, emailSettings, appSettings, ...dataToSave } = state;
+      // Préparer les données à sauvegarder en excluant les paramètres sensibles ou complexes
+      const { isLoading, error, notifications, emailSettings, appSettings, cloudUser, ...dataToSave } = state;
 
       localStorage.setItem('astroProjectManagerData', JSON.stringify({
         ...dataToSave,

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, X, ChevronDown, FolderOpen, Mail, Info, Bell } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Card } from '../UI/Card';
@@ -57,38 +57,8 @@ export function CalendarView() {
 
   // Événements externes (Agenda Google/Outlook) - Désormais dynamiques
   const [externalEvents, setExternalEvents] = useState<ExternalEvent[]>([]);
-
-  // Effet pour synchroniser avec le calendrier externe (Réel ou simulation)
-  useEffect(() => {
-    const fetchRealGoogleEvents = async () => {
-      if (showExternalCalendar && state.googleAccessToken) {
-        try {
-          const events = await googleCalendarService.fetchEvents(state.googleAccessToken);
-          setExternalEvents(events);
-          return true;
-        } catch (error) {
-          console.error("Erreur de récupération du calendrier réel:", error);
-          return false;
-        }
-      }
-      return false;
-    };
-
-    const loadEvents = async () => {
-      const success = await fetchRealGoogleEvents();
-
-      // Si la récupération réelle a échoué ou n'est pas configurée, on ne montre rien 
-      // pour ne pas induire l'utilisateur en erreur avec de fausses données.
-      if (!success) {
-        setExternalEvents([]);
-      }
-    };
-
-    loadEvents();
-  }, [state.cloudUser, showExternalCalendar, state.googleAccessToken]);
-
-
-
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   // Récupérer les tâches de tous les projets actifs et appliquer les filtres
   const filteredTasks = showProjects ? (state.projects as Project[])
@@ -110,7 +80,6 @@ export function CalendarView() {
     ...filteredTasks.map(t => ({ ...t, displayType: 'task' })),
     ...(showExternalCalendar ? externalEvents.map(e => ({ ...e, displayType: 'external' })) : [])
   ];
-
 
   interface DayInfo {
     date: Date;
@@ -184,7 +153,43 @@ export function CalendarView() {
     return periodDays;
   };
 
-  const days = generateDays();
+  const days = React.useMemo(() => generateDays(), [currentDate, viewMode]);
+
+  // Effet pour synchroniser avec le calendrier externe (Réel ou simulation)
+  useEffect(() => {
+    const fetchRealGoogleEvents = async () => {
+      if (showExternalCalendar && state.googleAccessToken && days.length > 0) {
+        setIsSyncing(true);
+        setSyncError(null);
+        try {
+          // Calculer la plage de dates visible
+          const timeMin = days[0].date.toISOString();
+          const timeMax = new Date(days[days.length - 1].date.getTime() + 24 * 60 * 60 * 1000).toISOString();
+
+          const events = await googleCalendarService.fetchEvents(state.googleAccessToken, 0, timeMin, timeMax);
+          setExternalEvents(events);
+          setIsSyncing(false);
+          return true;
+        } catch (error: any) {
+          console.error("Erreur de récupération du calendrier réel:", error);
+          setSyncError(error.message || "Erreur de connexion Google");
+          setIsSyncing(false);
+          return false;
+        }
+      }
+      return false;
+    };
+
+    const loadEvents = async () => {
+      const success = await fetchRealGoogleEvents();
+
+      if (!success && (!showExternalCalendar || !state.googleAccessToken)) {
+        setExternalEvents([]);
+      }
+    };
+
+    loadEvents();
+  }, [showExternalCalendar, state.googleAccessToken, currentDate, viewMode]);
 
 
   const getItemsForDate = (date: Date) => {
@@ -305,9 +310,43 @@ export function CalendarView() {
             <h1 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-cyan-600 via-blue-600 to-purple-600 bg-clip-text text-transparent">
               Calendrier
             </h1>
-            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-0.5 sm:mt-1 font-medium">
+            <div className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-0.5 sm:mt-1 font-medium">
               Vue d'ensemble de vos échéances
-            </p>
+              {showExternalCalendar && (
+                <span className="ml-2 inline-flex items-center">
+                  •
+                  {isSyncing ? (
+                    <span className="ml-1 text-blue-500 animate-pulse flex items-center">
+                      <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-1 animate-ping block" />
+                      Sinc. en cours...
+                    </span>
+                  ) : syncError ? (
+                    <span className="ml-1 text-red-500 text-xs font-bold flex items-center" title={syncError}>
+                      {syncError.startsWith('API_GOOGLE_DISABLED') ? (
+                        <a
+                          href={`https://console.developers.google.com/apis/api/calendar-json.googleapis.com/overview?project=${syncError.split('|')[1] || '650111904365'}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center hover:underline bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded"
+                        >
+                          <Info className="w-3 h-3 mr-1" /> Activer l'API (Projet {syncError.split('|')[1]})
+                        </a>
+                      ) : (
+                        <>⚠️ Erreur de sync.</>
+                      )}
+                    </span>
+                  ) : state.googleAccessToken ? (
+                    <span className="ml-1 text-green-500 text-xs font-bold">
+                      ✓ Agenda synchronisé ({externalEvents.length} évènements)
+                    </span>
+                  ) : (
+                    <span className="ml-1 text-amber-500 text-xs font-bold flex items-center cursor-pointer hover:underline" onClick={() => dispatch({ type: 'SET_VIEW', payload: 'settings' })}>
+                      <Bell className="w-3 h-3 mr-1 animate-bounce" /> Synchronisation requise
+                    </span>
+                  )}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
