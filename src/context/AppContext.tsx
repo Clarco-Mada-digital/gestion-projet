@@ -619,22 +619,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!state.cloudUser || state.isLoading) return;
 
     const syncModifiedProjects = async () => {
-      const firebaseProjects = state.projects.filter(p => p.source === 'firebase');
+      // Filtrer pour ne synchroniser que les projets dont l'utilisateur actuel est propriétaire
+      const modifiedProjects = state.projects.filter(p =>
+        (!p.lastSyncedAt || new Date(p.updatedAt) > new Date(p.lastSyncedAt)) &&
+        (p.source === 'firebase' && p.ownerId === state.cloudUser?.uid)
+      );
 
-      for (const project of firebaseProjects) {
+      if (modifiedProjects.length === 0) return;
+
+      for (const project of modifiedProjects) {
         try {
-          if (!project.lastSyncedAt || new Date(project.updatedAt) > new Date(project.lastSyncedAt)) {
-            const syncTime = new Date().toISOString();
-            await firebaseService.syncProject(project);
-
-            // Mettre à jour localement pour marquer comme synchronisé
-            // NOTE: This dispatch might trigger the other effect, ensuring data is fresh.
-            // But since we update lastSyncedAt, it won't loop infinitely.
-            dispatch({
-              type: 'UPDATE_PROJECT',
-              payload: { ...project, lastSyncedAt: syncTime }
-            });
-          }
+          await firebaseService.syncProject(project);
+          dispatch({
+            type: 'UPDATE_PROJECT',
+            payload: { ...project, lastSyncedAt: new Date().toISOString() }
+          });
         } catch (error) {
           console.error(`Erreur sync projet ${project.id}:`, error);
         }
