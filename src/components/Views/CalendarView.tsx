@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, X, ChevronDown, FolderOpen, Mail, Info } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, X, ChevronDown, FolderOpen, Mail, Info, Bell } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Card } from '../UI/Card';
 import { Button } from '../UI/Button';
 import { Modal } from '../UI/Modal';
 import { Task, Project } from '../../types';
 import { EditTaskForm } from '../Tasks/EditTaskForm';
+import { googleCalendarService } from '../../services/collaboration/googleCalendarService';
 
 export function CalendarView() {
   const { state, dispatch } = useApp();
@@ -54,39 +55,37 @@ export function CalendarView() {
     color?: string;
   }
 
-  // Mock d'événements externes (Agenda Google/Outlook)
-  const [externalEvents, setExternalEvents] = useState<ExternalEvent[]>([
-    {
-      id: 'ext-1',
-      title: 'Réunion d\'équipe hebdomadaire',
-      description: 'Point hebdo sur l\'avancement des projets',
-      startDate: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString(),
-      dueDate: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString(),
-      type: 'external',
-      location: 'Google Meet',
-      color: '#4285F4' // Google Blue
-    },
-    {
-      id: 'ext-2',
-      title: 'Appel client : Stratégie Q3',
-      description: 'Discussion sur la stratégie du prochain trimestre',
-      startDate: new Date(new Date().setDate(new Date().getDate() + 3)).toISOString(),
-      dueDate: new Date(new Date().setDate(new Date().getDate() + 3)).toISOString(),
-      type: 'external',
-      location: 'Zoom',
-      color: '#34A853' // Google Green
-    },
-    {
-      id: 'ext-3',
-      title: 'Workshop Design System',
-      description: 'Mise à jour des composants UI',
-      startDate: new Date(new Date().setDate(new Date().getDate() - 1)).toISOString(),
-      dueDate: new Date(new Date().setDate(new Date().getDate() - 1)).toISOString(),
-      type: 'external',
-      location: 'Bureau Central',
-      color: '#EA4335' // Google Red
-    }
-  ]);
+  // Événements externes (Agenda Google/Outlook) - Désormais dynamiques
+  const [externalEvents, setExternalEvents] = useState<ExternalEvent[]>([]);
+
+  // Effet pour synchroniser avec le calendrier externe (Réel ou simulation)
+  useEffect(() => {
+    const fetchRealGoogleEvents = async () => {
+      if (showExternalCalendar && state.googleAccessToken) {
+        try {
+          const events = await googleCalendarService.fetchEvents(state.googleAccessToken);
+          setExternalEvents(events);
+          return true;
+        } catch (error) {
+          console.error("Erreur de récupération du calendrier réel:", error);
+          return false;
+        }
+      }
+      return false;
+    };
+
+    const loadEvents = async () => {
+      const success = await fetchRealGoogleEvents();
+
+      // Si la récupération réelle a échoué ou n'est pas configurée, on ne montre rien 
+      // pour ne pas induire l'utilisateur en erreur avec de fausses données.
+      if (!success) {
+        setExternalEvents([]);
+      }
+    };
+
+    loadEvents();
+  }, [state.cloudUser, showExternalCalendar, state.googleAccessToken]);
 
 
 
@@ -343,6 +342,19 @@ export function CalendarView() {
               />
               <Mail className={`w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 ${showExternalCalendar ? 'text-purple-500' : 'text-gray-400'}`} />
               <span className="text-[10px] sm:text-xs font-bold uppercase tracking-tight">Agenda</span>
+              {showExternalCalendar && !state.googleAccessToken && (
+                <div
+                  className="ml-2 flex items-center justify-center p-1 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 cursor-pointer transition-colors shadow-sm"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dispatch({ type: 'SET_VIEW', payload: 'settings' });
+                  }}
+                  title="Synchronisation Google requise"
+                >
+                  <Bell className="w-3 h-3 animate-pulse" />
+                </div>
+              )}
             </label>
           </div>
 
@@ -1082,6 +1094,6 @@ export function CalendarView() {
           </div>
         </Modal>
       )}
-    </div >
+    </div>
   );
 }

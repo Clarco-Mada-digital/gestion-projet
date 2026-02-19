@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { firebaseService } from '../../services/collaboration/firebaseService';
 import { v4 as uuidv4 } from 'uuid';
 import { User, TeamMember, DayOfWeek, getDayName, DAYS_OF_WEEK } from '../../types';
 import { Card } from '../UI/Card';
@@ -433,19 +434,56 @@ export function SettingsView() {
                       </div>
                     </div>
                     {state.cloudUser ? (
-                      <span className="px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-lg">CONNECTÉ</span>
+                      state.googleAccessToken ? (
+                        <span className="px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-lg flex items-center">
+                          <Check className="w-3 h-3 mr-1" /> SYNC ACTIVE
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-lg flex items-center">
+                          <Bell className="w-3 h-3 mr-1" /> ACTION REQUISE
+                        </span>
+                      )
                     ) : (
                       <span className="px-2 py-1 bg-gray-100 text-gray-700 text-[10px] font-bold rounded-lg">NON CONNECTÉ</span>
                     )}
                   </div>
                   <button
-                    className={`w-full py-2 rounded-xl text-sm font-bold transition-all ${state.cloudUser ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/30'}`}
-                    onClick={() => {
-                      if (!state.cloudUser) alert("Redirection vers Google Auth...");
-                      else alert("Votre agenda est déjà synchronisé via votre compte Google.");
+                    className={`w-full py-3 rounded-xl text-sm font-bold transition-all bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/30 flex items-center justify-center space-x-2`}
+                    onClick={async () => {
+                      if (!state.cloudUser) {
+                        try {
+                          setIsLoading(true);
+                          const result = await firebaseService.login();
+                          if (result) {
+                            dispatch({ type: 'SET_CLOUD_USER', payload: result.user });
+                            dispatch({ type: 'SET_GOOGLE_TOKEN', payload: result.accessToken });
+                            setSuccess('Connexion Google Calendar réussie !');
+                          }
+                        } catch (err: any) {
+                          setError('Échec de la connexion Google : ' + err.message);
+                        } finally {
+                          setIsLoading(false);
+                        }
+                      } else {
+                        // Si déjà connecté, on peut forcer une reconnexion pour rafraîchir le token
+                        if (confirm("Votre compte est déjà lié. Voulez-vous rafraîchir la connexion pour synchroniser l'agenda ?")) {
+                          try {
+                            setIsLoading(true);
+                            const result = await firebaseService.login();
+                            if (result) {
+                              dispatch({ type: 'SET_GOOGLE_TOKEN', payload: result.accessToken });
+                              setSuccess('Synchronisation mise à jour !');
+                            }
+                          } catch (err: any) {
+                            setError('Échec du rafraîchissement : ' + err.message);
+                          } finally {
+                            setIsLoading(false);
+                          }
+                        }
+                      }
                     }}
                   >
-                    {state.cloudUser ? 'Gérer la connexion' : 'Se connecter avec Google'}
+                    {(!state.cloudUser || !state.googleAccessToken) ? 'Se connecter & Synchroniser' : 'Actualiser la synchronisation'}
                   </button>
                 </Card>
 

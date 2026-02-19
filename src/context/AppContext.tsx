@@ -8,6 +8,7 @@ export interface AppState {
   tasks: Task[]; // Ajout des tâches au niveau racine
   users: User[];
   cloudUser: FirebaseUser | null;
+  googleAccessToken?: string;
   theme: 'light' | 'dark';
   currentView: string;
   emailSettings: EmailSettings;
@@ -47,6 +48,7 @@ type AppAction =
   | { type: 'IMPORT_DATA'; payload: any }
   | { type: 'EXPORT_DATA' }
   | { type: 'SET_CLOUD_USER'; payload: FirebaseUser | null }
+  | { type: 'SET_GOOGLE_TOKEN'; payload: string | undefined }
   | { type: 'SYNC_PROJECTS'; payload: Project[] }
   | { type: 'ADD_REPORT'; payload: ReportEntry }
   | { type: 'DELETE_REPORT'; payload: string }
@@ -475,6 +477,8 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       return state;
     case 'SET_CLOUD_USER':
       return { ...state, cloudUser: action.payload };
+    case 'SET_GOOGLE_TOKEN':
+      return { ...state, googleAccessToken: action.payload };
     case 'SYNC_PROJECTS': {
       const incomingProjects = action.payload; // Projets venant du Cloud
       const incomingIds = new Set(incomingProjects.map(p => p.id));

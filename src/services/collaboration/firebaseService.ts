@@ -72,18 +72,28 @@ export const firebaseService = {
   },
 
   /**
-   * Connexion avec Google
+   * Connexion avec Google incluant les permissions calendrier
    */
-  async login(): Promise<FirebaseUser | null> {
+  async login(): Promise<{ user: FirebaseUser; accessToken?: string }> {
     if (!ensureInitialized()) throw new Error("Firebase n'est pas configuré");
     const provider = new GoogleAuthProvider();
+
+    // Demander l'accès au calendrier
+    provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+
     try {
       const result = await signInWithPopup(auth, provider);
+
+      // Récupération de l'access token Google pour l'API Calendar
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      const accessToken = credential?.accessToken || undefined;
+
       // Sauvegarder le profil pour qu'on puisse le retrouver par email plus tard
       if (result.user) {
         await this.saveUserProfile(result.user);
       }
-      return result.user;
+
+      return { user: result.user, accessToken };
     } catch (error) {
       console.error("Erreur de connexion:", error);
       throw error;
