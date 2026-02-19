@@ -94,183 +94,7 @@ const defaultUser: User = {
   updatedAt: new Date().toISOString(),
 };
 
-// Données d'exemple pour les autres utilisateurs
-const exampleUsers: User[] = [
-  {
-    id: '2',
-    name: 'Jean Dupont',
-    email: 'jean.dupont@example.com',
-    avatar: '',
-    phone: '+261 34 00 000 01',
-    position: 'Chef de projet',
-    department: 'Gestion de projet',
-    role: 'member' as const,
-    status: 'active' as const,
-    lastActive: new Date().toISOString(),
-    settings: {
-      theme: 'light',
-      language: 'fr',
-      timezone: 'Europe/Paris',
-      notifications: true,
-      emailNotifications: true,
-      pushNotifications: true,
-      daysOff: ['saturday', 'sunday']
-    } as UserSettings,
-    isPrimary: false,
-    cannotDelete: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '3',
-    name: 'Marie Martin',
-    email: 'marie.martin@example.com',
-    avatar: '',
-    phone: '+261 34 00 000 02',
-    position: 'Développeuse',
-    department: 'Développement',
-    role: 'member' as const,
-    status: 'active' as const,
-    lastActive: new Date().toISOString(),
-    settings: {
-      theme: 'dark',
-      language: 'fr',
-      timezone: 'Indian/Antananarivo',
-      notifications: true,
-      emailNotifications: true,
-      pushNotifications: true
-    } as UserSettings,
-    isPrimary: false,
-    cannotDelete: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '4',
-    name: 'Paul Durand',
-    email: 'paul.durand@example.com',
-    phone: '+261 34 00 000 03',
-    position: 'Designer UX/UI',
-    department: 'Design',
-    role: 'viewer',
-    status: 'active',
-    lastActive: new Date().toISOString(),
-    settings: {
-      theme: 'light',
-      language: 'fr',
-      timezone: 'Indian/Antananarivo',
-      notifications: true,
-      emailNotifications: true,
-      pushNotifications: true,
-      daysOff: ['saturday', 'sunday']
-    } as UserSettings,
-    avatar: '',
-    isPrimary: false,
-    cannotDelete: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-];
-
-
-
-// Données d'exemple pour les projets
-const exampleProjects: Project[] = [
-  {
-    id: 'p1',
-    name: 'Application Mobile',
-    description: 'Développement de l\'application mobile principale',
-    color: '#3b82f6',
-    status: 'active',
-    createdAt: new Date('2023-01-15').toISOString(),
-    updatedAt: new Date('2023-06-20').toISOString(),
-    tasks: [
-      {
-        id: 't1',
-        title: 'Concevoir les maquettes',
-        description: 'Créer les maquettes pour les écrans principaux',
-        status: 'done',
-        priority: 'high',
-        dueDate: new Date('2023-02-15').toISOString(),
-        startDate: new Date('2023-01-16').toISOString(),
-        assignees: ['4'], // Paul Durand (Designer)
-        projectId: 'p1',
-        createdAt: new Date('2023-01-16').toISOString(),
-        updatedAt: new Date('2023-02-10').toISOString(),
-        completedAt: new Date('2023-02-10').toISOString(),
-        tags: ['design', 'ui/ux'],
-        subTasks: [
-          {
-            id: 'st1',
-            title: 'Maquette écran de connexion',
-            completed: true,
-            createdAt: new Date('2023-01-16').toISOString(),
-            updatedAt: new Date('2023-01-20').toISOString(),
-            completedAt: new Date('2023-01-20').toISOString() // Ajout de la date de complétion
-          }
-        ]
-      },
-      {
-        id: 't2',
-        title: 'Implémenter l\'authentification',
-        description: 'Développer le système de connexion/inscription',
-        status: 'in-progress',
-        priority: 'high',
-        dueDate: new Date('2023-03-10').toISOString(),
-        startDate: new Date('2023-02-15').toISOString(),
-        assignees: ['3'], // Marie Martin
-        projectId: 'p1',
-        createdAt: new Date('2023-02-01').toISOString(),
-        updatedAt: new Date('2023-02-15').toISOString(),
-        tags: ['backend', 'auth'],
-        subTasks: [
-          {
-            id: 'st2',
-            title: 'Configuration du fournisseur d\'authentification',
-            completed: true,
-            createdAt: new Date('2023-02-16').toISOString(),
-            updatedAt: new Date('2023-02-20').toISOString(),
-            completedAt: new Date('2023-02-20').toISOString()
-          },
-          {
-            id: 'st3',
-            title: 'Implémenter la connexion par email/mot de passe',
-            completed: false,
-            createdAt: new Date('2023-02-16').toISOString(),
-            updatedAt: new Date('2023-02-16').toISOString()
-          }
-        ],
-        estimatedHours: 16
-      }
-    ]
-  },
-  {
-    id: 'p2',
-    name: 'Site Web Corporate',
-    description: 'Refonte du site web de l\'entreprise',
-    color: '#10b981',
-    status: 'active',
-    createdAt: new Date('2023-02-01').toISOString(),
-    updatedAt: new Date('2023-06-18').toISOString(),
-    tasks: [
-      {
-        id: 't3',
-        title: 'Mise à jour du contenu',
-        description: 'Actualiser les textes et images du site',
-        status: 'todo',
-        priority: 'medium',
-        dueDate: new Date('2023-07-15').toISOString(),
-        startDate: new Date('2023-06-01').toISOString(),
-        assignees: ['2'], // Jean Dupont
-        projectId: 'p2',
-        createdAt: new Date('2023-06-01').toISOString(),
-        updatedAt: new Date('2023-06-01').toISOString(),
-        tags: ['contenu', 'seo'],
-        subTasks: []
-      }
-    ]
-  }
-];
+// Données d'exemple (Vides au début)
 
 
 // Interface pour les paramètres EmailJS
@@ -891,26 +715,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
           });
         } else {
-          // Utiliser les valeurs par défaut avec des exemples
+          // Utiliser les valeurs par défaut vides
           dispatch({
             type: 'INIT_STATE',
             payload: {
               ...initialState,
               theme: savedTheme || 'light',
-              users: [defaultUser, ...exampleUsers],
-              projects: exampleProjects
+              users: [defaultUser],
+              projects: []
             }
           });
         }
       } catch (error) {
         console.error('Erreur lors du chargement des données:', error);
-        // En cas d'erreur, utiliser les valeurs par défaut
+        // En cas d'erreur, utiliser les valeurs par défaut vides
         dispatch({
           type: 'INIT_STATE',
           payload: {
             ...initialState,
-            users: [defaultUser, ...exampleUsers],
-            projects: exampleProjects
+            users: [defaultUser],
+            projects: []
           }
         });
       } finally {

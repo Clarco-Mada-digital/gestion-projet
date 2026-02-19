@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { Github, Mail, Heart, Code, GitBranch, BookOpen, Layers, Calendar as CalendarIcon, Layout, Settings } from 'lucide-react';
+import { Github, Mail, Heart, GitBranch, BookOpen, Layers, Calendar as CalendarIcon, Layout } from 'lucide-react';
 import { Card } from '../UI/Card';
 import { useApp } from '../../context/AppContext';
 import { Tabs } from 'antd';
@@ -90,16 +89,16 @@ export function AboutView() {
                   <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400">
                     <Layers className="w-6 h-6" />
                   </div>
-                  <h3 className={`${subHeadingClass} font-bold text-gray-900 dark:text-white`}>Projets</h3>
+                  <h3 className={`${subHeadingClass} font-bold text-gray-900 dark:text-white`}>Projets & Collaboration</h3>
                 </div>
                 <p className={`${baseTextClass} text-gray-600 dark:text-gray-400`}>
                   Le cœur de votre organisation. Créez des projets pour regrouper vos tâches par thématique ou objectif.
                 </p>
                 <ul className="mt-4 list-disc list-inside text-sm text-gray-500 dark:text-gray-400 space-y-1">
-                  <li>Création de projets avec couleur personnalisée</li>
-                  <li>Suivi du statut (Actif, En attente, Terminé, Archivé)</li>
-                  <li>Génération automatique de tâches par IA</li>
-                  <li><strong>Collaboration Cloud & Partage d'équipe</strong></li>
+                  <li><strong>Collaboration Cloud Sync</strong> (Firebase)</li>
+                  <li>Partage de projets avec d'autres utilisateurs</li>
+                  <li>Gestion des rôles (Propriétaire, Éditeur, Lecteur)</li>
+                  <li>Génération intelligente de tâches par IA</li>
                 </ul>
               </Card>
 
@@ -108,15 +107,15 @@ export function AboutView() {
                   <div className="p-2 bg-pink-100 dark:bg-pink-900/30 rounded-lg text-pink-600 dark:text-pink-400">
                     <Layout className="w-6 h-6 rotate-90" />
                   </div>
-                  <h3 className={`${subHeadingClass} font-bold text-gray-900 dark:text-white`}>Kanban</h3>
+                  <h3 className={`${subHeadingClass} font-bold text-gray-900 dark:text-white`}>Tableau Kanban</h3>
                 </div>
                 <p className={`${baseTextClass} text-gray-600 dark:text-gray-400`}>
-                  Visualisez le flux de travail. Déplacez vos tâches d'une colonne à l'autre par simple glisser-déposer pour mettre à jour leur avancement.
+                  Visualisez le flux de travail. Déplacez vos tâches d'une colonne à l'autre par simple glisser-déposer.
                 </p>
                 <ul className="mt-4 list-disc list-inside text-sm text-gray-500 dark:text-gray-400 space-y-1">
-                  <li>Colonnes par défaut : À faire, En cours, Terminé</li>
-                  <li>Ajout de colonnes personnalisées</li>
-                  <li>Glisser-déposer intuitif</li>
+                  <li>Colonnes personnalisables</li>
+                  <li>Drag & Drop fluide et prédictif</li>
+                  <li>Indicateurs visuels de priorité et d'assignation</li>
                 </ul>
               </Card>
 
@@ -125,15 +124,16 @@ export function AboutView() {
                   <div className="p-2 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg text-cyan-600 dark:text-cyan-400">
                     <CalendarIcon className="w-6 h-6" />
                   </div>
-                  <h3 className={`${subHeadingClass} font-bold text-gray-900 dark:text-white`}>Calendrier</h3>
+                  <h3 className={`${subHeadingClass} font-bold text-gray-900 dark:text-white`}>Calendrier & Agendas</h3>
                 </div>
                 <p className={`${baseTextClass} text-gray-600 dark:text-gray-400`}>
-                  Planifiez sur le long terme. Visualisez vos échéances sous forme de calendrier mensuel, hebdomadaire ou semestriel.
+                  Planification globale. Fusionnez vos tâches de projet avec vos calendriers externes.
                 </p>
                 <ul className="mt-4 list-disc list-inside text-sm text-gray-500 dark:text-gray-400 space-y-1">
-                  <li>Vues multiples (Mois, Semaine, Trimestre, Semestre)</li>
-                  <li>Détails des tâches au clic sur une date</li>
-                  <li>Indicateurs visuels de statut</li>
+                  <li><strong>Synchronisation Gmail / Outlook</strong></li>
+                  <li>Vues : Mois, Semaine, Trimestre, Semestre</li>
+                  <li>Filtres avancés par projet et par membre</li>
+                  <li>Drag & Drop avec confirmation de synchronisation</li>
                 </ul>
               </Card>
             </div>
@@ -141,19 +141,21 @@ export function AboutView() {
         </TabPane>
 
         <TabPane tab="À Propos" key="about" >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             <div className="md:col-span-2 space-y-6">
               <Card className="p-6" gradient>
                 <h2 className={`${subHeadingClass} font-bold mb-4 text-gray-900 dark:text-white`}>
-                  L'histoire du projet
+                  Innovation et Performance
                 </h2>
                 <p className={`${baseTextClass} text-gray-700 dark:text-gray-300 mb-4`}>
                   Ce projet est né de la volonté de créer un outil de gestion de tâches qui soit à la fois esthétique, performant et respectueux de la vie privée.
-                  Depuis la version 1.2, il intègre une dimension collaborative puissante grâce à Firebase, permettant de partager des projets spécifiques tout en gardant le reste de vos données en local.
+                </p>
+                <p className={`${baseTextClass} text-gray-700 dark:text-gray-300 mb-4`}>
+                  Depuis la version 1.3, ProjectFlow s'ouvre au monde avec l'intégration des calendriers externes, tout en conservant son architecture "Hybrid Sync" qui vous permet de choisir quelles données restent locales et lesquelles sont partagées dans le Cloud.
                 </p>
                 <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 mt-4">
                   <GitBranch className="w-4 h-4" />
-                  <span>Version 1.2.0 - Hybrid Cloud Sync</span>
+                  <span>Version 1.3.0 - Global Sync & Responsive Edition</span>
                 </div>
               </Card>
 

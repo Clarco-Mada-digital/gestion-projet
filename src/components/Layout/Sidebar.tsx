@@ -1,8 +1,13 @@
-import { Calendar, CheckSquare, FileText, FolderOpen, Kanban, Moon, Sun, Sparkles, Settings, Info } from 'lucide-react';
+import { Calendar, CheckSquare, FileText, FolderOpen, Kanban, Moon, Sun, Sparkles, Settings, Info, X } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { ViewMode } from '../../types';
 
-export function Sidebar() {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { state, dispatch } = useApp();
 
   const menuItems = [
@@ -15,103 +20,111 @@ export function Sidebar() {
     { id: 'about' as ViewMode, label: 'À propos', icon: Info, color: 'text-pink-500', gradient: 'from-pink-500 to-rose-500' },
   ];
 
-
-
   const toggleTheme = () => {
     dispatch({ type: 'SET_THEME', payload: state.theme === 'light' ? 'dark' : 'light' });
   };
 
-  // Log de l'état actuel de la vue
-
-
   return (
-    <div className="w-72 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-700/50 flex flex-col shadow-2xl">
-      {/* Header avec effet glassmorphisme */}
-      <div className="p-6 border-b border-gray-200/50 dark:border-gray-700/50 bg-gradient-to-r from-blue-500/10 to-purple-500/10">
-        <div className="flex items-center space-x-3 mb-2">
-          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-            <Sparkles className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 bg-clip-text text-transparent">
-              ProjectFlow
-            </h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-              Powered by Bryan Clark
-            </p>
-          </div>
-        </div>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          Gestion de projets moderne et futuriste
-        </p>
-      </div>
+    <>
+      {/* Overlay pour mobile */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-300"
+          onClick={onClose}
+        />
+      )}
 
-      {/* Navigation avec animations */}
-      <nav className="flex-1 p-4 space-y-2">
-        {menuItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = state.currentView === item.id;
-
-          return (
-            <button
-              key={item.id}
-              onClick={() => {
-
-
-                dispatch({ type: 'SET_VIEW', payload: item.id });
-
-              }}
-              className={`w-full group relative overflow-hidden flex items-center space-x-3 px-4 py-4 rounded-2xl transition-all duration-300 transform hover:scale-105 ${isActive
-                ? 'bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-cyan-500/20 text-blue-600 dark:text-blue-400 shadow-xl border border-blue-200/50 dark:border-blue-700/50'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-gradient-to-r hover:from-gray-100/50 hover:to-gray-200/50 dark:hover:from-gray-800/50 dark:hover:to-gray-700/50'
-                }`}
-            >
-              {isActive && (
-                <div className={`absolute inset-0 bg-gradient-to-r ${item.gradient} opacity-10 rounded-2xl`} />
-              )}
-              <Icon className={`w-5 h-5 ${isActive ? item.color : ''} transition-colors duration-300`} />
-              <span className="font-medium relative z-10">{item.label}</span>
-              {isActive && (
-                <div className="absolute right-2 w-2 h-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full animate-pulse" />
-              )}
-            </button>
-          );
-        })}
-      </nav>
-
-      {/* Footer avec profil utilisateur */}
-      <div className="p-4 border-t border-gray-200/50 dark:border-gray-700/50 space-y-3 bg-gradient-to-r from-gray-50/50 to-blue-50/50 dark:from-gray-800/50 dark:to-blue-900/50">
-        <div className="space-y-2">
+      <div className={`
+        fixed inset-y-0 left-0 z-50 w-72 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-700/50 flex flex-col shadow-2xl transition-transform duration-300 transform
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        lg:relative lg:translate-x-0
+      `}>
+        {/* Header avec bouton fermer pour mobile */}
+        <div className="p-6 border-b border-gray-200/50 dark:border-gray-700/50 bg-gradient-to-r from-blue-500/10 to-purple-500/10 relative">
           <button
-            onClick={toggleTheme}
-            className="w-full flex items-center space-x-3 px-4 py-3 rounded-2xl text-gray-600 dark:text-gray-300 hover:bg-gradient-to-r hover:from-gray-100/50 hover:to-gray-200/50 dark:hover:from-gray-700/50 dark:hover:to-gray-600/50 transition-all duration-300 group"
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 lg:hidden"
           >
-            <div className="relative">
-              {state.theme === 'light' ? (
-                <Moon className="w-5 h-5 group-hover:rotate-12 transition-transform duration-300" />
-              ) : (
-                <Sun className="w-5 h-5 group-hover:rotate-12 transition-transform duration-300" />
-              )}
-            </div>
-            <span className="font-medium">
-              {state.theme === 'light' ? 'Mode Sombre' : 'Mode Clair'}
-            </span>
+            <X className="w-5 h-5" />
           </button>
 
-          {/* Bouton de débogage pour réinitialiser les données */}
+          <div className="flex items-center space-x-3 mb-2">
+            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+              <Sparkles className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 bg-clip-text text-transparent">
+                ProjectFlow
+              </h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                Powered by Bryan Clark
+              </p>
+            </div>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Gestion de projets moderne et futuriste
+          </p>
+        </div>
+
+        {/* Navigation avec animations */}
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = state.currentView === item.id;
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  dispatch({ type: 'SET_VIEW', payload: item.id });
+                  if (onClose) onClose(); // Fermer le sidebar sur mobile après clic
+                }}
+                className={`w-full group relative overflow-hidden flex items-center space-x-3 px-4 py-4 rounded-2xl transition-all duration-300 transform hover:scale-105 ${isActive
+                  ? 'bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-cyan-500/20 text-blue-600 dark:text-blue-400 shadow-xl border border-blue-200/50 dark:border-blue-700/50'
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-gradient-to-r hover:from-gray-100/50 hover:to-gray-200/50 dark:hover:from-gray-800/50 dark:hover:to-gray-700/50'
+                  }`}
+              >
+                {isActive && (
+                  <div className={`absolute inset-0 bg-gradient-to-r ${item.gradient} opacity-10 rounded-2xl`} />
+                )}
+                <Icon className={`w-5 h-5 ${isActive ? item.color : ''} transition-colors duration-300`} />
+                <span className="font-medium relative z-10">{item.label}</span>
+                {isActive && (
+                  <div className="absolute right-2 w-2 h-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full animate-pulse" />
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Footer avec profil utilisateur */}
+        <div className="p-4 border-t border-gray-200/50 dark:border-gray-700/50 space-y-3 bg-gradient-to-r from-gray-50/50 to-blue-50/50 dark:from-gray-800/50 dark:to-blue-900/50">
           <div className="space-y-2">
+            <button
+              onClick={toggleTheme}
+              className="w-full flex items-center space-x-3 px-4 py-3 rounded-2xl text-gray-600 dark:text-gray-300 hover:bg-gradient-to-r hover:from-gray-100/50 hover:to-gray-200/50 dark:hover:from-gray-700/50 dark:hover:to-gray-600/50 transition-all duration-300 group"
+            >
+              <div className="relative">
+                {state.theme === 'light' ? (
+                  <Moon className="w-5 h-5 group-hover:rotate-12 transition-transform duration-300" />
+                ) : (
+                  <Sun className="w-5 h-5 group-hover:rotate-12 transition-transform duration-300" />
+                )}
+              </div>
+              <span className="font-medium">
+                {state.theme === 'light' ? 'Mode Sombre' : 'Mode Clair'}
+              </span>
+            </button>
+
+            {/* Bouton de réinitialisation */}
             <button
               onClick={() => {
                 if (window.confirm('Êtes-vous sûr de vouloir réinitialiser toutes les données ? Cette action est irréversible.')) {
-
-
                   localStorage.removeItem('astroProjectManagerData');
-
                   window.location.reload();
                 }
               }}
               className="w-full flex items-center space-x-3 px-4 py-3 rounded-2xl text-red-600 dark:text-red-400 hover:bg-gradient-to-r hover:from-red-50/50 hover:to-red-100/50 dark:hover:from-red-900/20 dark:hover:to-red-800/30 transition-all duration-300 group text-sm"
-              title="Réinitialiser les données et recharger l'application"
             >
               <div className="relative">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="group-hover:rotate-12 transition-transform duration-300">
@@ -120,80 +133,49 @@ export function Sidebar() {
                   <path d="M12 7v5l4 2"></path>
                 </svg>
               </div>
-              <span className="font-medium">Réinitialiser les données</span>
+              <span className="font-medium">Réinitialiser</span>
             </button>
+          </div>
 
-            {/* Bouton de débogage pour forcer la vue des paramètres */}
-            <button
-              onClick={() => {
-
-                localStorage.setItem('debug_force_settings', 'true');
-                window.location.reload();
-              }}
-              className="w-full flex items-center space-x-3 px-4 py-3 rounded-2xl text-blue-600 dark:text-blue-400 hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-blue-100/50 dark:hover:from-blue-900/20 dark:hover:to-blue-800/30 transition-all duration-300 group text-sm"
-              title="Forcer le chargement de la vue des paramètres (débogage)"
-            >
-              <div className="relative">
-                <Settings className="w-5 h-5 group-hover:rotate-12 transition-transform duration-300" />
+          {state.cloudUser ? (
+            <div className="flex items-center space-x-3 px-4 py-3 rounded-2xl bg-gradient-to-r from-gray-50/50 to-blue-50/50 dark:from-gray-800/50 dark:to-blue-900/50 border border-gray-100 dark:border-gray-800">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-lg overflow-hidden shrink-0 border-2 border-white dark:border-gray-800">
+                {state.cloudUser.photoURL ? (
+                  <img
+                    src={state.cloudUser.photoURL}
+                    alt={state.cloudUser.displayName || 'User'}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  state.cloudUser.email?.charAt(0).toUpperCase() || 'U'
+                )}
               </div>
-              <span className="font-medium">Forcer Paramètres</span>
-            </button>
-          </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                  {state.cloudUser.displayName || 'Utilisateur'}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                  {state.cloudUser.email}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-3 px-4 py-3 rounded-2xl bg-gradient-to-r from-gray-50/50 to-blue-50/50 dark:from-gray-800/50 dark:to-blue-900/50 border border-gray-100 dark:border-gray-800">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-lg overflow-hidden shrink-0 border-2 border-white dark:border-gray-800 uppercase">
+                {state.users[0]?.name?.charAt(0) || 'A'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                  {state.users[0]?.name || 'Administrateur'}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                  Mode Local
+                </p>
+              </div>
+            </div>
+          )}
         </div>
-
-        {state.cloudUser ? (
-          <div className="flex items-center space-x-3 px-4 py-3 rounded-2xl bg-gradient-to-r from-gray-50/50 to-blue-50/50 dark:from-gray-800/50 dark:to-blue-900/50 border border-gray-100 dark:border-gray-800">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-lg overflow-hidden shrink-0 border-2 border-white dark:border-gray-800">
-              {state.cloudUser.photoURL || (state.users && state.users[0]?.avatar) ? (
-                <img
-                  src={state.cloudUser.photoURL || state.users[0]?.avatar}
-                  alt={state.cloudUser.displayName || 'User'}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                state.cloudUser.email?.charAt(0).toUpperCase() || 'U'
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                {state.cloudUser.displayName || state.users[0]?.name || 'Utilisateur'}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                {state.cloudUser.email}
-              </p>
-            </div>
-          </div>
-        ) : state.users && state.users.length > 0 ? (
-          <div className="flex items-center space-x-3 px-4 py-3 rounded-2xl bg-gradient-to-r from-gray-50/50 to-blue-50/50 dark:from-gray-800/50 dark:to-blue-900/50 border border-gray-100 dark:border-gray-800">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-lg overflow-hidden shrink-0 border-2 border-white dark:border-gray-800">
-              {state.users[0].avatar ? (
-                <img src={state.users[0].avatar} alt={state.users[0].name} className="w-full h-full object-cover" />
-              ) : (
-                state.users[0].name?.charAt(0).toUpperCase() || 'U'
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                {state.users[0].name}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                {state.users[0].email || 'Utilisateur local'}
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center space-x-3 px-4 py-3 rounded-2xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-200/30 dark:border-blue-700/30">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-lg">
-              U
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                Chargement...
-              </p>
-            </div>
-          </div>
-        )}
       </div>
-    </div>
+    </>
   );
 }
