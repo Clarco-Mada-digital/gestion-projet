@@ -61,7 +61,11 @@ export const googleCalendarService = {
             location: item.location || '',
             color: calendar.backgroundColor || '#4285F4',
             source: 'google',
-            calendarName: calendar.summary
+            calendarName: calendar.summary,
+            hangoutLink: item.hangoutLink || item.conferenceData?.entryPoints?.find((ep: any) => ep.entryPointType === 'video')?.uri || '',
+            attendees: item.attendees || [],
+            htmlLink: item.htmlLink || '',
+            organizer: item.organizer || item.creator
           }));
           allEvents = [...allEvents, ...items];
           successCount++;

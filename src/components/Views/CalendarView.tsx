@@ -4,7 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { Card } from '../UI/Card';
 import { Button } from '../UI/Button';
 import { Modal } from '../UI/Modal';
-import { Task, Project } from '../../types';
+import { Task, Project, ExternalEvent } from '../../types';
 import { EditTaskForm } from '../Tasks/EditTaskForm';
 import { googleCalendarService } from '../../services/collaboration/googleCalendarService';
 
@@ -41,19 +41,6 @@ export function CalendarView() {
   const [isEditExternalModalOpen, setIsEditExternalModalOpen] = useState(false);
   const [isConfirmingExternalDrop, setIsConfirmingExternalDrop] = useState(false);
   const [pendingExternalDrop, setPendingExternalDrop] = useState<{ eventId: string, newDate: Date } | null>(null);
-
-
-  // Interface pour les événements externes
-  interface ExternalEvent {
-    id: string;
-    title: string;
-    description?: string;
-    startDate: string;
-    dueDate: string;
-    type: 'external';
-    location?: string;
-    color?: string;
-  }
 
   // Événements externes (Agenda Google/Outlook) - Désormais dynamiques
   const [externalEvents, setExternalEvents] = useState<ExternalEvent[]>([]);
@@ -1004,6 +991,36 @@ export function CalendarView() {
                     )}
                   </div>
                 </div>
+
+                {selectedExternalEvent.hangoutLink && (
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Visioconférence</label>
+                    <a
+                      href={selectedExternalEvent.hangoutLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center p-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-100 transition-colors border border-blue-200/50"
+                    >
+                      <img src="https://www.gstatic.com/images/branding/product/1x/meet_2020q4_48dp.png" alt="Google Meet" className="w-5 h-5 mr-3" />
+                      <span className="text-sm font-bold">Rejoindre Google Meet</span>
+                    </a>
+                  </div>
+                )}
+
+                {selectedExternalEvent.htmlLink && (
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Voir dans Google Calendar</label>
+                    <a
+                      href={selectedExternalEvent.htmlLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-purple-600 hover:underline flex items-center"
+                    >
+                      Ouvrir les détails originaux <ChevronRight className="w-3 h-3 ml-1" />
+                    </a>
+                  </div>
+                )}
+
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Dates</label>
                   <div className="flex flex-col space-y-1 text-sm text-gray-600 dark:text-gray-300">
@@ -1011,21 +1028,67 @@ export function CalendarView() {
                     <p>Fin: {new Date(selectedExternalEvent.dueDate).toLocaleString('fr-FR')}</p>
                   </div>
                 </div>
+
+                {selectedExternalEvent.organizer && (
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Organisateur</label>
+                    <div className="text-sm text-gray-600 dark:text-gray-300 flex items-center">
+                      <span className="mr-2">👤</span>
+                      <span>{selectedExternalEvent.organizer.displayName || selectedExternalEvent.organizer.email}</span>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Description</label>
-                {isEditExternalModalOpen ? (
-                  <textarea
-                    value={selectedExternalEvent.description || ''}
-                    onChange={(e) => setSelectedExternalEvent(prev => prev ? { ...prev, description: e.target.value } : null)}
-                    rows={4}
-                    className="w-full bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm resize-none outline-none focus:ring-2 focus:ring-purple-500/50"
-                    placeholder="Description de l'événement..."
-                  />
-                ) : (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 italic bg-gray-50 dark:bg-gray-800/50 p-3 rounded-xl min-h-[100px]">
-                    {selectedExternalEvent.description || 'Aucune description fournie.'}
-                  </p>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Description</label>
+                  {isEditExternalModalOpen ? (
+                    <textarea
+                      value={selectedExternalEvent.description || ''}
+                      onChange={(e) => setSelectedExternalEvent(prev => prev ? { ...prev, description: e.target.value } : null)}
+                      rows={3}
+                      className="w-full bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm resize-none outline-none focus:ring-2 focus:ring-purple-500/50"
+                      placeholder="Description de l'événement..."
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-600 dark:text-gray-400 italic bg-gray-50 dark:bg-gray-800/50 p-3 rounded-xl min-h-[60px]">
+                      {selectedExternalEvent.description || 'Aucune description fournie.'}
+                    </p>
+                  )}
+                </div>
+
+                {selectedExternalEvent.attendees && selectedExternalEvent.attendees.length > 0 && (
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">
+                      Participants ({selectedExternalEvent.attendees.length})
+                    </label>
+                    <div className="max-h-32 overflow-y-auto space-y-2 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 custom-scrollbar">
+                      {selectedExternalEvent.attendees.map((attendee, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-xs">
+                          <div className="flex items-center">
+                            <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-purple-600 mr-2 uppercase font-bold text-[10px]">
+                              {attendee.displayName?.charAt(0) || attendee.email.charAt(0)}
+                            </div>
+                            <div className="truncate max-w-[150px]">
+                              <p className="font-semibold dark:text-gray-200 truncate">{attendee.displayName || attendee.email}</p>
+                              {attendee.displayName && <p className="text-[10px] text-gray-500 truncate">{attendee.email}</p>}
+                            </div>
+                          </div>
+                          {attendee.responseStatus && (
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${attendee.responseStatus === 'accepted' ? 'bg-green-100 text-green-700' :
+                              attendee.responseStatus === 'declined' ? 'bg-red-100 text-red-700' :
+                                attendee.responseStatus === 'tentative' ? 'bg-amber-100 text-amber-700' :
+                                  'bg-gray-100 text-gray-500'
+                              }`}>
+                              {attendee.responseStatus === 'accepted' ? 'Accepté' :
+                                attendee.responseStatus === 'declined' ? 'Refusé' :
+                                  attendee.responseStatus === 'tentative' ? 'Incertain' : 'En attente'}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

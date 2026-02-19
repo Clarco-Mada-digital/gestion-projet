@@ -9,18 +9,33 @@ let app: any = null;
 let db: any = null;
 let auth: any = null;
 
+// Instance séparée pour l'agenda pour éviter de déconnecter l'utilisateur principal
+let calendarApp: any = null;
+let calendarAuth: any = null;
+
 // Initialisation de Firebase si la configuration est valide
 const ensureInitialized = () => {
-  if (!app && isFirebaseConfigured()) {
-    try {
+  if (!isFirebaseConfigured()) {
+    console.error("Firebase n'est pas configuré.");
+    return false;
+  }
+
+  try {
+    if (!app) {
       app = initializeApp(firebaseConfig);
       db = getFirestore(app);
       auth = getAuth(app);
-    } catch (error) {
-      console.error("Erreur lors de l'initialisation de Firebase:", error);
     }
+    if (!calendarApp) {
+      // On initialise une deuxième instance avec un nom différent
+      calendarApp = initializeApp(firebaseConfig, "calendar");
+      calendarAuth = getAuth(calendarApp);
+    }
+  } catch (error) {
+    console.error("Erreur lors de l'initialisation de Firebase:", error);
+    return false;
   }
-  return !!app;
+  return true;
 };
 
 export const firebaseService = {
@@ -109,8 +124,8 @@ export const firebaseService = {
     });
 
     try {
-      // On utilise signInWithPopup mais on ne s'occupe que du credential
-      const result = await signInWithPopup(auth, provider);
+      // On utilise l'instance calendarAuth pour ne pas interférer avec l'auth principale
+      const result = await signInWithPopup(calendarAuth, provider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
       const accessToken = credential?.accessToken;
 

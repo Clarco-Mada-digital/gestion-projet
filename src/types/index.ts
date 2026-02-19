@@ -358,3 +358,26 @@ export interface Notification {
   isRead: boolean;
   createdAt: string;
 }
+export interface ExternalEvent {
+  id: string;
+  title: string;
+  description?: string;
+  startDate: string;
+  dueDate: string;
+  type: 'external';
+  location?: string;
+  color?: string;
+  hangoutLink?: string;
+  attendees?: {
+    email: string;
+    displayName?: string;
+    responseStatus?: 'needsAction' | 'declined' | 'tentative' | 'accepted';
+  }[];
+  htmlLink?: string;
+  organizer?: {
+    email: string;
+    displayName?: string;
+  };
+  source?: 'google' | 'outlook';
+  calendarName?: string;
+}
