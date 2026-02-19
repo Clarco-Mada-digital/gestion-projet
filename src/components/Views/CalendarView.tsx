@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, X, ChevronDown, FolderOpen, Mail, Info, Bell } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, X, ChevronDown, FolderOpen, Mail, Info, Bell, Trash2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Card } from '../UI/Card';
 import { Button } from '../UI/Button';
@@ -11,13 +11,21 @@ import { googleCalendarService } from '../../services/collaboration/googleCalend
 export function CalendarView() {
   const { state, dispatch } = useApp();
   const [currentDate, setCurrentDate] = useState(new Date());
-  type ViewMode = 'week' | 'month' | 'quarter' | 'semester';
+  type ViewMode = 'day' | 'week' | 'month' | 'quarter' | 'semester';
   const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [selectedTask, setSelectedTask] = useState<{ task: Task; project: Project } | null>(null);
   const [selectedDayTasks, setSelectedDayTasks] = useState<{ date: Date; tasks: Task[] } | null>(null);
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  const parseSafeDate = (dateStr: string) => {
+    if (!dateStr) return new Date();
+    if (dateStr.length === 10 && dateStr.includes('-')) {
+      return new Date(dateStr + 'T00:00:00');
+    }
+    return new Date(dateStr);
+  };
 
   const [showProjects, setShowProjects] = useState(() => {
     const saved = localStorage.getItem('cal_showProjects');
@@ -41,6 +49,14 @@ export function CalendarView() {
   const [isEditExternalModalOpen, setIsEditExternalModalOpen] = useState(false);
   const [isConfirmingExternalDrop, setIsConfirmingExternalDrop] = useState(false);
   const [pendingExternalDrop, setPendingExternalDrop] = useState<{ eventId: string, newDate: Date } | null>(null);
+  const [isCreateEventModalOpen, setIsCreateEventModalOpen] = useState(false);
+  const [newEvent, setNewEvent] = useState({
+    title: '',
+    description: '',
+    startDate: new Date().toISOString().slice(0, 16),
+    dueDate: new Date(Date.now() + 3600000).toISOString().slice(0, 16),
+    location: ''
+  });
 
   // Événements externes (Agenda Google/Outlook) - Désormais dynamiques
   const [externalEvents, setExternalEvents] = useState<ExternalEvent[]>([]);
@@ -76,7 +92,9 @@ export function CalendarView() {
   const generateDays = (): DayInfo[] => {
     const periodDays: DayInfo[] = [];
 
-    if (viewMode === 'week') {
+    if (viewMode === 'day') {
+      periodDays.push({ date: new Date(currentDate), isCurrentMonth: true });
+    } else if (viewMode === 'week') {
       const start = new Date(currentDate);
       start.setDate(currentDate.getDate() - currentDate.getDay()); // Start of week (Sunday)
       for (let i = 0; i < 7; i++) {
@@ -154,7 +172,16 @@ export function CalendarView() {
           const timeMax = new Date(days[days.length - 1].date.getTime() + 24 * 60 * 60 * 1000).toISOString();
 
           const events = await googleCalendarService.fetchEvents(state.googleAccessToken, 0, timeMin, timeMax);
-          setExternalEvents(events);
+          let tasks: any[] = [];
+          try {
+            tasks = await googleCalendarService.fetchTasks(state.googleAccessToken);
+          } catch (te: any) {
+            console.error("Erreur tâches:", te);
+            if (te.message?.includes('disabled') || te.message?.includes('not been used')) {
+              throw new Error(`API_TASKS_DISABLED`);
+            }
+          }
+          setExternalEvents([...events, ...tasks]);
           setIsSyncing(false);
           return true;
         } catch (error: any) {
@@ -181,8 +208,9 @@ export function CalendarView() {
 
   const getItemsForDate = (date: Date) => {
     return allItems.filter((item) => {
-      const itemStartDate = new Date(item.startDate || item.dueDate);
-      const itemDueDate = new Date(item.dueDate);
+      const itemStartDate = parseSafeDate(item.startDate || item.dueDate);
+      // On soustrait 1ms pour gérer les dates de fin exclusives (ex: minuit le jour suivant)
+      const itemDueDate = new Date(parseSafeDate(item.dueDate).getTime() - 1);
 
       // Réinitialiser les heures pour la comparaison
       const currentDate = new Date(date);
@@ -200,7 +228,9 @@ export function CalendarView() {
   const navigate = (direction: 'prev' | 'next'): void => {
     setCurrentDate((prev) => {
       const newDate = new Date(prev);
-      if (viewMode === 'week') {
+      if (viewMode === 'day') {
+        newDate.setDate(prev.getDate() + (direction === 'prev' ? -1 : 1));
+      } else if (viewMode === 'week') {
         newDate.setDate(prev.getDate() + (direction === 'prev' ? -7 : 7));
       } else if (viewMode === 'month') {
         newDate.setMonth(prev.getMonth() + (direction === 'prev' ? -1 : 1));
@@ -264,8 +294,8 @@ export function CalendarView() {
     }
 
     // Calculer la durée actuelle de la tâche en jours
-    const start = new Date(task.startDate || task.dueDate);
-    const end = new Date(task.dueDate);
+    const start = parseSafeDate(task.startDate || task.dueDate);
+    const end = parseSafeDate(task.dueDate);
     const durationMs = end.getTime() - start.getTime();
 
     // Nouvelles dates
@@ -276,8 +306,8 @@ export function CalendarView() {
 
     const updatedTask: Task = {
       ...task,
-      startDate: newStartDate.toISOString(),
-      dueDate: newDueDate.toISOString(),
+      startDate: task.startDate.length === 10 ? newStartDate.toISOString().split('T')[0] : newStartDate.toISOString(),
+      dueDate: task.dueDate.length === 10 ? newDueDate.toISOString().split('T')[0] : newDueDate.toISOString(),
       updatedAt: new Date().toISOString()
     };
 
@@ -316,7 +346,16 @@ export function CalendarView() {
                           rel="noopener noreferrer"
                           className="flex items-center hover:underline bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded"
                         >
-                          <Info className="w-3 h-3 mr-1" /> Activer l'API (Projet {syncError.split('|')[1]})
+                          <Info className="w-3 h-3 mr-1" /> Activer l'API Calendar
+                        </a>
+                      ) : syncError === 'API_TASKS_DISABLED' ? (
+                        <a
+                          href="https://console.developers.google.com/apis/api/tasks.googleapis.com/overview"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center hover:underline bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded"
+                        >
+                          <Info className="w-3 h-3 mr-1" /> Activer l'API Tasks
                         </a>
                       ) : (
                         <>⚠️ Erreur de sync.</>
@@ -507,6 +546,16 @@ export function CalendarView() {
               )}
             </div>
           </div>
+
+          <Button
+            variant="gradient"
+            size="md"
+            onClick={() => setIsCreateEventModalOpen(true)}
+            className="flex items-center gap-2 shadow-lg shadow-blue-500/20"
+          >
+            <CalendarIcon className="w-4 h-4" />
+            <span className="text-sm font-bold">CRÉER UN AGENDA</span>
+          </Button>
         </div>
       </div>
 
@@ -515,6 +564,9 @@ export function CalendarView() {
         <div className="flex flex-col xl:flex-row items-center justify-between gap-6 mb-8">
           <h2 className="text-xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent text-center xl:text-left w-full xl:w-auto">
             {(() => {
+              if (viewMode === 'day') {
+                return currentDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+              }
               if (viewMode === 'week') {
                 const start = days[0].date;
                 const end = days[6].date;
@@ -533,7 +585,7 @@ export function CalendarView() {
 
           <div className="flex flex-col lg:flex-row items-center gap-4 w-full xl:w-auto">
             <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl shadow-inner w-full lg:w-auto overflow-x-auto custom-scrollbar no-scrollbar">
-              {(['week', 'month', 'quarter', 'semester'] as const).map((v) => (
+              {(['day', 'week', 'month', 'quarter', 'semester'] as const).map((v) => (
                 <button
                   key={v}
                   onClick={() => setViewMode(v)}
@@ -545,7 +597,7 @@ export function CalendarView() {
                     }
                   `}
                 >
-                  {v === 'week' ? 'Semaine' : v === 'month' ? 'Mois' : v === 'quarter' ? 'Trimestre' : 'Semestre'}
+                  {v === 'day' ? 'Jour' : v === 'week' ? 'Semaine' : v === 'month' ? 'Mois' : v === 'quarter' ? 'Trimestre' : 'Semestre'}
                 </button>
               ))}
             </div>
@@ -584,39 +636,46 @@ export function CalendarView() {
 
 
         {/* Jours de la semaine */}
-        <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-4">
-          {weekDays.map(day => (
-            <div key={day} className="py-2 sm:py-4 text-center text-[10px] sm:text-sm md:text-base font-bold text-gray-500 dark:text-gray-400 bg-gray-50/50 dark:bg-gray-700/50 rounded-lg sm:rounded-xl truncate">
-              {day}
+        <div className={`grid ${viewMode === 'day' ? 'grid-cols-1' : 'grid-cols-7'} gap-1 sm:gap-2 mb-4`}>
+          {viewMode === 'day' ? (
+            <div className="py-2 sm:py-4 text-center text-[10px] sm:text-sm md:text-base font-bold text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20 rounded-lg sm:rounded-xl truncate">
+              {currentDate.toLocaleDateString('fr-FR', { weekday: 'long' })}
             </div>
-          ))}
+          ) : (
+            weekDays.map(day => (
+              <div key={day} className="py-2 sm:py-4 text-center text-[10px] sm:text-sm md:text-base font-bold text-gray-500 dark:text-gray-400 bg-gray-50/50 dark:bg-gray-700/50 rounded-lg sm:rounded-xl truncate">
+                {day}
+              </div>
+            ))
+          )}
         </div>
 
         {/* Grille du calendrier (Vue structurée par semaine avec barres continues) */}
         <div className="space-y-3">
           {(() => {
             const weeks = [];
-            for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
+            const daysPerWeek = viewMode === 'day' ? 1 : 7;
+            for (let i = 0; i < days.length; i += daysPerWeek) weeks.push(days.slice(i, i + daysPerWeek));
 
             return weeks.map((week, weekIndex) => {
               const weekStart = new Date(week[0].date);
               weekStart.setHours(0, 0, 0, 0);
-              const weekEnd = new Date(week[6].date);
+              const weekEnd = new Date(week[week.length - 1].date);
               weekEnd.setHours(23, 59, 59, 999);
 
               // 1. Collecter et trier les items de la semaine
               const weekItems = allItems.filter(item => {
-                const s = new Date(item.startDate || item.dueDate);
-                const e = new Date(item.dueDate);
+                const s = parseSafeDate(item.startDate || item.dueDate);
+                const e = new Date(parseSafeDate(item.dueDate).getTime() - 1);
                 s.setHours(0, 0, 0, 0);
                 e.setHours(23, 59, 59, 999);
                 return s <= weekEnd && e >= weekStart;
               }).sort((a: any, b: any) => {
-                const startA = new Date(a.startDate || a.dueDate).getTime();
-                const startB = new Date(b.startDate || b.dueDate).getTime();
+                const startA = parseSafeDate(a.startDate || a.dueDate).getTime();
+                const startB = parseSafeDate(b.startDate || b.dueDate).getTime();
                 if (startA !== startB) return startA - startB;
-                const endA = new Date(a.dueDate).getTime();
-                const endB = new Date(b.dueDate).getTime();
+                const endA = parseSafeDate(a.dueDate).getTime();
+                const endB = parseSafeDate(b.dueDate).getTime();
                 return endB - endA;
               });
 
@@ -628,19 +687,20 @@ export function CalendarView() {
 
               weekItems.forEach(item => {
 
-                const s = new Date(item.startDate || item.dueDate);
-                const e = new Date(item.dueDate);
+                const s = parseSafeDate(item.startDate || item.dueDate);
+                const e = parseSafeDate(item.dueDate);
                 const startIdx = Math.max(0, Math.floor((s.getTime() - weekStart.getTime()) / (24 * 3600 * 1000)));
-                const endIdx = Math.min(6, Math.floor((e.getTime() - weekStart.getTime()) / (24 * 3600 * 1000)));
+                // On soustrait 1ms pour éviter qu'un événement finissant à minuit pile le lendemain ne déborde sur le jour suivant
+                const endIdx = Math.min(week.length - 1, Math.floor((e.getTime() - 1 - weekStart.getTime()) / (24 * 3600 * 1000)));
 
                 let assignedSlot = -1;
                 for (let i = 0; i < maxSlots; i++) {
                   if (!slots[i]) slots[i] = [];
                   const hasOverlap = slots[i].some(t => {
-                    const ts = new Date(t.startDate || t.dueDate);
-                    const te = new Date(t.dueDate);
+                    const ts = parseSafeDate(t.startDate || t.dueDate);
+                    const te = parseSafeDate(t.dueDate);
                     const tsIdx = Math.max(0, Math.floor((ts.getTime() - weekStart.getTime()) / (24 * 3600 * 1000)));
-                    const teIdx = Math.min(6, Math.floor((te.getTime() - weekStart.getTime()) / (24 * 3600 * 1000)));
+                    const teIdx = Math.min(week.length - 1, Math.floor((te.getTime() - 1 - weekStart.getTime()) / (24 * 3600 * 1000)));
                     return !(endIdx < tsIdx || startIdx > teIdx);
                   });
                   if (!hasOverlap) { assignedSlot = i; slots[i].push(item); break; }
@@ -649,13 +709,13 @@ export function CalendarView() {
                 if (assignedSlot !== -1) {
                   itemsWithLayout.push({ item, startIdx, endIdx, slot: assignedSlot });
                 } else {
-                  for (let col = startIdx; col <= endIdx; col++) overflowByDay[col]++;
+                  for (let col = startIdx; col <= endIdx; col++) if (overflowByDay[col] !== undefined) overflowByDay[col]++;
                 }
               });
 
 
               return (
-                <div key={weekIndex} className="grid grid-cols-7 gap-x-1 gap-y-0 relative min-h-[160px] last:mb-0" style={{ gridTemplateRows: '34px repeat(5, 1fr)' }}>
+                <div key={weekIndex} className={`grid ${viewMode === 'day' ? 'grid-cols-1' : 'grid-cols-7'} gap-x-1 gap-y-0 relative min-h-[160px] last:mb-0`} style={{ gridTemplateRows: '34px repeat(5, 1fr)' }}>
                   {/* Fond des jours */}
                   {week.map((day, dayIdx) => (
                     <div
@@ -1024,8 +1084,8 @@ export function CalendarView() {
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Dates</label>
                   <div className="flex flex-col space-y-1 text-sm text-gray-600 dark:text-gray-300">
-                    <p>Début: {new Date(selectedExternalEvent.startDate).toLocaleString('fr-FR')}</p>
-                    <p>Fin: {new Date(selectedExternalEvent.dueDate).toLocaleString('fr-FR')}</p>
+                    <p>Début: {selectedExternalEvent.startDate.length === 10 ? parseSafeDate(selectedExternalEvent.startDate).toLocaleDateString('fr-FR') : parseSafeDate(selectedExternalEvent.startDate).toLocaleString('fr-FR')}</p>
+                    <p>Fin: {selectedExternalEvent.dueDate.length === 10 ? parseSafeDate(new Date(parseSafeDate(selectedExternalEvent.dueDate).getTime() - 1).toISOString().split('T')[0]).toLocaleDateString('fr-FR') : parseSafeDate(selectedExternalEvent.dueDate).toLocaleString('fr-FR')}</p>
                   </div>
                 </div>
 
@@ -1039,98 +1099,174 @@ export function CalendarView() {
                   </div>
                 )}
               </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Description</label>
-                  {isEditExternalModalOpen ? (
-                    <textarea
-                      value={selectedExternalEvent.description || ''}
-                      onChange={(e) => setSelectedExternalEvent(prev => prev ? { ...prev, description: e.target.value } : null)}
-                      rows={3}
-                      className="w-full bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm resize-none outline-none focus:ring-2 focus:ring-purple-500/50"
-                      placeholder="Description de l'événement..."
-                    />
-                  ) : (
-                    <p className="text-sm text-gray-600 dark:text-gray-400 italic bg-gray-50 dark:bg-gray-800/50 p-3 rounded-xl min-h-[60px]">
-                      {selectedExternalEvent.description || 'Aucune description fournie.'}
-                    </p>
-                  )}
+            </div>
+            <div className="space-y-4">
+              {selectedExternalEvent.source === 'google-tasks' && (
+                <div className="flex items-center space-x-3 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-200/30">
+                  <input
+                    type="checkbox"
+                    checked={selectedExternalEvent.status === 'completed'}
+                    onChange={(e) => {
+                      const newStatus = e.target.checked ? 'completed' : 'needsAction';
+                      setSelectedExternalEvent(prev => prev ? { ...prev, status: newStatus } : null);
+                    }}
+                    className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-bold text-blue-700 dark:text-blue-300">Marquer comme terminée</span>
                 </div>
-
-                {selectedExternalEvent.attendees && selectedExternalEvent.attendees.length > 0 && (
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">
-                      Participants ({selectedExternalEvent.attendees.length})
-                    </label>
-                    <div className="max-h-32 overflow-y-auto space-y-2 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 custom-scrollbar">
-                      {selectedExternalEvent.attendees.map((attendee, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-xs">
-                          <div className="flex items-center">
-                            <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-purple-600 mr-2 uppercase font-bold text-[10px]">
-                              {attendee.displayName?.charAt(0) || attendee.email.charAt(0)}
-                            </div>
-                            <div className="truncate max-w-[150px]">
-                              <p className="font-semibold dark:text-gray-200 truncate">{attendee.displayName || attendee.email}</p>
-                              {attendee.displayName && <p className="text-[10px] text-gray-500 truncate">{attendee.email}</p>}
-                            </div>
-                          </div>
-                          {attendee.responseStatus && (
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${attendee.responseStatus === 'accepted' ? 'bg-green-100 text-green-700' :
-                              attendee.responseStatus === 'declined' ? 'bg-red-100 text-red-700' :
-                                attendee.responseStatus === 'tentative' ? 'bg-amber-100 text-amber-700' :
-                                  'bg-gray-100 text-gray-500'
-                              }`}>
-                              {attendee.responseStatus === 'accepted' ? 'Accepté' :
-                                attendee.responseStatus === 'declined' ? 'Refusé' :
-                                  attendee.responseStatus === 'tentative' ? 'Incertain' : 'En attente'}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+              )}
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Description</label>
+                {isEditExternalModalOpen ? (
+                  <textarea
+                    value={selectedExternalEvent.description || ''}
+                    onChange={(e) => setSelectedExternalEvent(prev => prev ? { ...prev, description: e.target.value } : null)}
+                    rows={3}
+                    className="w-full bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm resize-none outline-none focus:ring-2 focus:ring-purple-500/50"
+                    placeholder="Description de l'événement..."
+                  />
+                ) : (
+                  <p className="text-sm text-gray-600 dark:text-gray-400 italic bg-gray-50 dark:bg-gray-800/50 p-3 rounded-xl min-h-[60px]">
+                    {selectedExternalEvent.description || 'Aucune description fournie.'}
+                  </p>
                 )}
               </div>
-            </div>
 
-            <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-200/30">
-              <div className="flex items-start space-x-3">
-                <Info className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                <p className="text-xs text-amber-800 dark:text-amber-400">
-                  <strong>Note de sécurité :</strong> Toute modification effectuée ici sera synchronisée avec votre compte externe (Google/Outlook). Assurez-vous d'avoir les permissions nécessaires.
-                </p>
-              </div>
+              {selectedExternalEvent.attendees && selectedExternalEvent.attendees.length > 0 && (
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">
+                    Participants ({selectedExternalEvent.attendees.length})
+                  </label>
+                  <div className="max-h-32 overflow-y-auto space-y-2 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 custom-scrollbar">
+                    {selectedExternalEvent.attendees.map((attendee, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-xs">
+                        <div className="flex items-center">
+                          <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-purple-600 mr-2 uppercase font-bold text-[10px]">
+                            {attendee.displayName?.charAt(0) || attendee.email.charAt(0)}
+                          </div>
+                          <div className="truncate max-w-[150px]">
+                            <p className="font-semibold dark:text-gray-200 truncate">{attendee.displayName || attendee.email}</p>
+                            {attendee.displayName && <p className="text-[10px] text-gray-500 truncate">{attendee.email}</p>}
+                          </div>
+                        </div>
+                        {attendee.responseStatus && (
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${attendee.responseStatus === 'accepted' ? 'bg-green-100 text-green-700' :
+                            attendee.responseStatus === 'declined' ? 'bg-red-100 text-red-700' :
+                              attendee.responseStatus === 'tentative' ? 'bg-amber-100 text-amber-700' :
+                                'bg-gray-100 text-gray-500'
+                            }`}>
+                            {attendee.responseStatus === 'accepted' ? 'Accepté' :
+                              attendee.responseStatus === 'declined' ? 'Refusé' :
+                                attendee.responseStatus === 'tentative' ? 'Incertain' : 'En attente'}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
+          </div>
 
-            <div className="flex space-x-3 pt-4 border-t border-gray-100 dark:border-gray-800">
-              {isEditExternalModalOpen ? (
-                <>
-                  <Button variant="ghost" onClick={() => setIsEditExternalModalOpen(false)}>Annuler</Button>
+          <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-200/30">
+            <div className="flex items-start space-x-3">
+              <Info className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-800 dark:text-amber-400">
+                <strong>Note de sécurité :</strong> Toute modification effectuée ici sera synchronisée avec votre compte externe (Google/Outlook). Assurez-vous d'avoir les permissions nécessaires.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex space-x-3 pt-4 border-t border-gray-100 dark:border-gray-800">
+            {isEditExternalModalOpen ? (
+              <>
+                <Button variant="ghost" onClick={() => setIsEditExternalModalOpen(false)}>Annuler</Button>
+                <Button
+                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/30"
+                  onClick={() => {
+                    if (selectedExternalEvent) {
+                      setExternalEvents(prev => prev.map(e => e.id === selectedExternalEvent.id ? selectedExternalEvent : e));
+
+                      // Synchronisation avec Google Calendar
+                      if (state.googleAccessToken && selectedExternalEvent.calendarId) {
+                        const isAllDay = selectedExternalEvent.startDate.length === 10;
+                        const updatePayload: any = {
+                          summary: selectedExternalEvent.title,
+                          description: selectedExternalEvent.description,
+                          location: selectedExternalEvent.location,
+                          start: isAllDay ? { date: selectedExternalEvent.startDate } : { dateTime: selectedExternalEvent.startDate },
+                          end: isAllDay ? { date: selectedExternalEvent.dueDate } : { dateTime: selectedExternalEvent.dueDate }
+                        };
+
+                        googleCalendarService.updateEvent(state.googleAccessToken, selectedExternalEvent.calendarId, selectedExternalEvent.id, updatePayload).catch(err => {
+                          console.error("Erreur sync Google:", err);
+                          alert("Erreur lors de la synchronisation avec Google Calendar : " + err.message);
+                        });
+                      }
+
+                      // Synchronisation avec Google Tasks
+                      if (state.googleAccessToken && selectedExternalEvent.source === 'google-tasks' && selectedExternalEvent.taskListId) {
+                        const updatePayload: any = {
+                          title: selectedExternalEvent.title.replace('[Tâche] ', ''),
+                          notes: selectedExternalEvent.description,
+                          status: selectedExternalEvent.status,
+                          due: selectedExternalEvent.dueDate
+                        };
+
+                        googleCalendarService.updateTask(state.googleAccessToken, selectedExternalEvent.taskListId, selectedExternalEvent.id, updatePayload).catch(err => {
+                          console.error("Erreur sync Tasks:", err);
+                          alert("Erreur lors de la synchronisation avec Google Tasks : " + err.message);
+                        });
+                      }
+
+                      setSelectedExternalEvent(null);
+                      setIsEditExternalModalOpen(false);
+                    }
+                  }}
+                >
+                  Enregistrer les modifications
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" onClick={() => setSelectedExternalEvent(null)}>Fermer</Button>
+                {(selectedExternalEvent.source === 'google' || selectedExternalEvent.source === 'google-tasks') && (
                   <Button
-                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/30"
-                    onClick={() => {
-                      if (selectedExternalEvent) {
-                        setExternalEvents(prev => prev.map(e => e.id === selectedExternalEvent.id ? selectedExternalEvent : e));
-                        setSelectedExternalEvent(null);
-                        setIsEditExternalModalOpen(false);
+                    variant="outline"
+                    className="border-red-500 text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    onClick={async () => {
+                      const isTask = selectedExternalEvent.source === 'google-tasks';
+                      if (window.confirm(`Voulez-vous vraiment supprimer cet${isTask ? 'te tâche' : ' événement'} de votre compte Google ?`)) {
+                        try {
+                          setIsSyncing(true);
+                          if (isTask) {
+                            await googleCalendarService.deleteTask(state.googleAccessToken!, selectedExternalEvent.taskListId!, selectedExternalEvent.id);
+                          } else {
+                            await googleCalendarService.deleteEvent(state.googleAccessToken!, selectedExternalEvent.calendarId!, selectedExternalEvent.id);
+                          }
+                          setExternalEvents(prev => prev.filter(e => e.id !== selectedExternalEvent.id));
+                          setSelectedExternalEvent(null);
+                          alert(`${isTask ? 'Tâche' : 'Événement'} supprimé${isTask ? 'e' : ''} avec succès.`);
+                        } catch (error: any) {
+                          alert("Erreur lors de la suppression : " + error.message);
+                        } finally {
+                          setIsSyncing(false);
+                        }
                       }
                     }}
                   >
-                    Enregistrer les modifications
+                    <Trash2 className="w-4 h-4" />
+                    Supprimer
                   </Button>
-                </>
-              ) : (
-                <>
-                  <Button variant="ghost" onClick={() => setSelectedExternalEvent(null)}>Fermer</Button>
-                  <Button
-                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
-                    onClick={() => setIsEditExternalModalOpen(true)}
-                  >
-                    Modifier l'événement
-                  </Button>
-                </>
-              )}
-            </div>
+                )}
+                <Button
+                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+                  onClick={() => setIsEditExternalModalOpen(true)}
+                >
+                  Modifier l'événement
+                </Button>
+              </>
+            )}
           </div>
         </Modal>
       )}
@@ -1180,17 +1316,148 @@ export function CalendarView() {
 
                     const newStartDate = new Date(newDueDate.getTime() - durationMs);
 
-                    setExternalEvents(prev => prev.map(e => e.id === event.id ? {
-                      ...e,
+                    const updatedEvent = {
+                      ...event,
                       startDate: newStartDate.toISOString(),
                       dueDate: newDueDate.toISOString()
-                    } : e));
+                    };
+
+                    // Mise à jour locale
+                    setExternalEvents(prev => prev.map(e => e.id === event.id ? updatedEvent : e));
+
+                    // Synchronisation réelle avec Google Calendar
+                    if (state.googleAccessToken && event.calendarId) {
+                      const isAllDay = event.startDate.length === 10;
+                      const updatePayload: any = {
+                        summary: updatedEvent.title,
+                        start: isAllDay ? { date: updatedEvent.startDate } : { dateTime: updatedEvent.startDate },
+                        end: isAllDay ? { date: updatedEvent.dueDate } : { dateTime: updatedEvent.dueDate }
+                      };
+
+                      googleCalendarService.updateEvent(state.googleAccessToken, event.calendarId, event.id, updatePayload).catch(err => {
+                        console.error("Erreur sync Google:", err);
+                        alert("Erreur lors de la synchronisation avec Google Calendar : " + err.message);
+                      });
+                    }
                   }
                   setIsConfirmingExternalDrop(false);
                   setPendingExternalDrop(null);
                 }}
               >
                 Confirmer le déplacement
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal de création d'événement */}
+      {isCreateEventModalOpen && (
+        <Modal
+          isOpen={isCreateEventModalOpen}
+          onClose={() => setIsCreateEventModalOpen(false)}
+          title="Nouvel Événement Agenda"
+        >
+          <div className="space-y-6">
+            <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-2xl flex items-center space-x-4 border border-purple-200/30">
+              <div className="w-12 h-12 bg-purple-600 text-white rounded-xl flex items-center justify-center shadow-lg">
+                <Mail className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="font-bold text-gray-900 dark:text-white">Google Calendar</h4>
+                <p className="text-xs text-purple-600 dark:text-purple-400">Ajouter directement à votre agenda</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2 px-1">Titre de l'événement</label>
+                <input
+                  type="text"
+                  value={newEvent.title}
+                  onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+                  placeholder="Réunion d'équipe, Démo, etc."
+                  className="w-full bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-all shadow-inner"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1 px-1">Début</label>
+                  <input
+                    type="datetime-local"
+                    value={newEvent.startDate}
+                    onChange={(e) => setNewEvent({ ...newEvent, startDate: e.target.value })}
+                    className="w-full bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-all shadow-inner"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1 px-1">Fin</label>
+                  <input
+                    type="datetime-local"
+                    value={newEvent.dueDate}
+                    onChange={(e) => setNewEvent({ ...newEvent, dueDate: e.target.value })}
+                    className="w-full bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-all shadow-inner"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2 px-1">Lieu</label>
+                <input
+                  type="text"
+                  value={newEvent.location}
+                  onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
+                  placeholder="Google Meet, Bureau, etc."
+                  className="w-full bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-all shadow-inner"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2 px-1">Description</label>
+                <textarea
+                  value={newEvent.description}
+                  onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
+                  rows={3}
+                  placeholder="Détails de l'événement..."
+                  className="w-full bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-all resize-none shadow-inner"
+                />
+              </div>
+            </div>
+
+            <div className="flex space-x-3 pt-6 border-t border-gray-100 dark:border-gray-800">
+              <Button variant="ghost" onClick={() => setIsCreateEventModalOpen(false)} className="flex-1">
+                Annuler
+              </Button>
+              <Button
+                variant="gradient"
+                className="flex-1 shadow-lg shadow-purple-500/30"
+                disabled={!newEvent.title || !state.googleAccessToken}
+                onClick={async () => {
+                  if (!state.googleAccessToken) return;
+                  try {
+                    setIsSyncing(true);
+                    await googleCalendarService.insertEvent(state.googleAccessToken, 'primary', {
+                      summary: newEvent.title,
+                      description: newEvent.description,
+                      location: newEvent.location,
+                      start: { dateTime: new Date(newEvent.startDate).toISOString() },
+                      end: { dateTime: new Date(newEvent.dueDate).toISOString() }
+                    });
+
+                    setIsCreateEventModalOpen(false);
+                    alert("Événement créé avec succès dans Google Calendar !");
+                    // Déclencher un rechargement
+                    setCurrentDate(new Date(currentDate)); // Trick pour trigger l'effet
+                  } catch (error: any) {
+                    console.error("Erreur création Google:", error);
+                    alert("Erreur lors de la création : " + error.message);
+                  } finally {
+                    setIsSyncing(false);
+                  }
+                }}
+              >
+                {!state.googleAccessToken ? "Synchronisation requise" : "Créer l'événement"}
               </Button>
             </div>
           </div>

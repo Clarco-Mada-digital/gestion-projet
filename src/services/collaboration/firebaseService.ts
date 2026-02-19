@@ -114,8 +114,9 @@ export const firebaseService = {
     if (!ensureInitialized()) throw new Error("Firebase n'est pas configuré");
     const provider = new GoogleAuthProvider();
 
-    // Demander UNIQUEMENT l'accès au calendrier
-    provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+    // Accès complet au calendrier (lecture, écriture, suppression) et accès aux tâches
+    provider.addScope('https://www.googleapis.com/auth/calendar');
+    provider.addScope('https://www.googleapis.com/auth/tasks');
 
     // Forcer le choix du compte et le consentement pour l'access_type offline
     provider.setCustomParameters({

@@ -378,6 +378,9 @@ export interface ExternalEvent {
     email: string;
     displayName?: string;
   };
-  source?: 'google' | 'outlook';
+  source?: 'google' | 'outlook' | 'google-tasks';
   calendarName?: string;
+  calendarId?: string;
+  taskListId?: string;
+  status?: string;
 }

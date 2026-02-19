@@ -28,8 +28,6 @@ export const googleCalendarService = {
         calendars = calendarListData.items || [];
       } else {
         console.warn('Impossible de récupérer la liste des calendriers, tentative avec le calendrier principal uniquement.');
-        // Fallback : On essaie au moins le calendrier primaire si la liste globale est interdite (403)
-        // On utilise un objet qui ressemble à un calendrier Google
         calendars = [{ id: 'primary', summary: 'Principal', backgroundColor: '#4285F4' }];
       }
 
@@ -62,6 +60,7 @@ export const googleCalendarService = {
             color: calendar.backgroundColor || '#4285F4',
             source: 'google',
             calendarName: calendar.summary,
+            calendarId: calendar.id,
             hangoutLink: item.hangoutLink || item.conferenceData?.entryPoints?.find((ep: any) => ep.entryPointType === 'video')?.uri || '',
             attendees: item.attendees || [],
             htmlLink: item.htmlLink || '',
@@ -90,6 +89,150 @@ export const googleCalendarService = {
     } catch (error) {
       console.error('Erreur googleCalendarService:', error);
       throw error;
+    }
+  },
+
+  /**
+   * Met à jour un événement existant
+   */
+  async updateEvent(accessToken: string, calendarId: string, eventId: string, eventData: any): Promise<any> {
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`;
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(eventData)
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || 'Failed to update event');
+    }
+    return response.json();
+  },
+
+  /**
+   * Crée un nouvel événement
+   */
+  async insertEvent(accessToken: string, calendarId: string, eventData: any): Promise<any> {
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(eventData)
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || 'Failed to create event');
+    }
+    return response.json();
+  },
+
+  /**
+   * Supprime un événement
+   */
+  async deleteEvent(accessToken: string, calendarId: string, eventId: string): Promise<void> {
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`;
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error?.message || 'Failed to delete event');
+    }
+  },
+
+  /**
+   * Récupère les tâches Google
+   */
+  async fetchTasks(accessToken: string): Promise<any[]> {
+    if (!accessToken) return [];
+    try {
+      // 1. Récupérer les listes de tâches
+      const listsRes = await fetch('https://www.googleapis.com/tasks/v1/users/@me/lists', {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+      if (!listsRes.ok) return [];
+      const listsData = await listsRes.json();
+      const lists = listsData.items || [];
+
+      let allTasks: any[] = [];
+      for (const list of lists) {
+        const tasksRes = await fetch(`https://www.googleapis.com/tasks/v1/lists/${list.id}/tasks?showCompleted=true&showHidden=true`, {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+        if (tasksRes.ok) {
+          const tasksData = await tasksRes.json();
+          const items = (tasksData.items || []).filter((t: any) => t.due).map((t: any) => ({
+            id: t.id,
+            title: `[Tâche] ${t.title}`,
+            description: t.notes || '',
+            startDate: t.due, // Les tâches n'ont qu'une date d'échéance
+            dueDate: t.due,
+            type: 'external',
+            source: 'google-tasks',
+            color: '#4285F4',
+            calendarName: `Tâches : ${list.title}`,
+            taskListId: list.id,
+            status: t.status,
+            htmlLink: `https://tasks.google.com/`
+          }));
+          allTasks = [...allTasks, ...items];
+        }
+      }
+      return allTasks;
+    } catch (e) {
+      console.error('Erreur fetchTasks:', e);
+      return [];
+    }
+  },
+
+  /**
+   * Met à jour une tâche Google
+   */
+  async updateTask(accessToken: string, taskListId: string, taskId: string, taskData: any): Promise<any> {
+    const url = `https://tasks.googleapis.com/tasks/v1/lists/${encodeURIComponent(taskListId)}/tasks/${encodeURIComponent(taskId)}`;
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(taskData)
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || 'Failed to update task');
+    }
+    return response.json();
+  },
+
+  /**
+   * Supprime une tâche Google
+   */
+  async deleteTask(accessToken: string, taskListId: string, taskId: string): Promise<void> {
+    const url = `https://tasks.googleapis.com/tasks/v1/lists/${encodeURIComponent(taskListId)}/tasks/${encodeURIComponent(taskId)}`;
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error?.message || 'Failed to delete task');
     }
   }
 };
