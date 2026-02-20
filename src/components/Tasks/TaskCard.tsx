@@ -126,7 +126,16 @@ const TaskCardComponent = ({ task, className = '', isDragging = false }: TaskCar
     return today >= startTime && today <= endTime;
   })();
 
+  const isViewer = project?.source === 'firebase' &&
+    project.ownerId !== state.cloudUser?.uid &&
+    project.memberRoles?.[state.cloudUser?.uid || ''] === 'viewer';
+
   const toggleStatus = useCallback(() => {
+    if (isViewer) {
+      alert("Vous n'avez pas les droits pour modifier le statut de cette tâche.");
+      return;
+    }
+
     const now = new Date().toISOString();
     let newStatus: 'todo' | 'in-progress' | 'done';
 
@@ -146,9 +155,16 @@ const TaskCardComponent = ({ task, className = '', isDragging = false }: TaskCar
         completedAt: newStatus === 'done' ? now : undefined
       }
     });
-  }, [dispatch, task]);
+  }, [dispatch, task, isViewer]);
 
   const handleEdit = useCallback(() => {
+    if (isViewer) {
+      // Pour les viewers, on peut éventuellement voir les détails mais pas éditer
+      // Pour l'instant on bloque l'accès au formulaire d'édition qui permet la modification
+      alert("Vous n'avez pas les droits pour modifier cette tâche.");
+      return;
+    }
+
     try {
       // Vérifier que la tâche est valide avant de l'ouvrir
       if (!task || typeof task !== 'object') {
@@ -175,9 +191,14 @@ const TaskCardComponent = ({ task, className = '', isDragging = false }: TaskCar
       console.error('Erreur lors de l\'ouverture du formulaire d\'édition:', error);
       alert('Une erreur est survenue lors de la modification de la tâche.');
     }
-  }, [openModal, closeModal, task, state.projects]);
+  }, [openModal, closeModal, task, state.projects, isViewer]);
 
   const handleDelete = useCallback(() => {
+    if (isViewer) {
+      alert("Vous n'avez pas les droits pour supprimer cette tâche.");
+      return;
+    }
+
     if (window.confirm('Êtes-vous sûr de vouloir supprimer cette tâche ?')) {
       dispatch({
         type: 'DELETE_TASK',
@@ -187,7 +208,7 @@ const TaskCardComponent = ({ task, className = '', isDragging = false }: TaskCar
         }
       });
     }
-  }, [dispatch, task.id]);
+  }, [dispatch, task.id, task.projectId, isViewer]);
 
   return (
     <Card
@@ -212,17 +233,18 @@ const TaskCardComponent = ({ task, className = '', isDragging = false }: TaskCar
 
         {/* Boutons d'action */}
         <div className="flex items-center space-x-1">
-          {/* Bouton d'édition rapide */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEdit();
-            }}
-            className="p-1.5 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-            aria-label="Modifier la tâche"
-          >
-            <Edit className="w-4 h-4" />
-          </button>
+          {!isViewer && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEdit();
+              }}
+              className="p-1.5 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+              aria-label="Modifier la tâche"
+            >
+              <Edit className="w-4 h-4" />
+            </button>
+          )}
 
           {/* Menu contextuel */}
           <div className="relative">
@@ -243,27 +265,36 @@ const TaskCardComponent = ({ task, className = '', isDragging = false }: TaskCar
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="py-1">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleEdit();
-                      setShowMenu(false);
-                    }}
-                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    <Edit className="mr-2 h-4 w-4" />
-                    <span>Modifier</span>
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete();
-                      setShowMenu(false);
-                    }}
-                    className="flex w-full items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/50"
-                  >
-                    <span>Supprimer</span>
-                  </button>
+                  {!isViewer && (
+                    <>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEdit();
+                          setShowMenu(false);
+                        }}
+                        className="flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      >
+                        <Edit className="mr-2 h-4 w-4" />
+                        <span>Modifier</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete();
+                          setShowMenu(false);
+                        }}
+                        className="flex w-full items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/50"
+                      >
+                        <span>Supprimer</span>
+                      </button>
+                    </>
+                  )}
+                  {isViewer && (
+                    <div className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 italic">
+                      Mode lecture seule
+                    </div>
+                  )}
                 </div>
               </div>
             )}
