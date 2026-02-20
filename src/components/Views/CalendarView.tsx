@@ -27,6 +27,15 @@ export function CalendarView() {
     return new Date(dateStr);
   };
 
+  const getItemEndDate = (item: any) => {
+    const isInclusive = (item.displayType === 'task' || item.source === 'google-tasks') && (item.dueDate?.length === 10 || item.dueDate?.includes('T00:00:00'));
+    const date = parseSafeDate(item.dueDate);
+    // Pour les tâches (Projet ou Google Tasks), la date d'échéance est inclusive.
+    // On ajoute un jour pour qu'elle soit traitée comme exclusive (début du jour suivant)
+    // ainsi la logique habituelle de soustraction de 1ms la ramènera à la fin du jour JJ.
+    return new Date(date.getTime() + (isInclusive ? 24 * 3600 * 1000 : 0));
+  };
+
   const [showProjects, setShowProjects] = useState(() => {
     const saved = localStorage.getItem('cal_showProjects');
     return saved !== null ? JSON.parse(saved) : true;
@@ -209,8 +218,8 @@ export function CalendarView() {
   const getItemsForDate = (date: Date) => {
     return allItems.filter((item) => {
       const itemStartDate = parseSafeDate(item.startDate || item.dueDate);
-      // On soustrait 1ms pour gérer les dates de fin exclusives (ex: minuit le jour suivant)
-      const itemDueDate = new Date(parseSafeDate(item.dueDate).getTime() - 1);
+      // On utilise getItemEndDate pour normaliser les échéances inclusives (tâches)
+      const itemDueDate = new Date(getItemEndDate(item).getTime() - 1);
 
       // Réinitialiser les heures pour la comparaison
       const currentDate = new Date(date);
@@ -666,7 +675,7 @@ export function CalendarView() {
               // 1. Collecter et trier les items de la semaine
               const weekItems = allItems.filter(item => {
                 const s = parseSafeDate(item.startDate || item.dueDate);
-                const e = new Date(parseSafeDate(item.dueDate).getTime() - 1);
+                const e = new Date(getItemEndDate(item).getTime() - 1);
                 s.setHours(0, 0, 0, 0);
                 e.setHours(23, 59, 59, 999);
                 return s <= weekEnd && e >= weekStart;
@@ -688,7 +697,7 @@ export function CalendarView() {
               weekItems.forEach(item => {
 
                 const s = parseSafeDate(item.startDate || item.dueDate);
-                const e = parseSafeDate(item.dueDate);
+                const e = getItemEndDate(item);
                 const startIdxRaw = Math.floor((s.getTime() - weekStart.getTime()) / (24 * 3600 * 1000));
                 const startIdx = Math.max(0, startIdxRaw);
                 // On soustrait 1ms pour éviter qu'un événement finissant à minuit pile le lendemain ne déborde sur le jour suivant
@@ -700,7 +709,7 @@ export function CalendarView() {
                   if (!slots[i]) slots[i] = [];
                   const hasOverlap = slots[i].some(t => {
                     const ts = parseSafeDate(t.startDate || t.dueDate);
-                    const te = parseSafeDate(t.dueDate);
+                    const te = getItemEndDate(t);
                     const tsIdxRaw = Math.floor((ts.getTime() - weekStart.getTime()) / (24 * 3600 * 1000));
                     const tsIdx = Math.max(0, tsIdxRaw);
                     const teIdxRaw = Math.floor((te.getTime() - 1 - weekStart.getTime()) / (24 * 3600 * 1000));
