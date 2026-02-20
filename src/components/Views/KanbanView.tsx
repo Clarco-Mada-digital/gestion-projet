@@ -96,21 +96,25 @@ export function KanbanView() {
       ? state.projects.filter(p => p.status === 'active')
       : state.projects.filter(p => selectedProjectIds.includes(p.id));
 
-    // 2. Agréger toutes les colonnes personnalisées uniques
+    // 2. Agréger toutes les colonnes personnalisées uniques par SLUG
     const aggregatedColsMap = new Map<string, any>();
 
-    // On fusionne les colonnes globales et celles de chaque projet
-    // La priorité est donnée aux colonnes de projet pour les titres/couleurs
-    [... (state.appSettings.kanbanSettings?.customColumns || [])].forEach(col => {
-      aggregatedColsMap.set(col.id, col);
-    });
+    // Fusion intelligente : on utilise le slug du titre comme clé unique
+    const addColToMap = (col: any) => {
+      const slug = slugifyStatus(col.title);
+      const existing = aggregatedColsMap.get(slug);
+
+      // Si la colonne existe déjà, on ne remplace que si la nouvelle a plus d'infos (ou on garde la première)
+      if (!existing || (!existing.gradient && col.gradient)) {
+        aggregatedColsMap.set(slug, { ...col, id: slug });
+      }
+    };
+
+    [... (state.appSettings.kanbanSettings?.customColumns || [])].forEach(addColToMap);
 
     targetProjects.forEach(p => {
       if (p.kanbanSettings?.customColumns) {
-        p.kanbanSettings.customColumns.forEach(col => {
-          // On garde la définition si elle a un titre (ou on met à jour)
-          aggregatedColsMap.set(col.id, col);
-        });
+        p.kanbanSettings.customColumns.forEach(addColToMap);
       }
     });
 
@@ -209,70 +213,68 @@ export function KanbanView() {
       );
     }
 
+    // 3. TABLE DE CORRESPONDANCE SÉMANTIQUE (Mapping IDs -> Slugs unifiés)
+    const normalizedToId = new Map<string, string>();
+
+    // On parcourt TOUS les projets pour trouver la correspondance entre les anciens IDs et les titres
+    state.projects.forEach(p => {
+      p.kanbanSettings?.customColumns?.forEach(col => {
+        const slug = slugifyStatus(col.title);
+        normalizedToId.set(col.id, slug);
+        normalizedToId.set(normalizeStatusName(col.id), slug);
+        normalizedToId.set(normalizeStatusName(col.title), slug);
+      });
+    });
+
+    // On ajoute les colonnes par défaut
+    defaultColumns.forEach(col => {
+      normalizedToId.set(col.id, col.id);
+      normalizedToId.set(normalizeStatusName(col.title), col.id);
+    });
+
+    // 4. CONSTRUCTION DES COLONNES (Groupées par Slug)
     const defaultCols = defaultColumns.map(col => ({
       ...col,
-      tasks: tasksToDisplay.filter(t => t.status === col.id)
+      tasks: tasksToDisplay.filter(t => {
+        const canonicalId = normalizedToId.get(t.status) || slugifyStatus(t.status);
+        return canonicalId === col.id;
+      })
     }));
 
     const storedCustomCols = customColumns.map(col => ({
       ...col,
-      tasks: tasksToDisplay.filter(t => t.status === col.id),
+      tasks: tasksToDisplay.filter(t => {
+        const canonicalId = normalizedToId.get(t.status) || slugifyStatus(t.status);
+        return canonicalId === col.id;
+      }),
       isCustom: true
     }));
 
-    const existingColIds = new Set([...defaultCols, ...storedCustomCols].map(c => c.id));
-    const normalizedToId = new Map<string, string>();
-    [...defaultCols, ...storedCustomCols].forEach(col => {
-      normalizedToId.set(normalizeStatusName(col.title), col.id);
-      normalizedToId.set(normalizeStatusName(col.id), col.id);
-    });
-
     const dynamicCols: Column[] = [];
+    const usedCanonicalIds = new Set([...defaultCols, ...storedCustomCols].map(c => c.id));
 
     tasksToDisplay.forEach(task => {
-      const normalizedTaskStatus = normalizeStatusName(task.status);
-      const targetColId = normalizedToId.get(normalizedTaskStatus);
+      const canonicalId = normalizedToId.get(task.status) || slugifyStatus(task.status);
 
-      if (targetColId) {
-        // Rediriger la tâche vers la colonne existante correspondante
-        const colIndex = [...defaultCols, ...storedCustomCols, ...dynamicCols].findIndex(c => c.id === targetColId);
-        const allColsList = [...defaultCols, ...storedCustomCols, ...dynamicCols];
-        const col = allColsList[colIndex];
-
-        if (col && !col.tasks.some(t => t.id === task.id)) {
-          col.tasks.push(task);
-        }
-      } else {
+      if (!usedCanonicalIds.has(canonicalId)) {
         const color = availableColors[dynamicCols.length % availableColors.length];
-
-        // LOGIQUE AMÉLIORÉE : Chercher le titre dans le projet d'origine de la tâche
         const taskProject = state.projects.find(p => p.id === task.projectId);
         const colDef = taskProject?.kanbanSettings?.customColumns?.find(c => c.id === task.status);
+        let displayTitle = colDef ? colDef.title : task.status.replace(/^status-|^custom-/, '').replace(/-/g, ' ');
 
-        let displayTitle = colDef ? colDef.title : task.status;
-
-        // Si c'est un ID custom (status- ou custom-) sans définition trouvée
-        if ((task.status.startsWith('status-') || task.status.startsWith('custom-')) && !colDef) {
-          // Essayer de trouver une définition dans n'importe quel autre projet (cas de partage de statut)
-          const globalDef = state.projects.flatMap(p => p.kanbanSettings?.customColumns || []).find(c => c.id === task.status);
-          displayTitle = globalDef ? globalDef.title : task.status.replace(/^status-|^custom-/, '').replace(/-/g, ' ');
-
-          if (displayTitle.length > 0) {
-            displayTitle = displayTitle.charAt(0).toUpperCase() + displayTitle.slice(1);
-          }
+        if (displayTitle.length > 0) {
+          displayTitle = displayTitle.charAt(0).toUpperCase() + displayTitle.slice(1);
         }
 
-        const newCol: Column = {
-          id: task.status,
+        dynamicCols.push({
+          id: canonicalId,
           title: displayTitle,
           tasks: [task],
           gradient: colDef?.gradient || color.gradient,
           iconColor: colDef?.iconColor || color.icon,
           isCustom: true
-        };
-        dynamicCols.push(newCol);
-        existingColIds.add(task.status);
-        normalizedToId.set(normalizedTaskStatus, task.status);
+        });
+        usedCanonicalIds.add(canonicalId);
       }
     });
 
