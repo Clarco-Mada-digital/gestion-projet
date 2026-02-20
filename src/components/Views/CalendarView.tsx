@@ -689,9 +689,11 @@ export function CalendarView() {
 
                 const s = parseSafeDate(item.startDate || item.dueDate);
                 const e = parseSafeDate(item.dueDate);
-                const startIdx = Math.max(0, Math.floor((s.getTime() - weekStart.getTime()) / (24 * 3600 * 1000)));
+                const startIdxRaw = Math.floor((s.getTime() - weekStart.getTime()) / (24 * 3600 * 1000));
+                const startIdx = Math.max(0, startIdxRaw);
                 // On soustrait 1ms pour éviter qu'un événement finissant à minuit pile le lendemain ne déborde sur le jour suivant
-                const endIdx = Math.min(week.length - 1, Math.floor((e.getTime() - 1 - weekStart.getTime()) / (24 * 3600 * 1000)));
+                const endIdxRaw = Math.floor((e.getTime() - 1 - weekStart.getTime()) / (24 * 3600 * 1000));
+                const endIdx = Math.min(week.length - 1, Math.max(startIdx, endIdxRaw));
 
                 let assignedSlot = -1;
                 for (let i = 0; i < maxSlots; i++) {
@@ -699,8 +701,10 @@ export function CalendarView() {
                   const hasOverlap = slots[i].some(t => {
                     const ts = parseSafeDate(t.startDate || t.dueDate);
                     const te = parseSafeDate(t.dueDate);
-                    const tsIdx = Math.max(0, Math.floor((ts.getTime() - weekStart.getTime()) / (24 * 3600 * 1000)));
-                    const teIdx = Math.min(week.length - 1, Math.floor((te.getTime() - 1 - weekStart.getTime()) / (24 * 3600 * 1000)));
+                    const tsIdxRaw = Math.floor((ts.getTime() - weekStart.getTime()) / (24 * 3600 * 1000));
+                    const tsIdx = Math.max(0, tsIdxRaw);
+                    const teIdxRaw = Math.floor((te.getTime() - 1 - weekStart.getTime()) / (24 * 3600 * 1000));
+                    const teIdx = Math.min(week.length - 1, Math.max(tsIdx, teIdxRaw));
                     return !(endIdx < tsIdx || startIdx > teIdx);
                   });
                   if (!hasOverlap) { assignedSlot = i; slots[i].push(item); break; }
@@ -1013,260 +1017,312 @@ export function CalendarView() {
           title={isEditExternalModalOpen ? "Modifier l'événement" : "Détails de l'événement"}
         >
           <div className="space-y-6">
-            <div className="flex items-center space-x-3 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-2xl">
-              <div className="w-12 h-12 bg-purple-500 text-white rounded-xl flex items-center justify-center shadow-lg">
-                <Mail className="w-6 h-6" />
+            <div className="flex items-start space-x-4 p-5 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/10 dark:to-indigo-900/10 rounded-2xl border border-purple-100/50 dark:border-purple-800/20 shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+              <div className="relative w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg shrink-0">
+                <Mail className="w-7 h-7" />
               </div>
-              <div className="flex-1">
+              <div className="flex-1 relative z-10 pt-1">
                 {isEditExternalModalOpen ? (
                   <input
                     type="text"
                     value={selectedExternalEvent.title}
                     onChange={(e) => setSelectedExternalEvent(prev => prev ? { ...prev, title: e.target.value } : null)}
-                    className="w-full bg-transparent border-b border-purple-300 focus:border-purple-500 outline-none font-bold text-lg dark:text-white"
+                    className="w-full bg-white/50 dark:bg-gray-800/50 border border-purple-200 dark:border-purple-700/50 rounded-xl px-4 py-2 font-bold text-lg dark:text-white mb-2 focus:ring-2 focus:ring-purple-500 outline-none transition-all shadow-inner"
+                    placeholder="Titre de l'événement"
                   />
                 ) : (
-                  <h3 className="text-xl font-bold text-purple-900 dark:text-purple-300">{selectedExternalEvent.title}</h3>
+                  <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-1 leading-tight">{selectedExternalEvent.title}</h3>
                 )}
-                <p className="text-xs text-purple-600/60 dark:text-purple-400 font-semibold uppercase tracking-wider">Événement Agenda Externe</p>
+
+                <div className="flex items-center space-x-2">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 uppercase tracking-widest">
+                    Agenda Externe {selectedExternalEvent.source === 'google' ? ' (Google)' : ''}
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-4">
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Localisation</label>
-                  <div className="flex items-center text-gray-600 dark:text-gray-300">
-                    <span className="mr-2">📍</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-5">
+                <div className="p-4 bg-gray-50/80 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-700/50">
+                  <div className="flex items-center mb-3">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 mr-3 shrink-0">
+                      <CalendarIcon className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      {isEditExternalModalOpen ? (
+                        <div className="flex flex-col space-y-2 w-full">
+                          <input
+                            type="datetime-local"
+                            value={selectedExternalEvent.startDate.length === 10 ? selectedExternalEvent.startDate + 'T00:00' : selectedExternalEvent.startDate.slice(0, 16)}
+                            onChange={(e) => setSelectedExternalEvent(prev => prev ? { ...prev, startDate: e.target.value } : null)}
+                            className="text-xs p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 w-full"
+                          />
+                          <input
+                            type="datetime-local"
+                            value={selectedExternalEvent.dueDate.length === 10 ? selectedExternalEvent.dueDate + 'T00:00' : selectedExternalEvent.dueDate.slice(0, 16)}
+                            onChange={(e) => setSelectedExternalEvent(prev => prev ? { ...prev, dueDate: e.target.value } : null)}
+                            className="text-xs p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 w-full"
+                          />
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
+                            {selectedExternalEvent.startDate.length === 10 ? parseSafeDate(selectedExternalEvent.startDate).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' }) : parseSafeDate(selectedExternalEvent.startDate).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                          <p className="text-xs text-gray-500 font-medium truncate">
+                            Au {selectedExternalEvent.dueDate.length === 10 ? parseSafeDate(new Date(parseSafeDate(selectedExternalEvent.dueDate).getTime() - 1).toISOString().split('T')[0]).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' }) : parseSafeDate(selectedExternalEvent.dueDate).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-start">
+                    <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 mr-3 shrink-0">
+                      <span className="text-sm">📍</span>
+                    </div>
+                    <div className="flex-1 min-w-0 pt-1">
+                      {isEditExternalModalOpen ? (
+                        <input
+                          type="text"
+                          value={selectedExternalEvent.location || ''}
+                          onChange={(e) => setSelectedExternalEvent(prev => prev ? { ...prev, location: e.target.value } : null)}
+                          placeholder="Aucun lieu défini"
+                          className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded focus:border-purple-500 outline-none text-sm p-1.5"
+                        />
+                      ) : (
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {selectedExternalEvent.location || <span className="text-gray-400 italic">Aucun lieu spécifié</span>}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {selectedExternalEvent.organizer && (
+                    <div className="flex items-start mt-3 pt-3 border-t border-gray-100 dark:border-gray-700/40">
+                      <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 mr-3 shrink-0">
+                        <span className="text-sm">👤</span>
+                      </div>
+                      <div className="flex-1 min-w-0 pt-1">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Organisateur</p>
+                        <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 truncate">
+                          {selectedExternalEvent.organizer.displayName || selectedExternalEvent.organizer.email}
+                        </p>
+                        {selectedExternalEvent.organizer.displayName && (
+                          <p className="text-[10px] text-gray-400 truncate">{selectedExternalEvent.organizer.email}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {(selectedExternalEvent.hangoutLink || selectedExternalEvent.htmlLink) && (
+                  <div className="flex flex-col space-y-2">
+                    {selectedExternalEvent.hangoutLink && (
+                      <a href={selectedExternalEvent.hangoutLink} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center p-3 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-xl transition-all font-bold text-sm shadow-sm border border-blue-100 dark:border-blue-800/30">
+                        <img src="https://www.gstatic.com/images/branding/product/1x/meet_2020q4_48dp.png" alt="Google Meet" className="w-5 h-5 mr-2 drop-shadow-sm" />
+                        Rejoindre l'appel vidéo
+                      </a>
+                    )}
+                    {selectedExternalEvent.htmlLink && (
+                      <a href={selectedExternalEvent.htmlLink} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center p-3 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700/80 text-gray-700 dark:text-gray-300 rounded-xl transition-all font-bold text-sm shadow-sm border border-gray-200 dark:border-gray-700">
+                        Ouvrir dans l'agenda d'origine <ChevronRight className="w-4 h-4 ml-1 opacity-70" />
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-4 flex flex-col h-full">
+                <div className="flex-1 p-4 bg-gray-50/80 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-700/50 flex flex-col">
+                  <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center">
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400 mr-2"></span> Note / Description
+                  </h4>
+
+                  <div className="flex-1">
                     {isEditExternalModalOpen ? (
-                      <input
-                        type="text"
-                        value={selectedExternalEvent.location || ''}
-                        onChange={(e) => setSelectedExternalEvent(prev => prev ? { ...prev, location: e.target.value } : null)}
-                        placeholder="Lieu de la réunion"
-                        className="bg-transparent border-b border-gray-200 focus:border-blue-500 outline-none w-full"
+                      <textarea
+                        value={selectedExternalEvent.description || ''}
+                        onChange={(e) => setSelectedExternalEvent(prev => prev ? { ...prev, description: e.target.value } : null)}
+                        className="w-full h-full min-h-[100px] bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm resize-none outline-none focus:ring-2 focus:ring-purple-500/50"
+                        placeholder="Ajouter une description..."
                       />
                     ) : (
-                      <span>{selectedExternalEvent.location || 'Non spécifiée'}</span>
+                      <div className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap max-h-[150px] overflow-y-auto custom-scrollbar pr-2">
+                        {selectedExternalEvent.description || <span className="text-gray-400 italic">Il n'y a pas de description pour cet événement.</span>}
+                      </div>
                     )}
                   </div>
                 </div>
 
-                {selectedExternalEvent.hangoutLink && (
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Visioconférence</label>
-                    <a
-                      href={selectedExternalEvent.hangoutLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center p-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-100 transition-colors border border-blue-200/50"
-                    >
-                      <img src="https://www.gstatic.com/images/branding/product/1x/meet_2020q4_48dp.png" alt="Google Meet" className="w-5 h-5 mr-3" />
-                      <span className="text-sm font-bold">Rejoindre Google Meet</span>
-                    </a>
-                  </div>
-                )}
-
-                {selectedExternalEvent.htmlLink && (
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Voir dans Google Calendar</label>
-                    <a
-                      href={selectedExternalEvent.htmlLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-purple-600 hover:underline flex items-center"
-                    >
-                      Ouvrir les détails originaux <ChevronRight className="w-3 h-3 ml-1" />
-                    </a>
-                  </div>
-                )}
-
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Dates</label>
-                  <div className="flex flex-col space-y-1 text-sm text-gray-600 dark:text-gray-300">
-                    <p>Début: {selectedExternalEvent.startDate.length === 10 ? parseSafeDate(selectedExternalEvent.startDate).toLocaleDateString('fr-FR') : parseSafeDate(selectedExternalEvent.startDate).toLocaleString('fr-FR')}</p>
-                    <p>Fin: {selectedExternalEvent.dueDate.length === 10 ? parseSafeDate(new Date(parseSafeDate(selectedExternalEvent.dueDate).getTime() - 1).toISOString().split('T')[0]).toLocaleDateString('fr-FR') : parseSafeDate(selectedExternalEvent.dueDate).toLocaleString('fr-FR')}</p>
-                  </div>
-                </div>
-
-                {selectedExternalEvent.organizer && (
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Organisateur</label>
-                    <div className="text-sm text-gray-600 dark:text-gray-300 flex items-center">
-                      <span className="mr-2">👤</span>
-                      <span>{selectedExternalEvent.organizer.displayName || selectedExternalEvent.organizer.email}</span>
+                {selectedExternalEvent.attendees && selectedExternalEvent.attendees.length > 0 && (
+                  <div className="p-4 bg-gray-50/80 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-700/50">
+                    <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center">
+                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 mr-2"></span> Participants ({selectedExternalEvent.attendees.length})
+                    </h4>
+                    <div className="max-h-24 overflow-y-auto space-y-1.5 custom-scrollbar pr-1">
+                      {selectedExternalEvent.attendees.map((attendee, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700/50">
+                          <div className="flex items-center min-w-0 pr-2">
+                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-100 to-indigo-100 dark:from-purple-900/40 dark:to-indigo-900/40 flex items-center justify-center text-purple-600 dark:text-purple-400 mr-2 uppercase font-bold text-[10px] shrink-0">
+                              {attendee.displayName?.charAt(0) || attendee.email.charAt(0)}
+                            </div>
+                            <div className="truncate min-w-0">
+                              <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">{attendee.displayName || attendee.email}</p>
+                              {attendee.displayName && <p className="text-[10px] text-gray-500 truncate">{attendee.email}</p>}
+                            </div>
+                          </div>
+                          {attendee.responseStatus && (
+                            <span className={`shrink-0 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider
+                              ${attendee.responseStatus === 'accepted' ? 'bg-green-100 text-green-700 border border-green-200' :
+                                attendee.responseStatus === 'declined' ? 'bg-red-100 text-red-700 border border-red-200' :
+                                  attendee.responseStatus === 'tentative' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                                    'bg-gray-100 text-gray-500 border border-gray-200'
+                              }`}>
+                              {attendee.responseStatus === 'accepted' ? 'Accepté' :
+                                attendee.responseStatus === 'declined' ? 'Refusé' :
+                                  attendee.responseStatus === 'tentative' ? 'Incertain' : 'Attente'}
+                            </span>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
               </div>
             </div>
-            <div className="space-y-4">
-              {selectedExternalEvent.source === 'google-tasks' && (
-                <div className="flex items-center space-x-3 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-200/30">
-                  <input
-                    type="checkbox"
-                    checked={selectedExternalEvent.status === 'completed'}
-                    onChange={(e) => {
-                      const newStatus = e.target.checked ? 'completed' : 'needsAction';
+
+            {selectedExternalEvent.source === 'google-tasks' && !isEditExternalModalOpen && (
+              <div className="flex items-center p-4 bg-emerald-50 dark:bg-emerald-900/10 rounded-xl border border-emerald-200/50 shadow-sm cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/20 transition-colors"
+                onClick={() => {
+                  const newStatus = selectedExternalEvent.status === 'completed' ? 'needsAction' : 'completed';
+                  if (state.googleAccessToken && selectedExternalEvent.taskListId) {
+                    const updatePayload = { status: newStatus };
+                    googleCalendarService.updateTask(state.googleAccessToken, selectedExternalEvent.taskListId, selectedExternalEvent.id, updatePayload).then(() => {
                       setSelectedExternalEvent(prev => prev ? { ...prev, status: newStatus } : null);
-                    }}
-                    className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-bold text-blue-700 dark:text-blue-300">Marquer comme terminée</span>
+                      setExternalEvents(prev => prev.map(e => e.id === selectedExternalEvent.id ? { ...e, status: newStatus } : e));
+                    });
+                  } else {
+                    setSelectedExternalEvent(prev => prev ? { ...prev, status: newStatus } : null);
+                  }
+                }}>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center mr-3 transition-colors ${selectedExternalEvent.status === 'completed' ? 'bg-emerald-500 text-white' : 'border-2 border-emerald-500 text-transparent'}`}>
+                  {selectedExternalEvent.status === 'completed' && <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                 </div>
-              )}
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Description</label>
-                {isEditExternalModalOpen ? (
-                  <textarea
-                    value={selectedExternalEvent.description || ''}
-                    onChange={(e) => setSelectedExternalEvent(prev => prev ? { ...prev, description: e.target.value } : null)}
-                    rows={3}
-                    className="w-full bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm resize-none outline-none focus:ring-2 focus:ring-purple-500/50"
-                    placeholder="Description de l'événement..."
-                  />
-                ) : (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 italic bg-gray-50 dark:bg-gray-800/50 p-3 rounded-xl min-h-[60px]">
-                    {selectedExternalEvent.description || 'Aucune description fournie.'}
-                  </p>
-                )}
+                <span className="text-sm font-bold text-emerald-800 dark:text-emerald-400">
+                  {selectedExternalEvent.status === 'completed' ? 'Tâche complétée ! (cliquer pour annuler)' : 'Marquer comme terminée'}
+                </span>
               </div>
+            )}
 
-              {selectedExternalEvent.attendees && selectedExternalEvent.attendees.length > 0 && (
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">
-                    Participants ({selectedExternalEvent.attendees.length})
-                  </label>
-                  <div className="max-h-32 overflow-y-auto space-y-2 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 custom-scrollbar">
-                    {selectedExternalEvent.attendees.map((attendee, idx) => (
-                      <div key={idx} className="flex items-center justify-between text-xs">
-                        <div className="flex items-center">
-                          <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-purple-600 mr-2 uppercase font-bold text-[10px]">
-                            {attendee.displayName?.charAt(0) || attendee.email.charAt(0)}
-                          </div>
-                          <div className="truncate max-w-[150px]">
-                            <p className="font-semibold dark:text-gray-200 truncate">{attendee.displayName || attendee.email}</p>
-                            {attendee.displayName && <p className="text-[10px] text-gray-500 truncate">{attendee.email}</p>}
-                          </div>
-                        </div>
-                        {attendee.responseStatus && (
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${attendee.responseStatus === 'accepted' ? 'bg-green-100 text-green-700' :
-                            attendee.responseStatus === 'declined' ? 'bg-red-100 text-red-700' :
-                              attendee.responseStatus === 'tentative' ? 'bg-amber-100 text-amber-700' :
-                                'bg-gray-100 text-gray-500'
-                            }`}>
-                            {attendee.responseStatus === 'accepted' ? 'Accepté' :
-                              attendee.responseStatus === 'declined' ? 'Refusé' :
-                                attendee.responseStatus === 'tentative' ? 'Incertain' : 'En attente'}
-                          </span>
-                        )}
-                      </div>
-                    ))}
+            <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-200/30">
+              <div className="flex items-start space-x-3">
+                <Info className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-800 dark:text-amber-400 leading-relaxed">
+                  <strong>Note de sécurité :</strong> Toute modification effectuée ici sera synchronisée avec votre compte externe (Google/Outlook). Assurez-vous d'avoir les permissions nécessaires.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-5 border-t border-gray-100 dark:border-gray-800">
+              {isEditExternalModalOpen ? (
+                <>
+                  <div className="flex-1"></div>
+                  <div className="flex items-center space-x-3">
+                    <Button variant="ghost" className="text-gray-500" onClick={() => setIsEditExternalModalOpen(false)}>Annuler</Button>
+                    <Button
+                      className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/30 px-6"
+                      onClick={() => {
+                        if (selectedExternalEvent) {
+                          setExternalEvents(prev => prev.map(e => e.id === selectedExternalEvent.id ? selectedExternalEvent : e));
+
+                          if (state.googleAccessToken && selectedExternalEvent.calendarId) {
+                            const isAllDay = selectedExternalEvent.startDate.length === 10;
+                            const updatePayload: any = {
+                              summary: selectedExternalEvent.title,
+                              description: selectedExternalEvent.description,
+                              location: selectedExternalEvent.location,
+                              start: isAllDay ? { date: selectedExternalEvent.startDate } : { dateTime: selectedExternalEvent.startDate },
+                              end: isAllDay ? { date: selectedExternalEvent.dueDate } : { dateTime: selectedExternalEvent.dueDate }
+                            };
+
+                            googleCalendarService.updateEvent(state.googleAccessToken, selectedExternalEvent.calendarId, selectedExternalEvent.id, updatePayload).catch(err => {
+                              console.error("Erreur sync Google:", err);
+                              alert("Erreur lors de la synchronisation avec Google Calendar : " + err.message);
+                            });
+                          }
+
+                          if (state.googleAccessToken && selectedExternalEvent.source === 'google-tasks' && selectedExternalEvent.taskListId) {
+                            const updatePayload: any = {
+                              title: selectedExternalEvent.title.replace('[Tâche] ', ''),
+                              notes: selectedExternalEvent.description,
+                              status: selectedExternalEvent.status,
+                              due: selectedExternalEvent.dueDate
+                            };
+
+                            googleCalendarService.updateTask(state.googleAccessToken, selectedExternalEvent.taskListId, selectedExternalEvent.id, updatePayload).catch(err => {
+                              console.error("Erreur sync Tasks:", err);
+                              alert("Erreur lors de la synchronisation avec Google Tasks : " + err.message);
+                            });
+                          }
+
+                          setSelectedExternalEvent(null);
+                          setIsEditExternalModalOpen(false);
+                        }
+                      }}
+                    >
+                      Enregistrer
+                    </Button>
                   </div>
-                </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    {(selectedExternalEvent.source === 'google' || selectedExternalEvent.source === 'google-tasks') && (
+                      <Button
+                        variant="ghost"
+                        className="text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 px-3"
+                        onClick={async () => {
+                          const isTask = selectedExternalEvent.source === 'google-tasks';
+                          if (window.confirm(`Voulez-vous vraiment supprimer cet${isTask ? 'te tâche' : ' événement'} de votre compte Google ?`)) {
+                            try {
+                              setIsSyncing(true);
+                              if (isTask) {
+                                await googleCalendarService.deleteTask(state.googleAccessToken!, selectedExternalEvent.taskListId!, selectedExternalEvent.id);
+                              } else {
+                                await googleCalendarService.deleteEvent(state.googleAccessToken!, selectedExternalEvent.calendarId!, selectedExternalEvent.id);
+                              }
+                              setExternalEvents(prev => prev.filter(e => e.id !== selectedExternalEvent.id));
+                              setSelectedExternalEvent(null);
+                              alert(`${isTask ? 'Tâche' : 'Événement'} supprimé${isTask ? 'e' : ''} avec succès.`);
+                            } catch (error: any) {
+                              alert("Erreur lors de la suppression : " + error.message);
+                            } finally {
+                              setIsSyncing(false);
+                            }
+                          }
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Supprimer
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center space-x-3">
+                    <Button variant="ghost" className="text-gray-500 hover:text-gray-700 dark:text-gray-400" onClick={() => setSelectedExternalEvent(null)}>Fermer</Button>
+                    <Button
+                      className="bg-purple-600 hover:bg-purple-700 text-white px-6 shadow-md"
+                      onClick={() => setIsEditExternalModalOpen(true)}
+                    >
+                      Modifier
+                    </Button>
+                  </div>
+                </>
               )}
             </div>
-          </div>
-
-          <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-200/30">
-            <div className="flex items-start space-x-3">
-              <Info className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-800 dark:text-amber-400">
-                <strong>Note de sécurité :</strong> Toute modification effectuée ici sera synchronisée avec votre compte externe (Google/Outlook). Assurez-vous d'avoir les permissions nécessaires.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex space-x-3 pt-4 border-t border-gray-100 dark:border-gray-800">
-            {isEditExternalModalOpen ? (
-              <>
-                <Button variant="ghost" onClick={() => setIsEditExternalModalOpen(false)}>Annuler</Button>
-                <Button
-                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/30"
-                  onClick={() => {
-                    if (selectedExternalEvent) {
-                      setExternalEvents(prev => prev.map(e => e.id === selectedExternalEvent.id ? selectedExternalEvent : e));
-
-                      // Synchronisation avec Google Calendar
-                      if (state.googleAccessToken && selectedExternalEvent.calendarId) {
-                        const isAllDay = selectedExternalEvent.startDate.length === 10;
-                        const updatePayload: any = {
-                          summary: selectedExternalEvent.title,
-                          description: selectedExternalEvent.description,
-                          location: selectedExternalEvent.location,
-                          start: isAllDay ? { date: selectedExternalEvent.startDate } : { dateTime: selectedExternalEvent.startDate },
-                          end: isAllDay ? { date: selectedExternalEvent.dueDate } : { dateTime: selectedExternalEvent.dueDate }
-                        };
-
-                        googleCalendarService.updateEvent(state.googleAccessToken, selectedExternalEvent.calendarId, selectedExternalEvent.id, updatePayload).catch(err => {
-                          console.error("Erreur sync Google:", err);
-                          alert("Erreur lors de la synchronisation avec Google Calendar : " + err.message);
-                        });
-                      }
-
-                      // Synchronisation avec Google Tasks
-                      if (state.googleAccessToken && selectedExternalEvent.source === 'google-tasks' && selectedExternalEvent.taskListId) {
-                        const updatePayload: any = {
-                          title: selectedExternalEvent.title.replace('[Tâche] ', ''),
-                          notes: selectedExternalEvent.description,
-                          status: selectedExternalEvent.status,
-                          due: selectedExternalEvent.dueDate
-                        };
-
-                        googleCalendarService.updateTask(state.googleAccessToken, selectedExternalEvent.taskListId, selectedExternalEvent.id, updatePayload).catch(err => {
-                          console.error("Erreur sync Tasks:", err);
-                          alert("Erreur lors de la synchronisation avec Google Tasks : " + err.message);
-                        });
-                      }
-
-                      setSelectedExternalEvent(null);
-                      setIsEditExternalModalOpen(false);
-                    }
-                  }}
-                >
-                  Enregistrer les modifications
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button variant="ghost" onClick={() => setSelectedExternalEvent(null)}>Fermer</Button>
-                {(selectedExternalEvent.source === 'google' || selectedExternalEvent.source === 'google-tasks') && (
-                  <Button
-                    variant="outline"
-                    className="border-red-500 text-red-600 hover:bg-red-50 flex items-center gap-2"
-                    onClick={async () => {
-                      const isTask = selectedExternalEvent.source === 'google-tasks';
-                      if (window.confirm(`Voulez-vous vraiment supprimer cet${isTask ? 'te tâche' : ' événement'} de votre compte Google ?`)) {
-                        try {
-                          setIsSyncing(true);
-                          if (isTask) {
-                            await googleCalendarService.deleteTask(state.googleAccessToken!, selectedExternalEvent.taskListId!, selectedExternalEvent.id);
-                          } else {
-                            await googleCalendarService.deleteEvent(state.googleAccessToken!, selectedExternalEvent.calendarId!, selectedExternalEvent.id);
-                          }
-                          setExternalEvents(prev => prev.filter(e => e.id !== selectedExternalEvent.id));
-                          setSelectedExternalEvent(null);
-                          alert(`${isTask ? 'Tâche' : 'Événement'} supprimé${isTask ? 'e' : ''} avec succès.`);
-                        } catch (error: any) {
-                          alert("Erreur lors de la suppression : " + error.message);
-                        } finally {
-                          setIsSyncing(false);
-                        }
-                      }
-                    }}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Supprimer
-                  </Button>
-                )}
-                <Button
-                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
-                  onClick={() => setIsEditExternalModalOpen(true)}
-                >
-                  Modifier l'événement
-                </Button>
-              </>
-            )}
           </div>
         </Modal>
       )}
