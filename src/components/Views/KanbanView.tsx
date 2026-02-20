@@ -398,6 +398,18 @@ export function KanbanView() {
     const isCustomColumn = customColumns.some(col => col.id === columnId);
     if (!isCustomColumn) return;
 
+    // Vérification des droits
+    if (selectedProjectIds.length === 1) {
+      const project = state.projects.find(p => p.id === selectedProjectIds[0]);
+      const isViewer = project?.source === 'firebase' &&
+        project.ownerId !== state.cloudUser?.uid &&
+        project.memberRoles?.[state.cloudUser?.uid || ''] === 'viewer';
+      if (isViewer) {
+        alert("Vous n'avez pas les droits pour supprimer une colonne dans ce projet.");
+        return;
+      }
+    }
+
     if (window.confirm('Supprimer cette colonne ?')) {
       const updatedProjects = state.projects.map(project => {
         const updatedTasks = project.tasks.map(task => {
@@ -422,6 +434,18 @@ export function KanbanView() {
 
   const handleAddTask = (newTask: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!newTask.projectId) return;
+
+    // Vérification des droits sur le projet cible
+    const project = state.projects.find(p => p.id === newTask.projectId);
+    const isViewer = project?.source === 'firebase' &&
+      project.ownerId !== state.cloudUser?.uid &&
+      project.memberRoles?.[state.cloudUser?.uid || ''] === 'viewer';
+
+    if (isViewer) {
+      alert("Vous n'avez pas les droits pour ajouter une tâche à ce projet.");
+      setAddingTaskColumnId(null);
+      return;
+    }
 
     const task: Task = {
       ...newTask,
@@ -567,16 +591,7 @@ export function KanbanView() {
                     </button>
                     <div className="h-px bg-gray-100 dark:bg-gray-700 my-1" />
                     {state.projects
-                      .filter(p => {
-                        if (p.status !== 'active') return false;
-                        // Exclure les projets dont on est seulement viewer
-                        if (p.source === 'firebase' &&
-                          p.ownerId !== state.cloudUser?.uid &&
-                          p.memberRoles?.[state.cloudUser?.uid || ''] === 'viewer') {
-                          return false;
-                        }
-                        return true;
-                      })
+                      .filter(p => p.status === 'active')
                       .map(project => (
                         <label key={project.id} className="flex items-center px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors">
                           <input
