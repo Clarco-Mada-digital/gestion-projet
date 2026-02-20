@@ -10,11 +10,18 @@ import { Card } from '../UI/Card';
 
 // Normalisation des statuts (minuscule, sans accents, sans 's' à la fin)
 const normalizeStatusName = (name: string) => {
+  if (!name) return '';
   return name
     .toLowerCase()
     .trim()
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Supprime les accents
     .replace(/s$/, ""); // Supprime le 's' final pour le pluriel
+};
+
+// Génération de slug pour les IDs de colonnes (Agile : uniformise les IDs par nom)
+const slugifyStatus = (name: string) => {
+  const norm = normalizeStatusName(name).replace(/\s+/g, '-');
+  return norm.startsWith('status-') ? norm : `status-${norm}`;
 };
 
 // Type pour les colonnes
@@ -79,55 +86,55 @@ export function KanbanView() {
     // Effet de chargement des données
   }, [state.projects]);
 
-  // Charger les colonnes personnalisées et l'ordre des colonnes
+  // Charger les colonnes personnalisées et l'ordre des colonnes depuis les projets
   useEffect(() => {
-    let savedCols = [];
-    let savedOrder = [];
-
     const isAllSelected = selectedProjectIds.length === 0;
     const activeProjectId = selectedProjectIds.length === 1 ? selectedProjectIds[0] : 'all';
 
-    if (isAllSelected || selectedProjectIds.length > 1) {
-      savedCols = state.appSettings.kanbanSettings?.customColumns || [];
+    // 1. Identifier tous les projets visibles (même en lecture seule)
+    const targetProjects = isAllSelected
+      ? state.projects.filter(p => p.status === 'active')
+      : state.projects.filter(p => selectedProjectIds.includes(p.id));
+
+    // 2. Agréger toutes les colonnes personnalisées uniques
+    const aggregatedColsMap = new Map<string, any>();
+
+    // On fusionne les colonnes globales et celles de chaque projet
+    // La priorité est donnée aux colonnes de projet pour les titres/couleurs
+    [... (state.appSettings.kanbanSettings?.customColumns || [])].forEach(col => {
+      aggregatedColsMap.set(col.id, col);
+    });
+
+    targetProjects.forEach(p => {
+      if (p.kanbanSettings?.customColumns) {
+        p.kanbanSettings.customColumns.forEach(col => {
+          // On garde la définition si elle a un titre (ou on met à jour)
+          aggregatedColsMap.set(col.id, col);
+        });
+      }
+    });
+
+    // 3. Charger l'ordre (priorité au projet si sélectionné, sinon global)
+    let savedOrder = [];
+    if (activeProjectId === 'all' || selectedProjectIds.length > 1) {
       savedOrder = state.appSettings.kanbanSettings?.columnOrder || [];
-    } else {
-      const project = state.projects.find(p => p.id === activeProjectId);
-      savedCols = project?.kanbanSettings?.customColumns || [];
-      savedOrder = project?.kanbanSettings?.columnOrder || [];
+    } else if (selectedProjectIds.length === 1) {
+      const p = state.projects.find(proj => proj.id === selectedProjectIds[0]);
+      savedOrder = p?.kanbanSettings?.columnOrder || [];
     }
 
-    // Fallback sur localStorage pour la migration
-    if (savedCols.length === 0) {
-      const localCols = localStorage.getItem('customKanbanColumns');
-      if (localCols) savedCols = JSON.parse(localCols);
-    }
-    if (savedOrder.length === 0) {
-      const localOrder = localStorage.getItem('kanbanColumnOrder');
-      if (localOrder) savedOrder = JSON.parse(localOrder);
-    }
-
-    setCustomColumns(savedCols);
+    setCustomColumns(Array.from(aggregatedColsMap.values()));
     setColumnOrder(savedOrder);
   }, [selectedProjectIds, state.appSettings.kanbanSettings, state.projects]);
 
   // Fonction utilitaire pour sauvegarder les paramètres
   const saveKanbanSettings = (updatedCols: any[], updatedOrder: string[], updatedTaskOrder?: Record<string, string[]>) => {
-    const activeProjectId = selectedProjectIds.length === 1 ? selectedProjectIds[0] : 'all';
-
-    // Récupérer l'ancien taskOrder si non fourni
-    let currentTaskOrder = updatedTaskOrder;
-    if (!currentTaskOrder) {
-      if (activeProjectId === 'all') {
-        currentTaskOrder = state.appSettings.kanbanSettings?.taskOrder || {};
-      } else {
-        const project = state.projects.find(p => p.id === activeProjectId);
-        currentTaskOrder = project?.kanbanSettings?.taskOrder || {};
-      }
-    }
+    const isAllSelected = selectedProjectIds.length === 0;
+    const activeProjectId = selectedProjectIds.length === 1 ? selectedProjectIds[0] : null;
 
     const settings = {
       columnOrder: updatedOrder,
-      taskOrder: currentTaskOrder,
+      taskOrder: updatedTaskOrder || (isAllSelected ? state.appSettings.kanbanSettings?.taskOrder : state.projects.find(p => p.id === activeProjectId)?.kanbanSettings?.taskOrder) || {},
       customColumns: updatedCols.map(c => ({
         id: c.id,
         title: c.title,
@@ -136,14 +143,15 @@ export function KanbanView() {
       }))
     };
 
-    const isAllSelected = selectedProjectIds.length === 0;
-    if (isAllSelected) {
-      dispatch({
-        type: 'UPDATE_APP_SETTINGS',
-        payload: { kanbanSettings: settings }
-      });
-    } else if (selectedProjectIds.length === 1) {
-      const project = state.projects.find(p => p.id === selectedProjectIds[0]);
+    // Sauvegarde globale toujours (pour les projets locaux et fallback)
+    dispatch({
+      type: 'UPDATE_APP_SETTINGS',
+      payload: { kanbanSettings: settings }
+    });
+
+    // Si on est dans un projet spécifique ou qu'on a modifié des colonnes de projets
+    if (activeProjectId) {
+      const project = state.projects.find(p => p.id === activeProjectId);
       if (project) {
         dispatch({
           type: 'UPDATE_PROJECT',
@@ -154,11 +162,27 @@ export function KanbanView() {
           }
         });
       }
+    } else if (isAllSelected) {
+      // Dans "Tous les projets", on met à jour chaque projet actif avec les nouvelles colonnes si besoin
+      // Cela assure que les définitions de colonnes suivent les tâches
+      state.projects.forEach(p => {
+        if (p.status === 'active' && p.source === 'firebase') {
+          // On ne met à jour que si on a vraiment des customCols
+          dispatch({
+            type: 'UPDATE_PROJECT',
+            payload: {
+              ...p,
+              kanbanSettings: {
+                ...(p.kanbanSettings || {}),
+                customColumns: settings.customColumns
+              },
+              updatedAt: new Date().toISOString()
+            }
+          });
+        }
+      });
     }
-    // Note: Pour plusieurs projets, on ne sauvegarde pas les paramètres de colonne globalement pour le moment
-    // ou on pourrait choisir de les sauvegarder dans AppSettings.
 
-    // Garder le localStorage en backup
     localStorage.setItem('customKanbanColumns', JSON.stringify(settings.customColumns));
     localStorage.setItem('kanbanColumnOrder', JSON.stringify(settings.columnOrder));
   };
@@ -167,23 +191,14 @@ export function KanbanView() {
   useEffect(() => {
     let tasksToDisplay = [];
 
-    const filterViewerProjects = (p: any) => {
-      // Exclure les projets dont on est seulement viewer
-      if (p.source === 'firebase' &&
-        p.ownerId !== state.cloudUser?.uid &&
-        p.memberRoles?.[state.cloudUser?.uid || ''] === 'viewer') {
-        return false;
-      }
-      return true;
-    };
-
+    // On affiche tous les projets actifs (le rôle viewer n'empêche pas de VOIR le tableau)
     if (selectedProjectIds.length === 0) {
       tasksToDisplay = state.projects
-        .filter(project => project.status === 'active' && filterViewerProjects(project))
+        .filter(project => project.status === 'active')
         .flatMap(p => p.tasks);
     } else {
       tasksToDisplay = state.projects
-        .filter(p => selectedProjectIds.includes(p.id) && p.status === 'active' && filterViewerProjects(p))
+        .filter(p => selectedProjectIds.includes(p.id) && p.status === 'active')
         .flatMap(p => p.tasks);
     }
 
@@ -230,18 +245,29 @@ export function KanbanView() {
       } else {
         const color = availableColors[dynamicCols.length % availableColors.length];
 
-        // Déterminer un titre lisible. Si c'est un vieil ID technique, on essaie de l'améliorer
-        let displayTitle = task.status;
-        if (task.status.startsWith('custom-')) {
-          displayTitle = 'Nouveau Statut';
+        // LOGIQUE AMÉLIORÉE : Chercher le titre dans le projet d'origine de la tâche
+        const taskProject = state.projects.find(p => p.id === task.projectId);
+        const colDef = taskProject?.kanbanSettings?.customColumns?.find(c => c.id === task.status);
+
+        let displayTitle = colDef ? colDef.title : task.status;
+
+        // Si c'est un ID custom (status- ou custom-) sans définition trouvée
+        if ((task.status.startsWith('status-') || task.status.startsWith('custom-')) && !colDef) {
+          // Essayer de trouver une définition dans n'importe quel autre projet (cas de partage de statut)
+          const globalDef = state.projects.flatMap(p => p.kanbanSettings?.customColumns || []).find(c => c.id === task.status);
+          displayTitle = globalDef ? globalDef.title : task.status.replace(/^status-|^custom-/, '').replace(/-/g, ' ');
+
+          if (displayTitle.length > 0) {
+            displayTitle = displayTitle.charAt(0).toUpperCase() + displayTitle.slice(1);
+          }
         }
 
         const newCol: Column = {
           id: task.status,
           title: displayTitle,
           tasks: [task],
-          gradient: color.gradient,
-          iconColor: color.icon,
+          gradient: colDef?.gradient || color.gradient,
+          iconColor: colDef?.iconColor || color.icon,
           isCustom: true
         };
         dynamicCols.push(newCol);
@@ -300,11 +326,25 @@ export function KanbanView() {
   const handleAddColumn = () => {
     if (!newColumnTitle.trim()) return;
 
+    // Vérification des droits
+    if (selectedProjectIds.length === 1) {
+      const project = state.projects.find(p => p.id === selectedProjectIds[0]);
+      const isViewer = project?.source === 'firebase' &&
+        project.ownerId !== state.cloudUser?.uid &&
+        project.memberRoles?.[state.cloudUser?.uid || ''] === 'viewer';
+      if (isViewer) {
+        alert("Vous n'avez pas les droits pour ajouter une colonne à ce projet.");
+        setIsAddingColumn(false);
+        return;
+      }
+    }
+
     const normalizedNewTitle = normalizeStatusName(newColumnTitle);
+    const newColumnId = slugifyStatus(newColumnTitle);
+
     const allExistingCols = [...defaultColumns, ...customColumns];
     const existingCol = allExistingCols.find(col =>
-      normalizeStatusName(col.title) === normalizedNewTitle ||
-      normalizeStatusName(col.id) === normalizedNewTitle
+      col.id === newColumnId || normalizeStatusName(col.title) === normalizedNewTitle
     );
 
     if (existingCol) {
@@ -314,7 +354,6 @@ export function KanbanView() {
       return;
     }
 
-    const newColumnId = `custom-${Date.now()}`;
     const selectedColor = availableColors[selectedColorIndex];
 
     const newColumn = {
@@ -405,6 +444,23 @@ export function KanbanView() {
     const { source, destination, type } = result;
     if (!destination) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+
+    // PROTECTION : Vérifier les droits si c'est un projet Firebase
+    const isTaskMovement = type !== 'COLUMN';
+    if (isTaskMovement) {
+      const sourceCol = columns.find(c => c.id === source.droppableId);
+      const movedTask = sourceCol?.tasks[source.index];
+      if (movedTask) {
+        const project = state.projects.find(p => p.id === movedTask.projectId);
+        const isViewer = project?.source === 'firebase' &&
+          project.ownerId !== state.cloudUser?.uid &&
+          project.memberRoles?.[state.cloudUser?.uid || ''] === 'viewer';
+        if (isViewer) {
+          alert("Vous n'avez pas les droits de modification sur ce projet (Lecteur seul).");
+          return;
+        }
+      }
+    }
 
     if (type === 'COLUMN') {
       const newColumns = [...columns];
@@ -720,8 +776,23 @@ export function KanbanView() {
                                     className="font-bold text-gray-900 dark:text-white text-xl truncate cursor-pointer hover:bg-white/10 rounded px-1 -ml-1 transition-colors"
                                     onClick={() => {
                                       if (column.isCustom) {
-                                        setEditingColumnId(column.id);
-                                        setEditingColumnTitle(column.title);
+                                        // Vérifier les droits avant de permettre l'édition
+                                        const isAllSelected = selectedProjectIds.length === 0;
+                                        if (isAllSelected) {
+                                          setEditingColumnId(column.id);
+                                          setEditingColumnTitle(column.title);
+                                        } else {
+                                          const project = state.projects.find(p => p.id === selectedProjectIds[0]);
+                                          const isViewer = project?.source === 'firebase' &&
+                                            project.ownerId !== state.cloudUser?.uid &&
+                                            project.memberRoles?.[state.cloudUser?.uid || ''] === 'viewer';
+                                          if (isViewer) {
+                                            alert("Vous n'avez pas les droits pour renommer cette colonne.");
+                                          } else {
+                                            setEditingColumnId(column.id);
+                                            setEditingColumnTitle(column.title);
+                                          }
+                                        }
                                       }
                                     }}
                                     title={column.isCustom ? "Cliquez pour renommer" : ""}
