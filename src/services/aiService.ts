@@ -42,13 +42,27 @@ export class AIService {
    */
   private static cleanContent(content: string): string {
     if (!content) return '';
-    // Supprimer les balises <think>...</think>, <thought>...</thought>, <reasoning>...</reasoning>
-    // et leur contenu (cas des modèles CoT comme DeepSeek-R1, o1, etc.)
-    return content
+
+    // 1. Suppression des balises de réflexion standard (DeepSeek, etc.)
+    let cleaned = content
       .replace(/<think>[\s\S]*?<\/think>/gi, '')
       .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
-      .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '')
-      .trim();
+      .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '');
+
+    // 2. Extraction du contenu entre nos balises de contrôle si présentes
+    const finalMatch = cleaned.match(/\[FINAL_START\]([\s\S]*?)\[FINAL_END\]/i);
+    if (finalMatch && finalMatch[1]) {
+      cleaned = finalMatch[1];
+    }
+
+    // 3. Suppression des préambules persistants (Approche, Plan, répétition de prompt)
+    // On nettoie les "Approche :", "Plan :", "Voici le rapport :" en début de texte
+    cleaned = cleaned
+      .replace(/^(Approche|Plan|Réflexion|Analyse|Voici|D'abord|Je vais)\s*:?.*?\n/gi, '')
+      .replace(/^.*?demandé un rapport.*?\n/gi, '')
+      .replace(/\[FINAL_START\]|\[FINAL_END\]/gi, ''); // Supprimer les balises restantes
+
+    return cleaned.trim();
   }
   /**
    * Prépare le prompt système avec la documentation et le contexte utilisateur
@@ -123,14 +137,9 @@ ${documentation}
 ${appDataInfo}
 
 ## TES RÈGLES D'OR :
-- **Salutations** : Salue l'utilisateur par son **nom** uniquement au TOUT DÉBUT de la conversation ou si vous ne vous êtes pas parlé depuis longtemps. Ne répète pas "Bonjour" ou "Salut" à chaque message d'une conversation en cours.
-- **Ton** : Reste amical et professionnel.
-- **Adaptation au métier** : Adapte ton vocabulaire, tes conseils et ton ton en fonction du **poste** et du **département** de l'utilisateur (Par exemple, parle de "code/déploiement" à un développeur, de "conception" à un designer, ou de "stratégie" à un manager).
-- **Formatage** : Utilise le gras et les listes pour rendre tes réponses lisibles.
-- **Proactivité** : Si l'utilisateur a des tâches en retard, mentionne-le gentiment de temps en temps.
-- Si on te demande "Où est X ?", réfère-toi à la structure de la sidebar.
-- Si tu ne trouves pas une information spécifique dans les données fournies, propose à l'utilisateur de te donner plus de détails.
-- **IMPORTANT** : NE PRODUIS JAMAIS DE RÉFLEXION INTERNE OU DE BLOC "THINK" DANS TA RÉPONSE FINALE. RÉPONDS DIRECTEMENT AU CONTENU DEMANDÉ SEULEMENT.`;
+- **IMPORTANT** : NE PRODUIS JAMAIS DE RÉFLEXION INTERNE OU DE COMMENTAIRE SUR TON TRAVAIL.
+- **STRUCTURE** : Ta réponse finale doit IMPÉRATIVEMENT être entourée des balises [FINAL_START] et [FINAL_END]. Tout ce qui est en dehors de ces balises sera ignoré.
+  Exemple : [FINAL_START]Contenu utile ici...[FINAL_END]`;
   }
 
   /**
@@ -315,7 +324,7 @@ ${appDataInfo}
         messages: [
           {
             role: 'system',
-            content: 'Tu es un assistant concis qui aide à décomposer les tâches en sous-tâches. RÉPONDS EXCLUSIVEMENT PAR LE JSON DEMANDÉ, SANS AUCUNE RÉFLEXION OU TEXTE AVANT/APRÈS.'
+            content: 'Tu es un assistant concis qui aide à décomposer les tâches en sous-tâches. RÉPONDS EXCLUSIVEMENT PAR LE JSON DEMANDÉ DANS LE BLOC [FINAL_START]...[FINAL_END], SANS AUCUNE RÉFLEXION.'
           },
           {
             role: 'user',
@@ -499,7 +508,7 @@ ${appDataInfo}
           messages: [
             {
               role: 'system',
-              content: 'Tu es un assistant qui aide à rédiger des titres et descriptions de tâches clairs et précis. RÉPONDS EXCLUSIVEMENT PAR LE JSON DEMANDÉ, SANS AUCUNE RÉFLEXION OU TEXTE AVANT/APRÈS.'
+              content: 'Tu es un assistant qui aide à rédiger des titres et descriptions de tâches clairs et précis. RÉPONDS EXCLUSIVEMENT PAR LE JSON DEMANDÉ DANS LE BLOC [FINAL_START]...[FINAL_END], SANS AUCUNE RÉFLEXION.'
             },
             { role: 'user', content: prompt }
           ],
@@ -592,7 +601,7 @@ ${appDataInfo}
           messages: [
             {
               role: 'system',
-              content: 'Tu es un assistant expert qui aide à générer des rapports professionnels. RÉPONDS DIRECTEMENT ET UNIQUEMENT AVEC LE CONTENU DU RAPPORT, SANS AUCUNE RÉFLEXION INTERNE OU COMMENTAIRES.'
+              content: 'Tu es un assistant expert qui aide à générer des rapports professionnels. RÉPONDS DIRECTEMENT ET UNIQUEMENT AVEC LE CONTENU DU RAPPORT DANS LE BLOC [FINAL_START]...[FINAL_END], SANS AUCUNE RÉFLEXION INTERNE OU COMMENTAIRE.'
             },
             {
               role: 'user',

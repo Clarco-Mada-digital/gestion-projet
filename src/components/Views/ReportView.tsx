@@ -627,8 +627,9 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
          - RÉALISATIONS MAJEURES : Listez les succès clés par projet en utilisant des puces élégantes (•).
          - ANALYSE DE PERFORMANCE : Commentez la dynamique de travail (priorités respectées, réactivité).
          - PERSPECTIVES : Proposez 3 objectifs stratégiques pour la semaine suivante basés sur les données.
-      3. INTERDICTION : Ne mentionne JAMAIS que tu es une IA. N'utilise pas d'indications comme "Voici votre rapport" ou "Généré par". Ne produis AUCUNE RÉFLEXION INTERNE (think/reasoning). Le texte doit sembler avoir été écrit par un directeur de projet.
+      3. INTERDICTION : Ne mentionne JAMAIS que tu es une IA. N'utilise pas d'indications comme "Voici votre rapport" ou "Généré par". Ne produis AUCUNE RÉFLEXION INTERNE (think/reasoning) en dehors de la réponse finale. Le texte doit sembler avoir été écrit par un directeur de projet.
       4. FORMATTAGE : Utilise des titres en majuscules et des espacements clairs. Utilise le Markdown pour la structure si nécessaire.
+      5. DÉLIMITATION : Entoure IMPÉRATIVEMENT ton rapport final par les balises [FINAL_START] et [FINAL_END].
       
       Langue : Français exclusivement.`;
 
