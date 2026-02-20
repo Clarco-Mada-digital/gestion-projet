@@ -36,6 +36,15 @@ export class AIService {
    * @param appState État de l'application (optionnel)
    * @returns Réponse générée par l'IA
    */
+
+  /**
+   * Nettoie le contenu de la réponse IA en supprimant les blocs de réflexion (DeepSeek, etc.)
+   */
+  private static cleanContent(content: string): string {
+    if (!content) return '';
+    // Supprimer les balises <think>...</think> et leur contenu (cas des modèles CoT comme DeepSeek-R1)
+    return content.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  }
   /**
    * Prépare le prompt système avec la documentation et le contexte utilisateur
    */
@@ -205,18 +214,18 @@ ${appDataInfo}
         }
 
         const data: AIResponse = await response.json();
-        
-        // Extraire le contenu - certains modèles le mettent dans reasoning, d'autres dans content
-        let content = data.choices[0].message.content;
-        const reasoning = data.choices[0].message.reasoning;
-        
-        // Si le content est vide mais reasoning a du contenu, utiliser reasoning
-        if (!content && reasoning) {
-          content = reasoning;
+
+        // Extraire et nettoyer le contenu
+        let content = AIService.cleanContent(data.choices[0].message.content || '');
+
+        // On n'utilise plus reasoning comme fallback automatique car il contient souvent du "bruit" (réflexion interne)
+        // sauf si content est VRAIMENT vide et qu'on n'a rien d'autre, mais on le nettoie aussi
+        if (!content && data.choices[0].message.reasoning) {
+          content = AIService.cleanContent(data.choices[0].message.reasoning);
         }
 
         if (!content) {
-          throw new Error('Réponse de l\'IA invalide');
+          throw new Error('Réponse de l\'IA vide ou invalide');
         }
 
         return { content };
@@ -324,14 +333,12 @@ ${appDataInfo}
       }
 
       const data = await response.json();
-      
-      // Extraire le contenu - certains modèles le mettent dans reasoning, d'autres dans content
-      let content = data.choices?.[0]?.message?.content;
-      const reasoning = data.choices?.[0]?.message?.reasoning;
-      
-      // Si le content est vide mais reasoning a du contenu, utiliser reasoning
-      if (!content && reasoning) {
-        content = reasoning;
+
+      // Extraire et nettoyer le contenu
+      let content = AIService.cleanContent(data.choices?.[0]?.message?.content || '');
+
+      if (!content && data.choices?.[0]?.message?.reasoning) {
+        content = AIService.cleanContent(data.choices?.[0]?.message?.reasoning);
       }
 
       if (!content) {
@@ -383,10 +390,10 @@ ${appDataInfo}
     try {
       // Essayer d'extraire le JSON de la réponse
       const jsonMatch = content.match(/\[\s*\{.*\}\s*\]/s);
-      
+
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        
+
         // Vérifier si c'est le format avec groupes
         if (parsed.length > 0 && parsed[0].group && parsed[0].tasks) {
           // Aplatir les groupes en une liste simple de sous-tâches
@@ -404,14 +411,14 @@ ${appDataInfo}
           });
           return flattenedTasks;
         }
-        
+
         // Format standard (sans groupes)
         return parsed;
       }
 
       // Si pas de JSON valide, essayer de parser manuellement
       const lines = content.split('\n').filter(line => line.trim() !== '');
-      
+
       const subTasks: GeneratedSubTask[] = [];
 
       for (const line of lines) {
@@ -501,14 +508,12 @@ ${appDataInfo}
       }
 
       const data = await response.json();
-      
-      // Extraire le contenu - certains modèles le mettent dans reasoning, d'autres dans content
-      let content = data.choices?.[0]?.message?.content;
-      const reasoning = data.choices?.[0]?.message?.reasoning;
-      
-      // Si le content est vide mais reasoning a du contenu, utiliser reasoning
-      if (!content && reasoning) {
-        content = reasoning;
+
+      // Extraire et nettoyer le contenu
+      let content = AIService.cleanContent(data.choices?.[0]?.message?.content || '');
+
+      if (!content && data.choices?.[0]?.message?.reasoning) {
+        content = AIService.cleanContent(data.choices?.[0]?.message?.reasoning);
       }
 
       if (!content) {
@@ -602,16 +607,14 @@ ${appDataInfo}
       }
 
       const data = await response.json();
-      
-      // Extraire le contenu - certains modèles le mettent dans reasoning, d'autres dans content
-      let content = data.choices?.[0]?.message?.content;
-      const reasoning = data.choices?.[0]?.message?.reasoning;
-      
-      // Si le content est vide mais reasoning a du contenu, utiliser reasoning
-      if (!content && reasoning) {
-        content = reasoning;
+
+      // Extraire et nettoyer le contenu
+      let content = AIService.cleanContent(data.choices?.[0]?.message?.content || '');
+
+      if (!content && data.choices?.[0]?.message?.reasoning) {
+        content = AIService.cleanContent(data.choices?.[0]?.message?.reasoning);
       }
-      
+
       return content || 'Aucune réponse générée';
 
     } catch (error) {
@@ -786,14 +789,12 @@ ${appDataInfo}
       }
 
       const data = await response.json();
-      
-      // Extraire le contenu - certains modèles le mettent dans reasoning, d'autres dans content
-      let content = data.choices?.[0]?.message?.content;
-      const reasoning = data.choices?.[0]?.message?.reasoning;
-      
-      // Si le content est vide mais reasoning a du contenu, utiliser reasoning
-      if (!content && reasoning) {
-        content = reasoning;
+
+      // Extraire et nettoyer le contenu
+      let content = AIService.cleanContent(data.choices?.[0]?.message?.content || '');
+
+      if (!content && data.choices?.[0]?.message?.reasoning) {
+        content = AIService.cleanContent(data.choices?.[0]?.message?.reasoning);
       }
 
       if (!content) {

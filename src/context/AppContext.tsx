@@ -583,24 +583,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!state.cloudUser) return;
 
     const refreshData = async () => {
+      // Détection chirurgicale : on ne bloque que si une modale est réellement visible
+      const isModalVisible = !!document.querySelector('.fixed.inset-0.z-50') ||
+        !!document.querySelector('.ant-modal');
+      const isSettings = state.currentView === 'settings';
+
+      if (isModalVisible || isSettings) {
+        console.log(`[Sync] Rafraîchissement suspendu (${isModalVisible ? 'Modal active' : 'Vue Paramètres'})`);
+        return;
+      }
+
       try {
         const sharedProjects = await firebaseService.getSharedProjects();
         if (sharedProjects.length > 0) {
-          // Check if data actually changed before dispatching to prevent re-renders
           const currentFirebaseProjects = state.projects.filter(p => p.source === 'firebase');
 
-          // Simple check: different count or different last update timestamps
+          const currentData = currentFirebaseProjects.map(p => ({ id: p.id, updated: p.updatedAt })).sort((a, b) => a.id.localeCompare(b.id));
+          const incomingData = sharedProjects.map(p => ({ id: p.id, updated: p.updatedAt })).sort((a, b) => a.id.localeCompare(b.id));
+
           const hasChanged =
             sharedProjects.length !== currentFirebaseProjects.length ||
-            JSON.stringify(sharedProjects.map(p => ({ id: p.id, updated: p.updatedAt }))) !==
-            JSON.stringify(currentFirebaseProjects.map(p => ({ id: p.id, updated: p.updatedAt })));
+            JSON.stringify(currentData) !== JSON.stringify(incomingData);
 
           if (hasChanged) {
+            console.log("[Sync] Données modifiées détectées sur Firebase, synchronisation...");
             dispatch({ type: 'SYNC_PROJECTS', payload: sharedProjects });
           }
         }
       } catch (error) {
-        console.error("Erreur lors du rafraîchissement des données:", error);
+        console.error("[Sync] Erreur rafraîchissement:", error);
       }
     };
 
@@ -609,7 +620,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       refreshData();
     }
 
-    // Polling toutes les 60 secondes (moins fréquent pour éviter les glitchs)
+    // Polling toutes les 60 secondes (remis à 60s comme demandé, sécurisé par le blocage)
     const interval = setInterval(refreshData, 60000);
     return () => clearInterval(interval);
   }, [state.currentView, state.cloudUser]); // REMOVED state.projects dependency
@@ -619,14 +630,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!state.cloudUser || state.isLoading) return;
 
     const syncModifiedProjects = async () => {
-      // Filtrer pour ne synchroniser que les projets dont l'utilisateur actuel est propriétaire
+      // Correction importante : on autorise les membres à synchroniser s'ils font partie du projet
       const modifiedProjects = state.projects.filter(p =>
         (!p.lastSyncedAt || new Date(p.updatedAt) > new Date(p.lastSyncedAt)) &&
-        (p.source === 'firebase' && p.ownerId === state.cloudUser?.uid)
+        (p.source === 'firebase' && (p.ownerId === state.cloudUser?.uid || p.members?.includes(state.cloudUser?.uid || '')))
       );
 
       if (modifiedProjects.length === 0) return;
 
+      console.log(`[Sync] Envoi de ${modifiedProjects.length} projet(s) vers le Cloud...`);
       for (const project of modifiedProjects) {
         try {
           await firebaseService.syncProject(project);
