@@ -805,7 +805,7 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
             {(() => {
               const isMultiDay = isMultiDayTask(editedTask.startDate, editedTask.dueDate);
               const autoCalculatedDuration = isMultiDay ? calculateDuration(editedTask.startDate, editedTask.dueDate) : '';
-              
+
               return (
                 <>
                   {isEditing ? (
@@ -887,8 +887,8 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
                 .map(user => (
                   <div
                     key={user.id}
-                    className="flex items-center rounded-full px-3 py-1.5 text-sm font-medium cursor-pointer bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800/70 transition-colors duration-200"
-                    onClick={(e) => handleRemoveAssignee(e, user.id)}
+                    className={`flex items-center rounded-full px-3 py-1.5 text-sm font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 transition-colors duration-200 ${canEdit ? 'cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800/70' : 'cursor-default'}`}
+                    onClick={(e) => canEdit && handleRemoveAssignee(e, user.id)}
                   >
                     <div className="w-6 h-6 rounded-full bg-blue-200 dark:bg-blue-800 flex items-center justify-center text-xs font-medium text-blue-800 dark:text-blue-200 mr-2 shrink-0 overflow-hidden">
                       {user.avatar ? (
@@ -898,7 +898,7 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
                       )}
                     </div>
                     <span className="whitespace-nowrap">{user.name || user.email}</span>
-                    <XIcon className="w-3.5 h-3.5 ml-1.5 opacity-70 hover:opacity-100" />
+                    {canEdit && <XIcon className="w-3.5 h-3.5 ml-1.5 opacity-70 hover:opacity-100" />}
                   </div>
                 ))}
 
@@ -1029,14 +1029,16 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
                   className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800"
                 >
                   {tag}
-                  <button
-                    type="button"
-                    onClick={() => removeTag(tag)}
-                    className="ml-1.5 inline-flex items-center justify-center w-4 h-4 text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 transition-colors duration-200"
-                    aria-label={`Supprimer le tag ${tag}`}
-                  >
-                    <XIcon className="w-3 h-3" />
-                  </button>
+                  {isEditing && canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => removeTag(tag)}
+                      className="ml-1.5 inline-flex items-center justify-center w-4 h-4 text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 transition-colors duration-200"
+                      aria-label={`Supprimer le tag ${tag}`}
+                    >
+                      <XIcon className="w-3 h-3" />
+                    </button>
+                  )}
                 </span>
               ))}
             </div>

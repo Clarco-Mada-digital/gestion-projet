@@ -158,13 +158,6 @@ const TaskCardComponent = ({ task, className = '', isDragging = false }: TaskCar
   }, [dispatch, task, isViewer]);
 
   const handleEdit = useCallback(() => {
-    if (isViewer) {
-      // Pour les viewers, on peut éventuellement voir les détails mais pas éditer
-      // Pour l'instant on bloque l'accès au formulaire d'édition qui permet la modification
-      alert("Vous n'avez pas les droits pour modifier cette tâche.");
-      return;
-    }
-
     try {
       // Vérifier que la tâche est valide avant de l'ouvrir
       if (!task || typeof task !== 'object') {
@@ -183,13 +176,13 @@ const TaskCardComponent = ({ task, className = '', isDragging = false }: TaskCar
       }
 
       openModal({
-        title: 'Modifier la tâche',
+        title: isViewer ? 'Détails de la tâche' : 'Modifier la tâche',
         content: <EditTaskForm task={task} onClose={closeModal} project={project} />,
         size: 'lg'
       });
     } catch (error) {
-      console.error('Erreur lors de l\'ouverture du formulaire d\'édition:', error);
-      alert('Une erreur est survenue lors de la modification de la tâche.');
+      console.error('Erreur lors de l\'ouverture du modal de tâche:', error);
+      alert('Une erreur est survenue lors de l\'ouverture de la tâche.');
     }
   }, [openModal, closeModal, task, state.projects, isViewer]);
 
