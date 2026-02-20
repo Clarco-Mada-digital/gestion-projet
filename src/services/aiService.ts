@@ -42,8 +42,13 @@ export class AIService {
    */
   private static cleanContent(content: string): string {
     if (!content) return '';
-    // Supprimer les balises <think>...</think> et leur contenu (cas des modèles CoT comme DeepSeek-R1)
-    return content.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+    // Supprimer les balises <think>...</think>, <thought>...</thought>, <reasoning>...</reasoning>
+    // et leur contenu (cas des modèles CoT comme DeepSeek-R1, o1, etc.)
+    return content
+      .replace(/<think>[\s\S]*?<\/think>/gi, '')
+      .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
+      .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '')
+      .trim();
   }
   /**
    * Prépare le prompt système avec la documentation et le contexte utilisateur
@@ -124,7 +129,8 @@ ${appDataInfo}
 - **Formatage** : Utilise le gras et les listes pour rendre tes réponses lisibles.
 - **Proactivité** : Si l'utilisateur a des tâches en retard, mentionne-le gentiment de temps en temps.
 - Si on te demande "Où est X ?", réfère-toi à la structure de la sidebar.
-- Si tu ne trouves pas une information spécifique dans les données fournies, propose à l'utilisateur de te donner plus de détails.`;
+- Si tu ne trouves pas une information spécifique dans les données fournies, propose à l'utilisateur de te donner plus de détails.
+- **IMPORTANT** : NE PRODUIS JAMAIS DE RÉFLEXION INTERNE OU DE BLOC "THINK" DANS TA RÉPONSE FINALE. RÉPONDS DIRECTEMENT AU CONTENU DEMANDÉ SEULEMENT.`;
   }
 
   /**
@@ -309,7 +315,7 @@ ${appDataInfo}
         messages: [
           {
             role: 'system',
-            content: 'Tu es un assistant concis qui aide à décomposer les tâches en sous-tâches.'
+            content: 'Tu es un assistant concis qui aide à décomposer les tâches en sous-tâches. RÉPONDS EXCLUSIVEMENT PAR LE JSON DEMANDÉ, SANS AUCUNE RÉFLEXION OU TEXTE AVANT/APRÈS.'
           },
           {
             role: 'user',
@@ -493,7 +499,7 @@ ${appDataInfo}
           messages: [
             {
               role: 'system',
-              content: 'Tu es un assistant qui aide à rédiger des titres et descriptions de tâches clairs et précis.'
+              content: 'Tu es un assistant qui aide à rédiger des titres et descriptions de tâches clairs et précis. RÉPONDS EXCLUSIVEMENT PAR LE JSON DEMANDÉ, SANS AUCUNE RÉFLEXION OU TEXTE AVANT/APRÈS.'
             },
             { role: 'user', content: prompt }
           ],
@@ -586,7 +592,7 @@ ${appDataInfo}
           messages: [
             {
               role: 'system',
-              content: 'Tu es un assistant concis qui aide à générer des rapports professionnels. Sois bref et va droit au but.'
+              content: 'Tu es un assistant expert qui aide à générer des rapports professionnels. RÉPONDS DIRECTEMENT ET UNIQUEMENT AVEC LE CONTENU DU RAPPORT, SANS AUCUNE RÉFLEXION INTERNE OU COMMENTAIRES.'
             },
             {
               role: 'user',
@@ -774,7 +780,7 @@ ${appDataInfo}
           messages: [
             {
               role: 'system',
-              content: 'Tu es un assistant expert en gestion de projet qui génère des tâches pertinentes et structurées au format JSON.'
+              content: 'Tu es un assistant expert en gestion de projet qui génère des tâches pertinentes et structurées au format JSON. RÉPONDS EXCLUSIVEMENT PAR LE JSON DEMANDÉ, SANS AUCUNE RÉFLEXION OU TEXTE AVANT/APRÈS.'
             },
             { role: 'user', content: prompt }
           ],
