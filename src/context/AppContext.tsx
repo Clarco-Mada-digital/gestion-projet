@@ -101,17 +101,6 @@ const defaultUser: User = {
 // Données d'exemple (Vides au début)
 
 
-// Interface pour les paramètres EmailJS
-export interface EmailJsSettings {
-  serviceId: string;
-  templateId: string;
-  userId: string;
-  accessToken?: string;
-  fromEmail: string;
-  fromName: string;
-  isEnabled: boolean;
-}
-
 // Paramètres par défaut de l'application
 const initialAppSettings: AppSettings & { aiSettings: AISettings } = {
   theme: 'light',
@@ -163,11 +152,12 @@ const initialState: AppState = {
     accessToken: '',
     fromEmail: '',
     fromName: 'Gestion de Projet',
-    isEnabled: true
+    isEnabled: true,
+    defaultSubject: 'Delivery du %dd au %df'
   },
   appSettings: initialAppSettings,
   notifications: [],
-  isLoading: false,
+  isLoading: true,
   error: null,
   selectedProject: null,
   targetProjectId: null,
@@ -377,7 +367,8 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         userId: action.payload.userId ?? state.emailSettings.userId,
         fromEmail: action.payload.fromEmail ?? state.emailSettings.fromEmail,
         fromName: action.payload.fromName ?? state.emailSettings.fromName ?? 'Gestion de Projet',
-        isEnabled: action.payload.isEnabled ?? state.emailSettings.isEnabled ?? true
+        isEnabled: action.payload.isEnabled ?? state.emailSettings.isEnabled ?? true,
+        defaultSubject: action.payload.defaultSubject ?? state.emailSettings.defaultSubject ?? 'Delivery du %dd au %df'
       };
 
 
@@ -657,95 +648,82 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => clearTimeout(timer);
   }, [state.projects, state.cloudUser, state.isLoading, dispatch]);
 
-  // Effet pour charger les données initiales
+  // Effet pour charger les données initiales au démarrage
   useEffect(() => {
     const loadInitialData = async () => {
       try {
+        console.log('[Persistence] Chargement des données initiales...');
+
+        // 1. Charger les différents blocs depuis localStorage
         const savedData = localStorage.getItem('astroProjectManagerData');
         const savedTheme = localStorage.getItem('astroProjectManagerTheme') as Theme | null;
         const savedAppSettings = localStorage.getItem('astroProjectManagerAppSettings');
         const savedEmailSettings = localStorage.getItem('astroProjectManagerEmailSettings');
 
-        if (savedData) {
-          const parsedData = JSON.parse(savedData);
+        // 2. Préparer les valeurs par défaut
+        let emailSettings = { ...initialState.emailSettings };
+        let appSettings = { ...initialAppSettings };
+        let mainData = { projects: [] as Project[], users: [defaultUser], reports: [] as ReportEntry[] };
 
-          // S'assurer qu'il y a au moins un utilisateur
-          const users = parsedData.users && parsedData.users.length > 0
-            ? parsedData.users
-            : [defaultUser];
-
-          // Vérification que la vue est valide
-          const validViews: ViewMode[] = ['today', 'projects', 'kanban', 'calendar', 'settings'];
-          const viewToSet = parsedData.currentView || 'today';
-
-          // Charger les paramètres email sauvegardés de manière sécurisée
-          let emailSettings = initialState.emailSettings;
-          if (savedEmailSettings) {
-            try {
-              const parsedEmailSettings = JSON.parse(savedEmailSettings);
-              if (parsedEmailSettings && (parsedEmailSettings.serviceId || parsedEmailSettings.userId)) {
-                emailSettings = { ...initialState.emailSettings, ...parsedEmailSettings };
-              } else {
-                // Fallback vers l'ancien emplacement dans parsedData si le nouveau est vide
-                if (parsedData.emailSettings && (parsedData.emailSettings.serviceId || parsedData.emailSettings.userId)) {
-                  emailSettings = { ...initialState.emailSettings, ...parsedData.emailSettings };
-                }
-              }
-            } catch (error) {
-              console.error('Erreur lors du chargement des paramètres email:', error);
+        // 3. Charger les paramètres email (Priorité à la clé dédiée)
+        if (savedEmailSettings) {
+          try {
+            const parsed = JSON.parse(savedEmailSettings);
+            if (parsed) {
+              emailSettings = { ...emailSettings, ...parsed };
+              console.log('[Persistence] Paramètres email chargés depuis sa clé dédiée');
             }
-          } else if (parsedData.emailSettings) {
-            // Si pas de clé séparée, regarder dans le blob principal
-            emailSettings = { ...initialState.emailSettings, ...parsedData.emailSettings };
-          }
-
-          // Charger les paramètres d'apparence sauvegardés
-          let appSettings = initialAppSettings;
-          if (savedAppSettings) {
-            try {
-              appSettings = { ...initialAppSettings, ...JSON.parse(savedAppSettings) };
-            } catch (error) {
-              console.error('Erreur lors du chargement des paramètres d\'apparence:', error);
-            }
-          } else if (parsedData.appSettings) {
-            appSettings = { ...initialAppSettings, ...parsedData.appSettings };
-          }
-
-          // Mettre à jour l'état avec les données chargées
-          dispatch({
-            type: 'INIT_STATE',
-            payload: {
-              ...parsedData,
-              users,
-              // Priorité au thème sauvegardé spécifiquement
-              theme: savedTheme || parsedData.theme || 'light',
-              currentView: validViews.includes(viewToSet) ? viewToSet : 'today',
-              appSettings,
-              emailSettings
-            }
-          });
-        } else {
-          // Utiliser les valeurs par défaut vides
-          dispatch({
-            type: 'INIT_STATE',
-            payload: {
-              ...initialState,
-              theme: savedTheme || 'light',
-              users: [defaultUser],
-              projects: []
-            }
-          });
+          } catch (e) { console.error('Erreur JSON emailSettings', e); }
         }
-      } catch (error) {
-        console.error('Erreur lors du chargement des données:', error);
-        // En cas d'erreur, utiliser les valeurs par défaut vides
+
+        // 4. Charger les paramètres d'apparence
+        if (savedAppSettings) {
+          try {
+            const parsed = JSON.parse(savedAppSettings);
+            if (parsed) {
+              appSettings = { ...appSettings, ...parsed };
+              console.log('[Persistence] Paramètres apparence chargés');
+            }
+          } catch (e) { console.error('Erreur JSON appSettings', e); }
+        }
+
+        // 5. Charger les données principales
+        if (savedData) {
+          try {
+            const parsed = JSON.parse(savedData);
+            mainData = { ...mainData, ...parsed };
+
+            // Migration/Fallback : si les paramètres email étaient dans le blob principal
+            if (parsed.emailSettings && !savedEmailSettings) {
+              emailSettings = { ...emailSettings, ...parsed.emailSettings };
+              console.log('[Persistence] Fallback emailSettings depuis main blob');
+            }
+            if (parsed.appSettings && !savedAppSettings) {
+              appSettings = { ...appSettings, ...parsed.appSettings };
+            }
+          } catch (e) { console.error('Erreur JSON mainData', e); }
+        }
+
+        // 6. Finaliser l'état initial
+        const validViews: ViewMode[] = ['today', 'projects', 'kanban', 'calendar', 'settings'];
+        const currentView = (mainData as any).currentView || 'today';
+
         dispatch({
           type: 'INIT_STATE',
           payload: {
-            ...initialState,
-            users: [defaultUser],
-            projects: []
+            ...mainData,
+            theme: savedTheme || (mainData as any).theme || 'light',
+            currentView: validViews.includes(currentView) ? currentView : 'today',
+            appSettings,
+            emailSettings
           }
+        });
+
+      } catch (error) {
+        console.error('[Persistence] Erreur critique lors du chargement:', error);
+        dispatch({
+          type: 'INIT_STATE',
+          payload: initialState
         });
       } finally {
         dispatch({ type: 'SET_LOADING', payload: false });
@@ -768,6 +746,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // S'assurer que les notifications ne sont pas sauvegardées
         notifications: []
       }));
+      console.log('[Persistence] Données principales sauvegardées');
     } catch (error) {
       console.error('Erreur lors de la sauvegarde des données principales:', error);
     }
@@ -779,6 +758,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       localStorage.setItem('astroProjectManagerEmailSettings', JSON.stringify(state.emailSettings));
+      console.log('[Persistence] Paramètres email sauvegardés');
     } catch (error) {
       console.error('Erreur lors de la sauvegarde des paramètres email:', error);
     }
@@ -792,6 +772,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       localStorage.setItem('astroProjectManagerAppSettings', JSON.stringify(state.appSettings));
+      console.log('[Persistence] Paramètres apparence sauvegardés');
     } catch (error) {
       console.error('Erreur lors de la sauvegarde des paramètres d\'apparence:', error);
     }

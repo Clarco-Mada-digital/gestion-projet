@@ -10,6 +10,7 @@ export interface EmailJsSettings {
   fromEmail: string;
   fromName: string;
   isEnabled: boolean;
+  defaultSubject: string;
 }
 
 export function EmailSettings() {
@@ -21,9 +22,10 @@ export function EmailSettings() {
     accessToken: '',
     fromName: 'Gestion de Projet',
     fromEmail: '',
-    isEnabled: true
+    isEnabled: true,
+    defaultSubject: 'Delivery du %dd au %df'
   });
-  
+
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [showAccessToken, setShowAccessToken] = useState(false);
@@ -36,77 +38,33 @@ export function EmailSettings() {
     isSuccess: null,
     message: ''
   });
-  const [saveStatus, setSaveStatus] = useState<{ 
-    type: 'success' | 'error' | 'info' | null; 
-    message: string 
-  }>({ 
-    type: null, 
-    message: '' 
+  const [saveStatus, setSaveStatus] = useState<{
+    type: 'success' | 'error' | 'info' | null;
+    message: string
+  }>({
+    type: null,
+    message: ''
   });
 
-  // Charger les paramètres email au chargement du composant
+  // Charger les paramètres depuis le state global
   useEffect(() => {
-    
-    
-    try {
-      // Charger directement depuis le localStorage
-      const savedData = localStorage.getItem('astroProjectManagerData');
-      
-      if (savedData) {
-        const data = JSON.parse(savedData);
-        
-        
-        // Vérifier si on a des paramètres email
-        if (data.emailSettings) {
-          
-          
-          // Mettre à jour le formulaire avec les données du localStorage
-          const settings = data.emailSettings;
-          const formSettings = {
-            serviceId: settings.serviceId || '',
-            templateId: settings.templateId || 'template_default',
-            userId: settings.userId || '',
-            accessToken: settings.accessToken || '',
-            fromEmail: settings.fromEmail || '',
-            fromName: settings.fromName || 'Gestion de Projet',
-            isEnabled: settings.isEnabled !== false
-          };
-          
-          
-          setFormData(formSettings);
-          
-          // Mettre à jour le state global si nécessaire
-          if (JSON.stringify(state.emailSettings) !== JSON.stringify(formSettings)) {
-            dispatch({
-              type: 'UPDATE_EMAIL_SETTINGS',
-              payload: formSettings
-            });
-          }
-          return;
-        }
-      }
-      
-      // Si on arrive ici, c'est qu'il n'y a pas de paramètres sauvegardés
-      
-      const defaultSettings = {
-        serviceId: '',
-        templateId: 'template_default',
-        userId: '',
-        accessToken: '',
-        fromEmail: '',
-        fromName: 'Gestion de Projet',
-        isEnabled: true
-      };
-      setFormData(defaultSettings);
-      
-    } catch (error) {
-      console.error('Erreur lors du chargement des paramètres:', error);
+    if (state.emailSettings) {
+      setFormData({
+        serviceId: state.emailSettings.serviceId || '',
+        templateId: state.emailSettings.templateId || 'template_default',
+        userId: state.emailSettings.userId || '',
+        accessToken: state.emailSettings.accessToken || '',
+        fromEmail: state.emailSettings.fromEmail || '',
+        fromName: state.emailSettings.fromName || 'Gestion de Projet',
+        isEnabled: state.emailSettings.isEnabled !== false,
+        defaultSubject: state.emailSettings.defaultSubject || 'Delivery du %dd au %df'
+      });
     }
-  }, []); // Exécuté une seule fois au chargement
+  }, [state.emailSettings]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, type, checked, value } = e.target;
-    
+
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
@@ -119,14 +77,14 @@ export function EmailSettings() {
     setSaveStatus({ type: null, message: '' });
 
     try {
-      
-      
+
+
       // Valider les champs requis
       if (!formData.serviceId || !formData.userId) {
         const missingFields = [];
         if (!formData.serviceId) missingFields.push('Service ID');
         if (!formData.userId) missingFields.push('User ID');
-        
+
         throw new Error(`Veuillez remplir les champs obligatoires : ${missingFields.join(', ')}`);
       }
 
@@ -138,32 +96,33 @@ export function EmailSettings() {
         accessToken: formData.accessToken?.trim() || '',
         fromName: formData.fromName.trim(),
         fromEmail: formData.fromEmail.trim(),
-        isEnabled: formData.isEnabled
+        isEnabled: formData.isEnabled,
+        defaultSubject: formData.defaultSubject || 'Delivery du %dd au %df'
       };
-      
-      
-      
+
+
+
       // Mettre à jour les paramètres dans le state global
-      dispatch({ 
-        type: 'UPDATE_EMAIL_SETTINGS', 
-        payload: settingsToSave 
+      dispatch({
+        type: 'UPDATE_EMAIL_SETTINGS',
+        payload: settingsToSave
       });
-      
-      setSaveStatus({ 
-        type: 'success', 
-        message: 'Paramètres email enregistrés avec succès !' 
+
+      setSaveStatus({
+        type: 'success',
+        message: 'Paramètres email enregistrés avec succès !'
       });
-      
-      
+
+
     } catch (error) {
       console.error('Erreur lors de la sauvegarde des paramètres email:', error);
-      setSaveStatus({ 
-        type: 'error', 
-        message: 'Erreur lors de la sauvegarde des paramètres email' 
+      setSaveStatus({
+        type: 'error',
+        message: 'Erreur lors de la sauvegarde des paramètres email'
       });
     } finally {
       setIsSaving(false);
-      
+
       // Effacer le message après 5 secondes
       setTimeout(() => {
         setSaveStatus({ type: null, message: '' });
@@ -174,21 +133,21 @@ export function EmailSettings() {
   // Fonction pour tester la connexion à EmailJS
   const testConnection = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    
+
     if (isTesting) return; // Ne pas relancer un test si un test est déjà en cours
-    
+
     // Réinitialiser les états précédents
     setSaveStatus({ type: null, message: '' });
-    
+
     // Validation des champs obligatoires
     if (!formData.serviceId || !formData.userId || !formData.fromEmail) {
       const missingFields = [];
       if (!formData.serviceId) missingFields.push('Service ID');
       if (!formData.userId) missingFields.push('User ID (clé publique)');
       if (!formData.fromEmail) missingFields.push('Email d\'expéditeur');
-      
+
       const errorMessage = `Veuillez configurer les champs obligatoires avant de tester : ${missingFields.join(', ')}`;
-      
+
       setSaveStatus({
         type: 'error',
         message: errorMessage
@@ -202,7 +161,7 @@ export function EmailSettings() {
       isSuccess: null,
       message: 'Initialisation du test...'
     });
-    
+
     setSaveStatus({
       type: 'info',
       message: 'Préparation du test de connexion...'
@@ -237,12 +196,12 @@ export function EmailSettings() {
       };
 
       setTestStatus(prev => ({ ...prev, message: 'Chargement du service EmailJS...' }));
-      
+
       // Importer dynamiquement le service email
       const { EmailService } = await import('../../services/emailService');
-      
+
       setTestStatus(prev => ({ ...prev, message: 'Envoi de l\'email de test...' }));
-      
+
       // Envoyer l'email de test
       const result = await EmailService.sendEmail(testEmail, {
         serviceId: formData.serviceId.trim(),
@@ -255,7 +214,7 @@ export function EmailSettings() {
 
       if (result.success) {
         const successMessage = 'Connexion réussie ! Un email de test a été envoyé avec succès.';
-        
+
         // Préparer les données à sauvegarder
         const settingsToSave = {
           serviceId: formData.serviceId.trim(),
@@ -264,30 +223,31 @@ export function EmailSettings() {
           accessToken: formData.accessToken?.trim() || '',
           fromName: formData.fromName.trim(),
           fromEmail: formData.fromEmail.trim(),
-          isEnabled: formData.isEnabled
+          isEnabled: formData.isEnabled,
+          defaultSubject: formData.defaultSubject || 'Delivery du %dd au %df'
         };
-        
-        
-        
+
+
+
         // Mettre à jour le statut du test
         setTestStatus({
           isRunning: false,
           isSuccess: true,
           message: successMessage
         });
-        
+
         // Afficher le message de succès
         setSaveStatus({
           type: 'success',
           message: successMessage
         });
-        
+
         // Mettre à jour les paramètres dans le state global
-        dispatch({ 
-          type: 'UPDATE_EMAIL_SETTINGS', 
-          payload: settingsToSave 
+        dispatch({
+          type: 'UPDATE_EMAIL_SETTINGS',
+          payload: settingsToSave
         });
-        
+
         // Mettre à jour le formulaire local avec les données nettoyées
         setFormData(settingsToSave);
       } else {
@@ -295,12 +255,12 @@ export function EmailSettings() {
       }
     } catch (error) {
       console.error('Erreur lors du test de connexion:', error);
-      
+
       let errorMessage = 'Erreur inconnue lors du test de connexion';
-      
+
       if (error instanceof Error) {
         errorMessage = error.message;
-        
+
         // Messages d'erreur plus conviviaux
         if (errorMessage.includes('public key') || errorMessage.includes('User ID')) {
           errorMessage = 'Clé publique (User ID) invalide. Vérifiez votre configuration EmailJS.';
@@ -316,13 +276,13 @@ export function EmailSettings() {
           errorMessage = 'Erreur réseau. Vérifiez votre connexion internet.';
         }
       }
-      
+
       setTestStatus({
         isRunning: false,
         isSuccess: false,
         message: errorMessage
       });
-      
+
       setSaveStatus({
         type: 'error',
         message: `Échec du test de connexion : ${errorMessage}`
@@ -338,10 +298,10 @@ export function EmailSettings() {
         <div className="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Configuration EmailJS</h2>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Configurez les paramètres pour envoyer des emails via EmailJS. 
-            <a 
-              href="https://www.emailjs.com/" 
-              target="_blank" 
+            Configurez les paramètres pour envoyer des emails via EmailJS.
+            <a
+              href="https://www.emailjs.com/"
+              target="_blank"
               rel="noopener noreferrer"
               className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
             >
@@ -349,18 +309,18 @@ export function EmailSettings() {
             </a>
           </p>
         </div>
-        
+
         <div className="px-4 py-5 sm:p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Statut de sauvegarde */}
             {saveStatus.message && (
-              <div 
-                className={`p-4 rounded-md ${saveStatus.type === 'success' 
-                  ? 'bg-green-50 dark:bg-green-900 text-green-800 dark:text-green-200' 
-                  : saveStatus.type === 'error' 
-                    ? 'bg-red-50 dark:bg-red-900 text-red-800 dark:text-red-200' 
+              <div
+                className={`p-4 rounded-md ${saveStatus.type === 'success'
+                  ? 'bg-green-50 dark:bg-green-900 text-green-800 dark:text-green-200'
+                  : saveStatus.type === 'error'
+                    ? 'bg-red-50 dark:bg-red-900 text-red-800 dark:text-red-200'
                     : 'bg-blue-50 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
-                }`}
+                  }`}
               >
                 <p className="text-sm">{saveStatus.message}</p>
               </div>
@@ -423,10 +383,10 @@ export function EmailSettings() {
                   required
                 />
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Trouvez cette clé dans l'onglet "API Keys" de votre compte EmailJS. 
-                  <a 
-                    href="https://dashboard.emailjs.com/admin/account" 
-                    target="_blank" 
+                  Trouvez cette clé dans l'onglet "API Keys" de votre compte EmailJS.
+                  <a
+                    href="https://dashboard.emailjs.com/admin/account"
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:underline ml-1"
                   >
@@ -506,6 +466,25 @@ export function EmailSettings() {
                 />
               </div>
 
+              {/* Sujet par défaut */}
+              <div className="col-span-2">
+                <label htmlFor="defaultSubject" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Objet par défaut des rapports
+                </label>
+                <input
+                  type="text"
+                  name="defaultSubject"
+                  id="defaultSubject"
+                  value={formData.defaultSubject}
+                  onChange={handleChange}
+                  className="mt-1 block w-full p-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  placeholder="Delivery du %dd au %df"
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Utilisez <span className="font-mono bg-gray-200 dark:bg-gray-600 px-1 rounded">%dd</span> pour la date de début et <span className="font-mono bg-gray-200 dark:bg-gray-600 px-1 rounded">%df</span> pour la date de fin.
+                </p>
+              </div>
+
               {/* Activer/désactiver */}
               <div className="flex items-start">
                 <div className="flex items-center h-5">
@@ -534,11 +513,10 @@ export function EmailSettings() {
                 type="button"
                 onClick={testConnection}
                 disabled={isSaving || isTesting || !formData.serviceId || !formData.userId || !formData.fromEmail}
-                className={`inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
-                  isTesting 
-                    ? 'bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500' 
-                    : 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
-                } focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+                className={`inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${isTesting
+                  ? 'bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500'
+                  : 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
+                  } focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 {isTesting ? (
                   <>

@@ -205,6 +205,7 @@ export interface EmailSettings {
   fromEmail: string;
   fromName: string;
   isEnabled: boolean;
+  defaultSubject?: string;
 }
 
 export interface AISettings {

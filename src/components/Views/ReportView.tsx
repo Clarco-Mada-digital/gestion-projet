@@ -141,7 +141,7 @@ export function ReportView() {
     // Vérifier si le sujet a déjà un préfixe Re
     const rePattern = /^Re(\d*):\s*/;
     const match = subject.match(rePattern);
-    
+
     if (match) {
       // Si déjà un préfixe Re, incrémenter le numéro
       const currentNumber = match[1] ? parseInt(match[1]) : 1;
@@ -158,7 +158,7 @@ export function ReportView() {
     if (replyToSubject) {
       // Gérer les réponses multiples (Re:, Re2:, Re3:, etc.)
       const subjectWithReply = getNextReplyPrefix(replyToSubject);
-      
+
       setEmailForm(prev => ({
         ...prev,
         subject: subjectWithReply,
@@ -175,7 +175,13 @@ export function ReportView() {
         const y = date.getFullYear();
         return `${d}.${m}.${y}`;
       };
-      const period = `Delivery du ${formatDateShort(report.startDate)} au ${formatDateShort(report.endDate)}`;
+
+      // Utiliser le sujet par défaut des paramètres avec remplacement des tokens
+      const defaultSubjectTemplate = state.emailSettings?.defaultSubject || 'Delivery du %dd au %df';
+      const period = defaultSubjectTemplate
+        .replace('%dd', formatDateShort(report.startDate))
+        .replace('%df', formatDateShort(report.endDate));
+
       setEmailForm(prev => ({
         ...prev,
         subject: period,
@@ -232,7 +238,7 @@ export function ReportView() {
     };
 
     const fileName = `Rapport_${formatDate(report.startDate)}_au_${formatDate(report.endDate)}.txt`;
-    
+
     // Créer le contenu complet du rapport
     const fullContent = `RAPPORT D'ACTIVITÉ
 Période: ${formatDate(report.startDate)} au ${formatDate(report.endDate)}
@@ -634,9 +640,10 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
 
       const currentUser = state.users[0];
       const userName = currentUser?.name || 'Responsable de Projet';
+      const userPos = currentUser?.position ? ` ${currentUser?.position?.trim()}` : '';
       const userDept = currentUser?.department ? ` ${currentUser?.department?.trim()}` : '';
 
-      const finalReport = `${aiResponse.trim()}\n\n---\nCordialement,\n\n${userName}${userDept}`;
+      const finalReport = `${aiResponse.trim()}\n\n---\nCordialement,\n\n${userName}${userPos}${userDept}`;
 
       setAiReport(finalReport);
       setEditedReport(finalReport);
