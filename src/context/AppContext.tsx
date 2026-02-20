@@ -118,6 +118,7 @@ const initialAppSettings: AppSettings & { aiSettings: AISettings } = {
     customColumns: []
   },
   accentColor: 'blue',
+  fontFamily: 'Inter',
   brandingSettings: {
     companyName: 'Mon Entreprise',
     primaryColor: '#3B82F6',
@@ -875,6 +876,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const fontSize = state.appSettings.fontSize || 'medium';
     document.documentElement.classList.remove('font-size-small', 'font-size-medium', 'font-size-large');
     document.documentElement.classList.add(`font-size-${fontSize}`);
+
+    // Appliquer la police d'écriture
+    if (state.appSettings.fontFamily) {
+      const fontId = 'dynamic-font-link';
+      let linkEl = document.getElementById(fontId) as HTMLLinkElement;
+      if (!linkEl) {
+        linkEl = document.createElement('link');
+        linkEl.id = fontId;
+        linkEl.rel = 'stylesheet';
+        document.head.appendChild(linkEl);
+      }
+      const fontName = state.appSettings.fontFamily;
+      // Ne pas recharger si c'est déjà la même
+      const formattedFontName = fontName.replace(/ /g, '+');
+      const href = `https://fonts.googleapis.com/css2?family=${formattedFontName}:wght@300;400;500;600;700&display=swap`;
+      if (linkEl.href !== href) {
+        linkEl.href = href;
+      }
+
+      // Injecter le style global pour la police
+      const fontStyleId = 'dynamic-font-style';
+      let styleEl = document.getElementById(fontStyleId) as HTMLStyleElement;
+      if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = fontStyleId;
+        document.head.appendChild(styleEl);
+      }
+      styleEl.innerHTML = `
+        html, body, button, input, select, textarea, .font-custom {
+          font-family: "${fontName}", sans-serif !important;
+        }
+      `;
+    }
 
   }, [state.appSettings, state.isLoading]);
 

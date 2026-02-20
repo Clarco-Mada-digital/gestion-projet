@@ -269,6 +269,7 @@ export interface AppSettings {
     }[];
   };
   accentColor?: string;
+  fontFamily?: string;
   brandingSettings?: {
     companyName?: string;
     logo?: string;

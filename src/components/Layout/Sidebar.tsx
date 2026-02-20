@@ -49,15 +49,23 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           </button>
 
           <div className="flex items-center space-x-3 mb-2">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-              <Sparkles className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg overflow-hidden shrink-0">
+              {state.appSettings.brandingSettings?.logo ? (
+                <img
+                  src={state.appSettings.brandingSettings.logo}
+                  alt="Logo"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <Sparkles className="w-6 h-6 text-white" />
+              )}
             </div>
             <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 bg-clip-text text-transparent">
-                ProjectFlow
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 bg-clip-text text-transparent truncate max-w-[160px]">
+                {state.appSettings.brandingSettings?.companyName || 'ProjectFlow'}
               </h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                Powered by Bryan Clark
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium font-custom">
+                {state.appSettings.brandingSettings?.welcomeMessage || 'Powered by Bryan Clark'}
               </p>
             </div>
           </div>

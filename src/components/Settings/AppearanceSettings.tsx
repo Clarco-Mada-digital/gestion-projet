@@ -7,7 +7,7 @@ export function AppearanceSettings() {
   const { state, dispatch } = useApp();
   const { appSettings } = state;
   const [showSavedFeedback, setShowSavedFeedback] = useState(false);
-  
+
   const branding = appSettings.brandingSettings || {
     companyName: 'Mon Entreprise',
     primaryColor: '#3B82F6',
@@ -225,11 +225,22 @@ export function AppearanceSettings() {
                 </div>
                 <div className="flex-1 w-full space-y-4">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Style de police</label>
-                  <select className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white">
-                    <option>Inter (Défaut)</option>
-                    <option>Roboto</option>
-                    <option>Poppins</option>
-                    <option>Montserrat</option>
+                  <select
+                    value={appSettings.fontFamily || 'Inter'}
+                    onChange={(e) => {
+                      dispatch({ type: 'UPDATE_APP_SETTINGS', payload: { fontFamily: e.target.value } });
+                      showFeedback();
+                    }}
+                    className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
+                  >
+                    <option value="Inter">Inter (Système)</option>
+                    <option value="Roboto">Roboto</option>
+                    <option value="Poppins">Poppins</option>
+                    <option value="Montserrat">Montserrat</option>
+                    <option value="Outfit">Outfit</option>
+                    <option value="Sora">Sora</option>
+                    <option value="Public Sans">Public Sans</option>
+                    <option value="Playfair Display">Playfair Display (Serif)</option>
                   </select>
                 </div>
               </div>
