@@ -476,8 +476,7 @@ export function SettingsView() {
                       <button
                         className="w-full py-2 text-xs font-medium text-gray-500 hover:text-red-500 transition-colors"
                         onClick={() => {
-                          dispatch({ type: 'SET_GOOGLE_TOKEN', payload: undefined });
-                          dispatch({ type: 'SET_CALENDAR_EMAIL', payload: undefined });
+                          dispatch({ type: 'CLEAR_GOOGLE_SESSION' });
                         }}
                       >
                         Déconnecter l'agenda

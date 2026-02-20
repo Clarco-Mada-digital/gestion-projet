@@ -51,6 +51,7 @@ type AppAction =
   | { type: 'SET_CLOUD_USER'; payload: FirebaseUser | null }
   | { type: 'SET_GOOGLE_TOKEN'; payload: string | undefined }
   | { type: 'SET_CALENDAR_EMAIL'; payload: string | undefined }
+  | { type: 'CLEAR_GOOGLE_SESSION' }
   | { type: 'SYNC_PROJECTS'; payload: Project[] }
   | { type: 'ADD_REPORT'; payload: ReportEntry }
   | { type: 'DELETE_REPORT'; payload: string }
@@ -465,6 +466,8 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       return { ...state, googleAccessToken: action.payload };
     case 'SET_CALENDAR_EMAIL':
       return { ...state, calendarEmail: action.payload };
+    case 'CLEAR_GOOGLE_SESSION':
+      return { ...state, googleAccessToken: undefined, calendarEmail: undefined };
     case 'SYNC_PROJECTS': {
       const incomingProjects = action.payload; // Projets venant du Cloud
       const incomingIds = new Set(incomingProjects.map(p => p.id));
@@ -659,6 +662,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const savedTheme = localStorage.getItem('astroProjectManagerTheme') as Theme | null;
         const savedAppSettings = localStorage.getItem('astroProjectManagerAppSettings');
         const savedEmailSettings = localStorage.getItem('astroProjectManagerEmailSettings');
+        const savedGoogleToken = localStorage.getItem('astroProjectManagerGoogleToken');
+        const savedCalendarEmail = localStorage.getItem('astroProjectManagerCalendarEmail');
 
         // 2. Préparer les valeurs par défaut
         let emailSettings = { ...initialState.emailSettings };
@@ -715,7 +720,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             theme: savedTheme || (mainData as any).theme || 'light',
             currentView: validViews.includes(currentView) ? currentView : 'today',
             appSettings,
-            emailSettings
+            emailSettings,
+            googleAccessToken: savedGoogleToken || undefined,
+            calendarEmail: savedCalendarEmail || undefined
           }
         });
 
@@ -788,6 +795,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error('Erreur lors de la sauvegarde du thème:', error);
     }
   }, [state.theme, state.isLoading]);
+
+  // Sauvegarder les jetons Google pour éviter la reconnexion à chaque redémarrage
+  useEffect(() => {
+    if (state.isLoading) return;
+    try {
+      if (state.googleAccessToken) {
+        localStorage.setItem('astroProjectManagerGoogleToken', state.googleAccessToken);
+      } else {
+        localStorage.removeItem('astroProjectManagerGoogleToken');
+      }
+
+      if (state.calendarEmail) {
+        localStorage.setItem('astroProjectManagerCalendarEmail', state.calendarEmail);
+      } else {
+        localStorage.removeItem('astroProjectManagerCalendarEmail');
+      }
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde de la session Google:', error);
+    }
+  }, [state.googleAccessToken, state.calendarEmail, state.isLoading]);
 
   // Appliquer le thème
   useEffect(() => {
