@@ -233,13 +233,13 @@ const CommentReply: React.FC<{
           Répondre
         </button>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2 w-full">
           <div className="relative">
             <textarea
               value={replyContent}
               onChange={handleInputChange}
               placeholder={`Répondre à ${comment.authorName}...`}
-              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm resize-none focus:ring-2 focus:border-transparent"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm resize-x focus:ring-2 focus:border-transparent"
               style={{ '--focus-ring-color': accentColor } as React.CSSProperties}
               rows={3}
               autoFocus
@@ -567,7 +567,7 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
         });
 
         // Envoyer des notifications aux mentions
-        const mentionRegex = /@([^\s@]+(?:\s+[^\s@]+)*?)(?=\s|$)/g;
+        const mentionRegex = /@([a-zA-Z0-9À-ÿ]+(?:[\s\-_'][a-zA-Z0-9À-ÿ]+)*)/g;
         const mentions = newComment.match(mentionRegex) || [];
 
         if (mentions.length > 0) {
@@ -581,10 +581,14 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
               const userName = (user.name || '').toLowerCase();
               const userEmail = (user.email || '').toLowerCase();
 
+              // Correspondances exactes ou partielles
               return userName === mentionText ||
                 userName.replace(/\s+/g, '') === mentionText.replace(/\s+/g, '') ||
+                userName.replace(/[\s\-_']/g, '') === mentionText.replace(/[\s\-_']/g, '') ||
                 userEmail.split('@')[0] === mentionText ||
-                userName.split(' ')[0] === mentionText;
+                userName.split(' ')[0] === mentionText ||
+                userName.includes(mentionText) ||
+                mentionText.includes(userName.split(' ')[0]);
             });
 
             if (isMentioned) {
@@ -596,6 +600,7 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
                   type: 'mention',
                   link: `/projects/${projectId}/tasks/${taskId}`
                 });
+                console.log(`Notification envoyée à ${user.name} pour la mention: ${mentions.find(m => m.includes(user.name?.split(' ')[0] || ''))}`);
               } catch (error) {
                 console.error(`Erreur notification mention pour ${user.name}:`, error);
               }
