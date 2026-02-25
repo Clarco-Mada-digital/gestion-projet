@@ -786,35 +786,37 @@ export function KanbanView() {
                                     onBlur={() => handleRenameColumn(column.id, editingColumnTitle)}
                                     onKeyDown={(e) => e.key === 'Enter' && handleRenameColumn(column.id, editingColumnTitle)}
                                     className="w-full bg-white/20 border-none rounded px-2 py-1 text-xl font-bold text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                    placeholder="Nom de la colonne"
+                                    maxLength={50}
                                     autoFocus
                                   />
                                 ) : (
                                   <h2
-                                    className="font-bold text-gray-900 dark:text-white text-xl truncate cursor-pointer hover:bg-white/10 rounded px-1 -ml-1 transition-colors"
+                                    className={`text-xl font-bold text-gray-900 dark:text-white cursor-text transition-colors ${column.isCustom ? 'hover:bg-white/10 rounded px-2 -mx-2' : ''}`}
                                     onClick={() => {
-                                      if (column.isCustom) {
-                                        // Vérifier les droits avant de permettre l'édition
-                                        const isAllSelected = selectedProjectIds.length === 0;
-                                        if (isAllSelected) {
+                                      // Vérifier les droits avant de permettre l'édition
+                                      const isAllSelected = selectedProjectIds.length === 0;
+                                      if (isAllSelected) {
+                                        setEditingColumnId(column.id);
+                                        setEditingColumnTitle(column.title);
+                                      } else {
+                                        const project = state.projects.find(p => p.id === selectedProjectIds[0]);
+                                        const isViewer = project?.source === 'firebase' &&
+                                          project.ownerId !== state.cloudUser?.uid &&
+                                          project.memberRoles?.[state.cloudUser?.uid || ''] === 'viewer';
+                                        if (isViewer) {
+                                          alert("Vous n'avez pas les droits pour renommer cette colonne.");
+                                        } else {
                                           setEditingColumnId(column.id);
                                           setEditingColumnTitle(column.title);
-                                        } else {
-                                          const project = state.projects.find(p => p.id === selectedProjectIds[0]);
-                                          const isViewer = project?.source === 'firebase' &&
-                                            project.ownerId !== state.cloudUser?.uid &&
-                                            project.memberRoles?.[state.cloudUser?.uid || ''] === 'viewer';
-                                          if (isViewer) {
-                                            alert("Vous n'avez pas les droits pour renommer cette colonne.");
-                                          } else {
-                                            setEditingColumnId(column.id);
-                                            setEditingColumnTitle(column.title);
-                                          }
                                         }
                                       }
                                     }}
-                                    title={column.isCustom ? "Cliquez pour renommer" : ""}
+                                    title={column.isCustom ? "Cliquez pour renommer" : column.title}
                                   >
-                                    {column.title}
+                                    <span className="truncate block" title={column.title}>
+                                      {column.title.length > 20 ? `${column.title.substring(0, 30)}...` : column.title}
+                                    </span>
                                   </h2>
                                 )}
                               </div>

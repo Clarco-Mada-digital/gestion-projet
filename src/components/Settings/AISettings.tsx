@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useApp } from '../../context/AppContext';
 import {
   Input,
   Select,
@@ -11,6 +10,7 @@ import {
 import { EyeOutlined, EyeInvisibleOutlined } from '@ant-design/icons';
 import type { FormInstance } from 'antd/es/form';
 import { AIService } from '../../services/aiService';
+import { useApp } from '../../context/AppContext';
 import '../../styles/ai-settings.css';
 
 type ProviderType = 'openai' | 'openrouter';
@@ -49,6 +49,8 @@ const MODELS: Record<ProviderType, ModelOption[]> = {
     { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
   ],
   openrouter: [
+    { value: 'meta-llama/llama-3.1-8b-instruct:free', label: 'Llama 3.1 8B (Free)' },
+    { value: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B (Free)' },
     { value: 'anthropic/claude-3-haiku', label: 'Anthropic: Claude 3 Haiku' },
     { value: 'openai/gpt-4-turbo', label: 'OpenAI: GPT-4 Turbo' },
     { value: 'openai/gpt-4o', label: 'OpenAI: GPT-4o' },
@@ -270,7 +272,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
 
     // S'assurer que le provider est valide
     const staticModels = MODELS[provider] || MODELS.openai;
-    
+
     // Toujours mettre l'option Auto en premier pour OpenRouter
     let allModels = staticModels;
     if (provider === 'openrouter' && dynamicModels.length > 0) {
@@ -470,13 +472,13 @@ export const AISettings: React.FC<AISettingsProps> = ({
                             color: isDarkMode ? '#ffffff' : '#1f2937',
                             borderColor: isDarkMode ? '#4b5563' : '#d1d5db',
                           }}
-                          iconRender={(visible) => (visible ? 
-                            <EyeOutlined style={{ 
+                          iconRender={(visible) => (visible ?
+                            <EyeOutlined style={{
                               color: isDarkMode ? '#60a5fa' : '#3b82f6',
                               fontSize: '14px',
                               verticalAlign: 'middle'
-                            }} className="transition-colors" /> : 
-                            <EyeInvisibleOutlined style={{ 
+                            }} className="transition-colors" /> :
+                            <EyeInvisibleOutlined style={{
                               color: isDarkMode ? '#9ca3af' : '#6b7280',
                               fontSize: '14px',
                               verticalAlign: 'middle'

@@ -64,6 +64,32 @@ export class AIService {
 
     return cleaned.trim();
   }
+
+  /**
+   * Valide et remplace les modèles obsolètes par des alternatives fonctionnelles
+   */
+  private static sanitizeModel(provider: string, model: string | undefined | null): string {
+    if (provider === 'openai') {
+      return model || 'gpt-3.5-turbo';
+    }
+
+    // Liste des modèles OpenRouter obsolètes ou problématiques
+    const deprecatedModels = [
+      'google/gemma-7b-it:free',
+      'google/gemini-2.0-flash-exp:free',
+      'google/gemma-2-9b-it:free',
+      'openrouter/auto',
+      ''
+    ];
+
+    if (!model || deprecatedModels.includes(model)) {
+      // Modèle gratuit le plus stable et performant en 2026
+      return 'meta-llama/llama-3.1-8b-instruct:free';
+    }
+
+    return model;
+  }
+
   /**
    * Prépare le prompt système avec la documentation et le contexte utilisateur
    */
@@ -171,10 +197,10 @@ ${appDataInfo}
         throw new Error('Clé API OpenAI requise pour utiliser OpenAI');
       }
 
-      // Utiliser un modèle adapté pour la conversation
+      // Utiliser un modèle adapté
       const model = effectiveProvider === 'openai'
-        ? aiSettings.openaiModel || 'gpt-3.5-turbo'
-        : aiSettings.openrouterModel || 'google/gemma-7b-it:free';
+        ? (aiSettings.openaiModel || 'gpt-3.5-turbo')
+        : AIService.sanitizeModel(effectiveProvider, aiSettings.openrouterModel);
 
       const endpoint = effectiveProvider === 'openai'
         ? 'https://api.openai.com/v1/chat/completions'
@@ -284,17 +310,9 @@ ${appDataInfo}
         throw new Error('Clé API OpenAI requise pour utiliser OpenAI');
       }
 
-      // Utiliser un modèle plus léger pour OpenRouter
-      let model = effectiveProvider === 'openai'
-        ? settings.openaiModel || 'gpt-3.5-turbo'
-        : settings.openrouterModel || 'google/gemma-7b-it:free';
+      // Utiliser un modèle adapté
+      const model = AIService.sanitizeModel(effectiveProvider, settings.openrouterModel);
 
-
-      // Gérer le modèle Auto pour OpenRouter
-      if (effectiveProvider === 'openrouter' && model === 'openrouter/auto') {
-        // Pour le modèle Auto, utiliser un modèle gratuit de base
-        model = 'google/gemma-7b-it:free';
-      }
 
       const endpoint = effectiveProvider === 'openai'
         ? 'https://api.openai.com/v1/chat/completions'
@@ -477,16 +495,9 @@ ${appDataInfo}
         ? 'https://api.openai.com/v1/chat/completions'
         : 'https://openrouter.ai/api/v1/chat/completions';
 
-      // Utiliser un modèle plus léger pour OpenRouter
-      let model = effectiveProvider === 'openai'
-        ? settings.openaiModel || 'gpt-3.5-turbo'
-        : settings.openrouterModel || 'google/gemma-7b-it:free';
+      // Utiliser un modèle adapté
+      const model = AIService.sanitizeModel(effectiveProvider, settings.openrouterModel);
 
-      // Gérer le modèle Auto pour OpenRouter
-      if (effectiveProvider === 'openrouter' && model === 'openrouter/auto') {
-        // Pour le modèle Auto, utiliser un modèle gratuit de base
-        model = 'google/gemma-7b-it:free';
-      }
 
       // Construire le prompt pour générer une tâche
       const prompt = `Génère une tâche pour le projet "${project.name}". ` +
@@ -566,10 +577,11 @@ ${appDataInfo}
         ? settings.openaiApiKey?.trim()
         : settings.openrouterApiKey?.trim();
 
-      // Utiliser des modèles gratuits par défaut
+      // Utiliser un modèle adapté
       const model = effectiveProvider === 'openai'
-        ? settings.openaiModel || 'gpt-3.5-turbo'
-        : settings.openrouterModel || 'google/gemma-7b-it:free';
+        ? (settings.openaiModel || 'gpt-3.5-turbo')
+        : AIService.sanitizeModel(effectiveProvider, settings.openrouterModel);
+
 
       const endpoint = effectiveProvider === 'openai'
         ? 'https://api.openai.com/v1/chat/completions'
@@ -608,8 +620,8 @@ ${appDataInfo}
               content: `${prompt} (Réponds de manière concise en moins de 300 mots)`
             }
           ],
-          temperature: 0.5, // Réduit pour des réponses plus prévisibles
-          max_tokens: 500,  // Réduit pour économiser les crédits
+          temperature: settings.temperature || 0.5,
+          max_tokens: settings.maxTokens || 1000,
         }),
       });
 
@@ -659,10 +671,9 @@ ${appDataInfo}
         : settings.openrouterApiKey?.trim();
 
       // Définir le modèle en fonction du fournisseur
-      const model = (effectiveProvider === 'openai'
-        ? settings.openaiModel?.trim()
-        : settings.openrouterModel?.trim()) ||
-        (effectiveProvider === 'openai' ? 'gpt-3.5-turbo' : 'google/gemma-7b-it:free');
+      const model = effectiveProvider === 'openai'
+        ? (settings.openaiModel || 'gpt-3.5-turbo')
+        : AIService.sanitizeModel(effectiveProvider, settings.openrouterModel);
 
       const endpoint = effectiveProvider === 'openai'
         ? 'https://api.openai.com/v1/chat/completions'
@@ -753,16 +764,9 @@ ${appDataInfo}
         ? 'https://api.openai.com/v1/chat/completions'
         : 'https://openrouter.ai/api/v1/chat/completions';
 
-      // Utiliser un modèle plus léger pour OpenRouter
-      let model = effectiveProvider === 'openai'
-        ? settings.openaiModel || 'gpt-3.5-turbo'
-        : settings.openrouterModel || 'google/gemma-7b-it:free';
+      // Utiliser un modèle adapté
+      const model = AIService.sanitizeModel(effectiveProvider, settings.openrouterModel);
 
-      // Gérer le modèle Auto pour OpenRouter
-      if (effectiveProvider === 'openrouter' && model === 'openrouter/auto') {
-        // Pour le modèle Auto, utiliser un modèle gratuit de base
-        model = 'google/gemma-7b-it:free';
-      }
 
       // Préparer le prompt
       let prompt = `Génère 3 à 5 tâches pertinentes pour le projet "${project.name}".`;

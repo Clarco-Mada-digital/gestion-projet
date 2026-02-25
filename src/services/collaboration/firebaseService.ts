@@ -25,11 +25,15 @@ const ensureInitialized = () => {
       app = initializeApp(firebaseConfig);
       db = getFirestore(app);
       auth = getAuth(app);
+      // Activer la persistance de session pour l'auth principale
+      auth.setPersistence('local');
     }
     if (!calendarApp) {
       // On initialise une deuxième instance avec un nom différent
       calendarApp = initializeApp(firebaseConfig, "calendar");
       calendarAuth = getAuth(calendarApp);
+      // Activer la persistance de session pour l'agenda
+      calendarAuth.setPersistence('local');
     }
   } catch (error) {
     console.error("Erreur lors de l'initialisation de Firebase:", error);
@@ -104,6 +108,21 @@ export const firebaseService = {
     } catch (error) {
       console.error("Erreur de connexion Firebase:", error);
       throw error;
+    }
+  },
+
+  /**
+   * Vérifie si l'utilisateur est déjà connecté à l'agenda
+   */
+  async isCalendarLoggedIn(): Promise<boolean> {
+    if (!ensureInitialized()) return false;
+    
+    try {
+      const currentUser = await calendarAuth.currentUser;
+      return !!currentUser;
+    } catch (error) {
+      console.error("Erreur lors de la vérification de connexion agenda:", error);
+      return false;
     }
   },
 

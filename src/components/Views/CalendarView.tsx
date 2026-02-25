@@ -7,6 +7,7 @@ import { Modal } from '../UI/Modal';
 import { Task, Project, ExternalEvent } from '../../types';
 import { EditTaskForm } from '../Tasks/EditTaskForm';
 import { googleCalendarService } from '../../services/collaboration/googleCalendarService';
+import { firebaseService } from '../../services/collaboration/firebaseService';
 
 export function CalendarView() {
   const { state, dispatch } = useApp();
@@ -172,32 +173,52 @@ export function CalendarView() {
   // Effet pour synchroniser avec le calendrier externe (Réel ou simulation)
   useEffect(() => {
     const fetchRealGoogleEvents = async () => {
-      if (showExternalCalendar && state.googleAccessToken && days.length > 0) {
-        setIsSyncing(true);
-        setSyncError(null);
-        try {
-          // Calculer la plage de dates visible
-          const timeMin = days[0].date.toISOString();
-          const timeMax = new Date(days[days.length - 1].date.getTime() + 24 * 60 * 60 * 1000).toISOString();
-
-          const events = await googleCalendarService.fetchEvents(state.googleAccessToken, 0, timeMin, timeMax);
-          let tasks: any[] = [];
+      if (showExternalCalendar && days.length > 0) {
+        // Vérifier si l'utilisateur est déjà connecté à l'agenda
+        const isCalendarLoggedIn = await firebaseService.isCalendarLoggedIn();
+        
+        if (!isCalendarLoggedIn && !state.googleAccessToken) {
+          console.log('[Calendar] Non connecté à l\'agenda, tentative de reconnexion automatique...');
           try {
-            tasks = await googleCalendarService.fetchTasks(state.googleAccessToken);
-          } catch (te: any) {
-            console.error("Erreur tâches:", te);
-            if (te.message?.includes('disabled') || te.message?.includes('not been used')) {
-              throw new Error(`API_TASKS_DISABLED`);
+            const result = await firebaseService.loginCalendar();
+            if (result) {
+              dispatch({ type: 'SET_GOOGLE_TOKEN', payload: result.accessToken });
+              dispatch({ type: 'SET_CALENDAR_EMAIL', payload: result.email });
+              console.log('[Calendar] Reconnexion automatique réussie');
             }
+          } catch (error) {
+            console.error('[Calendar] Erreur reconnexion automatique:', error);
           }
-          setExternalEvents([...events, ...tasks]);
-          setIsSyncing(false);
-          return true;
-        } catch (error: any) {
-          console.error("Erreur de récupération du calendrier réel:", error);
-          setSyncError(error.message || "Erreur de connexion Google");
-          setIsSyncing(false);
-          return false;
+          return;
+        }
+
+        if (state.googleAccessToken) {
+          setIsSyncing(true);
+          setSyncError(null);
+          try {
+            // Calculer la plage de dates visible
+            const timeMin = days[0].date.toISOString();
+            const timeMax = new Date(days[days.length - 1].date.getTime() + 24 * 60 * 60 * 1000).toISOString();
+
+            const events = await googleCalendarService.fetchEvents(state.googleAccessToken, 0, timeMin, timeMax);
+            let tasks: any[] = [];
+            try {
+              tasks = await googleCalendarService.fetchTasks(state.googleAccessToken);
+            } catch (te: any) {
+              console.error("Erreur tâches:", te);
+              if (te.message?.includes('disabled') || te.message?.includes('not been used')) {
+                throw new Error(`API_TASKS_DISABLED`);
+              }
+            }
+            setExternalEvents([...events, ...tasks]);
+            setIsSyncing(false);
+            return true;
+          } catch (error: any) {
+            console.error("Erreur de récupération du calendrier réel:", error);
+            setSyncError(error.message || "Erreur de connexion Google");
+            setIsSyncing(false);
+            return false;
+          }
         }
       }
       return false;

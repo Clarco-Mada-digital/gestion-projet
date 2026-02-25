@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Archive, AlertTriangle, Calendar, Cpu, ChevronDown, Loader2, LogOut, Clock, Eye, Edit2, CheckCircle2, Circle, Check } from 'lucide-react';
+import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Archive, AlertTriangle, Calendar, Cpu, ChevronDown, Loader2, LogOut, Clock, Eye, Edit2, CheckCircle2, Circle, Check, Upload } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { firebaseService } from '../../services/collaboration/firebaseService';
 import { Card } from '../UI/Card';
@@ -14,6 +14,7 @@ import { Tabs, Form, Input, Select, Row, Col, InputNumber, message } from 'antd'
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { calculateDuration, isMultiDayTask } from '../../utils/dateUtils';
+import { TrelloImportModal } from '../UI/TrelloImportModal';
 
 import { ActivityFeed } from './ActivityFeed';
 import { AIService } from '../../services/aiService';
@@ -1214,6 +1215,7 @@ export function ProjectsView() {
   ];
 
   const [showProjectModal, setShowProjectModal] = useState(false);
+  const [showTrelloImportModal, setShowTrelloImportModal] = useState(false);
 
   const handleEditProject = (project: Project) => {
     setEditingProject({ ...project, tasks: project.tasks || [] });
@@ -1330,17 +1332,27 @@ export function ProjectsView() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Projets</h1>
-        <Button
-          icon={Plus}
-          onClick={() => {
-            resetNewProjectForm();
-            setShowCreateModal(true);
-          }}
-          variant="gradient"
-          size="lg"
-        >
-          Nouveau Projet
-        </Button>
+        <div className="flex gap-3">
+          <Button
+            icon={Upload}
+            onClick={() => setShowTrelloImportModal(true)}
+            variant="outline"
+            size="lg"
+          >
+            Importer Trello
+          </Button>
+          <Button
+            icon={Plus}
+            onClick={() => {
+              resetNewProjectForm();
+              setShowCreateModal(true);
+            }}
+            variant="gradient"
+            size="lg"
+          >
+            Nouveau Projet
+          </Button>
+        </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="p-6 text-center" hover gradient>
@@ -2658,6 +2670,16 @@ export function ProjectsView() {
           </div>
         </div>
       </Modal>
+
+      {/* Modal d'importation Trello */}
+      <TrelloImportModal
+        isOpen={showTrelloImportModal}
+        onClose={() => setShowTrelloImportModal(false)}
+        onImportSuccess={(project) => {
+          message.success(`Projet "${project.name}" importé avec succès !`);
+        }}
+        currentUserId={state.cloudUser?.uid}
+      />
     </div>
   );
 }
