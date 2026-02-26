@@ -30,6 +30,12 @@ export interface AppDataSummary {
     projectName: string;
     status: string;
   }>;
+  completedTasksHistory?: Array<{
+    title: string;
+    description?: string;
+    estimatedHours: number;
+    completedAt: string;
+  }>;
 }
 
 /**
@@ -48,7 +54,7 @@ export function getAppDataSummary(state: AppState): AppDataSummary {
     department: primaryUser?.department
   };
 
-  // Détails de tous les projets (limité aux 20 derniers pour éviter de saturer le context, mais plus que 3)
+  // Détails de tous les projets (limité aux 20 derniers pour éviter de saturer le context)
   const sortedProjects = [...state.projects]
     .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())
     .slice(0, 20);
@@ -85,7 +91,7 @@ export function getAppDataSummary(state: AppState): AppDataSummary {
       return dueDate > now && dueDate <= nextWeek && t.status !== 'done';
     })
     .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
-    .slice(0, 10) // Augmenté à 10
+    .slice(0, 15)
     .map(t => {
       const project = state.projects.find(p => (p.tasks || []).some(task => task.id === t.id));
       return {
@@ -97,11 +103,24 @@ export function getAppDataSummary(state: AppState): AppDataSummary {
       };
     });
 
+  // Historique des tâches terminées (pour l'estimation prédictive)
+  const completedTasksHistory = allTasks
+    .filter(t => t.status === 'done' && t.completedAt)
+    .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())
+    .slice(0, 15)
+    .map(t => ({
+      title: t.title,
+      description: t.description,
+      estimatedHours: t.estimatedHours || 0,
+      completedAt: t.completedAt!
+    }));
+
   return {
     user,
     projects,
     stats,
-    upcomingTasks
+    upcomingTasks,
+    completedTasksHistory
   };
 }
 
@@ -141,6 +160,15 @@ export function formatAppDataForAI(data: AppDataSummary): string {
     data.upcomingTasks.forEach(task => {
       const dueDate = new Date(task.dueDate);
       result += `- ${task.title} (le ${dueDate.toLocaleDateString('fr-FR')}, Projet: ${task.projectName})\n`;
+    });
+    result += '\n';
+  }
+
+  // Historique des tâches terminées
+  if (data.completedTasksHistory && data.completedTasksHistory.length > 0) {
+    result += '### Historique pour Estimation (Tâches Terminées)\n';
+    data.completedTasksHistory.forEach(task => {
+      result += `- ${task.title} : Estimé à ${task.estimatedHours}h, Fini le ${new Date(task.completedAt).toLocaleDateString('fr-FR')}\n`;
     });
   }
 

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Calendar, TextCursorInput, Folder, Sparkles } from 'lucide-react';
+import { Clock, TextCursorInput, Folder, Sparkles } from 'lucide-react';
 import { Task, Project, AISettings } from '../../types';
 import { useApp } from '../../context/AppContext';
 import AIService from '../../services/aiService';
@@ -17,7 +17,11 @@ export function AddTaskForm({ projects, selectedProjectId, status, onAddTask, on
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState<string>('');
   const [projectId, setProjectId] = useState(selectedProjectId);
+  const [estimatedHours, setEstimatedHours] = useState<number>(2);
+  const [subTasks, setSubTasks] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isEstimating, setIsEstimating] = useState(false);
+  const [estimationReasoning, setEstimationReasoning] = useState('');
 
   // Initialiser la date d'échéance au chargement du composant
   useEffect(() => {
@@ -39,48 +43,67 @@ export function AddTaskForm({ projects, selectedProjectId, status, onAddTask, on
   }, []);
 
   const handleGenerateWithAI = async () => {
-    if (!projectId) return;
+    if (!projectId || !title.trim()) {
+      alert('Veuillez au moins saisir un titre pour que l\'IA puisse travailler.');
+      return;
+    }
 
     try {
       setIsGenerating(true);
       const project = state.projects.find(p => p.id === projectId);
       if (!project) return;
 
-      // Récupérer les paramètres IA du projet ou des paramètres généraux
       const aiSettings = (project.aiSettings || state.appSettings?.aiSettings) as AISettings;
 
-      // Vérifier si les paramètres IA sont correctement configurés
-      if (!aiSettings?.provider) {
-        alert('Veuillez sélectionner un fournisseur IA dans les paramètres du projet');
-        return;
-      }
+      // 1. Générer titre et description plus riches
+      const generatedTask = await AIService.generateTask(aiSettings, project, title, description);
+      setTitle(generatedTask.title || title);
+      setDescription(generatedTask.description || description);
 
-      // Vérifier la présence de la clé API selon le fournisseur
-      const apiKey = aiSettings.provider === 'openai'
-        ? aiSettings.openaiApiKey
-        : aiSettings.openrouterApiKey;
-
-      if (!apiKey) {
-        const providerName = aiSettings.provider === 'openai' ? 'OpenAI' : 'OpenRouter';
-        alert(`Veuillez configurer la clé API ${providerName} dans les paramètres du projet`);
-        return;
-      }
-
-      const generatedTask = await AIService.generateTask(
+      // 2. Estimer la durée basée sur l'historique et le délai prévu
+      setIsEstimating(true);
+      const estimation = await AIService.estimateTaskDuration(
         aiSettings,
-        project,
-        title,
-        description
+        state,
+        generatedTask.title || title,
+        generatedTask.description,
+        new Date().toISOString().split('T')[0],
+        dueDate
       );
 
-      setTitle(generatedTask.title || '');
-      setDescription(generatedTask.description || '');
-      // Mettre à jour d'autres champs si nécessaire
+      // Si l'IA suggère une date (tâche longue), on l'applique
+      if (estimation.suggestedDueDate) {
+        setDueDate(estimation.suggestedDueDate);
+      }
+
+      // Si c'est une tâche de plus d'un jour (> 8h), on ne remplit pas l'effort (sera géré par les dates)
+      // Sinon on remplit les heures estimées
+      if (estimation.estimatedHours > 8) {
+        setEstimatedHours(0); // On laisse à 0 pour que le calcul par dates prenne le dessus plus tard ou soit saisi manuellement
+      } else {
+        setEstimatedHours(estimation.estimatedHours);
+      }
+
+      setEstimationReasoning(estimation.reasoning);
+      setIsEstimating(false);
+
+      // 3. Décomposer en sous-tâches si c'est "complexe" (titre long ou description fournie)
+      if (title.length > 20 || description.length > 50) {
+        const generatedSubs = await AIService.generateSubTasksWithAI(aiSettings, project, { ...generatedTask, id: 'temp', subTasks: [] } as any);
+        setSubTasks(generatedSubs.map(s => ({
+          id: Math.random().toString(36).substr(2, 9),
+          title: s.title,
+          completed: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        })));
+      }
+
     } catch (error) {
       console.error('Erreur lors de la génération avec IA:', error);
-      alert('Erreur lors de la génération avec IA. Voir la console pour plus de détails.');
     } finally {
       setIsGenerating(false);
+      setIsEstimating(false);
     }
   };
 
@@ -100,9 +123,10 @@ export function AddTaskForm({ projects, selectedProjectId, status, onAddTask, on
       startDate: now.split('T')[0],
       dueDate: taskDueDate,
       priority: 'medium',
+      estimatedHours: estimatedHours,
       assignees: [],
       tags: [],
-      subTasks: [],
+      subTasks: subTasks,
       completedAt: status === 'done' ? now : undefined
     };
 
@@ -167,23 +191,58 @@ export function AddTaskForm({ projects, selectedProjectId, status, onAddTask, on
               </select>
             </div>
 
-            {/* Date d'échéance */}
+            {/* Estimation Heures */}
             <div className="space-y-2">
-              <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400">
-                <Calendar className="w-4 h-4" />
-                <span className="text-xs font-bold uppercase tracking-wider">Échéance</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400">
+                  <Clock className="w-4 h-4" />
+                  <span className="text-xs font-bold uppercase tracking-wider">Estimation</span>
+                </div>
+                {isEstimating && <Sparkles className="w-3 h-3 text-purple-500 animate-pulse" />}
               </div>
-              <div className="relative group">
+              <div className="flex items-center space-x-2">
                 <input
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 bg-gray-50/50 dark:bg-black/20 border border-gray-200 dark:border-gray-700/50 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all cursor-pointer"
-                  min={new Date().toISOString().split('T')[0]}
+                  type="number"
+                  value={estimatedHours}
+                  onChange={(e) => setEstimatedHours(parseInt(e.target.value) || 0)}
+                  className="w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 bg-gray-50/50 dark:bg-black/20 border border-gray-200 dark:border-gray-700/50 rounded-xl focus:ring-2 focus:ring-blue-500 transition-all font-mono"
+                  min="0"
                 />
+                <span className="text-xs text-gray-400 font-bold uppercase">Heures</span>
               </div>
+              {estimationReasoning && (
+                <p className="text-[10px] text-purple-500 italic mt-1 font-medium leading-tight">
+                  💡 {estimationReasoning}
+                </p>
+              )}
             </div>
           </div>
+
+          {/* Sous-tâches générées preview */}
+          {subTasks.length > 0 && (
+            <div className="space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-purple-500 uppercase tracking-widest flex items-center">
+                  <Sparkles className="w-3 h-3 mr-1" /> Sous-tâches suggérées ({subTasks.length})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSubTasks([])}
+                  className="text-[10px] text-gray-400 hover:text-red-500 transition-colors uppercase font-bold"
+                >
+                  Effacer
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-1.5">
+                {subTasks.map((st) => (
+                  <div key={st.id} className="flex items-center p-2 bg-purple-50/50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-800/30 rounded-lg text-xs text-gray-600 dark:text-gray-400 italic">
+                    <div className="w-1 h-1 rounded-full bg-purple-400 mr-2" />
+                    {st.title}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="px-5 py-4 bg-gray-50/50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700/50 flex justify-between items-center bg-stripes">

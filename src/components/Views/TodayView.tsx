@@ -1,13 +1,20 @@
 import React, { useState } from 'react';
-import { Sparkles, Target, ChevronDown, ChevronRight, AlertTriangle, Calendar as CalendarIcon } from 'lucide-react';
+import { Sparkles, Target, ChevronDown, ChevronRight, AlertTriangle, Calendar as CalendarIcon, BarChart, Zap, Clock as ClockIcon, MessageSquare, X as XIcon } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { TaskCard } from '../Tasks/TaskCard';
 import { Card } from '../UI/Card';
+import { Button } from '../UI/Button';
+import AIService from '../../services/aiService';
+import { message } from 'antd';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export function TodayView() {
   const { state } = useApp();
   const { appSettings } = state;
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
+  const [workloadReport, setWorkloadReport] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // Récupérer la taille de police depuis les paramètres
   const fontSize = appSettings?.fontSize || 'medium';
@@ -156,6 +163,88 @@ export function TodayView() {
           </div>
         </Card>
       </div>
+
+      {/* NEXUS IA CO-PILOTE - Tableau de bord opérationnel */}
+      <Card className="p-6 bg-gradient-to-br from-indigo-50/50 via-purple-50/50 to-blue-50/50 dark:from-indigo-900/10 dark:via-purple-900/10 dark:to-blue-900/10 border-indigo-200/50 dark:border-indigo-800/50 overflow-hidden relative" hover gradient>
+        <div className="absolute top-0 right-0 p-4 opacity-10">
+          <Sparkles className="w-24 h-24 text-purple-600 rotate-12" />
+        </div>
+
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/20">
+              <Zap className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className={`${headingSizeClasses[fontSize]} font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent`}>
+                Nexus IA : Votre Co-pilote
+              </h2>
+              <p className={`${textSizeClasses[fontSize]} text-gray-600 dark:text-gray-400 font-medium`}>
+                Optimisez votre productivité avec l'intelligence opérationnelle
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 w-full md:w-auto">
+            <Button
+              size="sm"
+              variant="gradient"
+              onClick={async () => {
+                setIsAnalyzing(true);
+                try {
+                  const report = await AIService.analyzeWorkload(state.appSettings.aiSettings, state);
+                  setWorkloadReport(report);
+                } catch (e) {
+                  message.error("Erreur lors de l'analyse");
+                } finally {
+                  setIsAnalyzing(false);
+                }
+              }}
+              disabled={isAnalyzing}
+              className="flex-1 md:flex-none py-2 px-4 shadow-md hover:shadow-lg transition-all"
+            >
+              <BarChart className={`w-4 h-4 mr-2 ${isAnalyzing ? 'animate-spin' : ''}`} />
+              {isAnalyzing ? "Analyse en cours..." : "Analyse Charge"}
+            </Button>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const chatbot = document.querySelector('[aria-label="Ouvrir le chat"]') as HTMLElement;
+                if (chatbot) chatbot.click();
+              }}
+              className="flex-1 md:flex-none border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400"
+            >
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Poser une question
+            </Button>
+          </div>
+        </div>
+
+        {workloadReport && (
+          <div className="mt-6 animate-in slide-in-from-top-4 duration-500">
+            <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-md rounded-2xl p-5 border border-indigo-100 dark:border-indigo-900/50 shadow-inner relative">
+              <button
+                onClick={() => setWorkloadReport(null)}
+                className="absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <XIcon className="w-4 h-4" />
+              </button>
+              <div className="flex items-start space-x-3">
+                <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/40 rounded-full flex items-center justify-center shrink-0 mt-1">
+                  <Sparkles className="w-4 h-4 text-purple-600" />
+                </div>
+                <div className="prose prose-sm dark:prose-invert max-w-none">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {workloadReport}
+                  </ReactMarkdown>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </Card>
       {/* Tâches en retard avec design d'alerte */}
       {overdueTasks.length > 0 && (
         <Card className="p-6 bg-gradient-to-r from-red-50/80 via-pink-50/80 to-orange-50/80 dark:from-red-900/20 dark:via-pink-900/20 dark:to-orange-900/20 border-red-200/50 dark:border-red-800/50" gradient>

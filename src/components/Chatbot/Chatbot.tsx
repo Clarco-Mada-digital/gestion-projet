@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { MessageOutlined, RobotOutlined, SendOutlined, CloseOutlined, DeleteOutlined, DownloadOutlined, FileTextOutlined, CopyOutlined, MoreOutlined } from '@ant-design/icons';
+import { MessageOutlined, RobotOutlined, SendOutlined, CloseOutlined, DeleteOutlined, DownloadOutlined, FileTextOutlined, CopyOutlined, MoreOutlined, BarChartOutlined, BulbOutlined } from '@ant-design/icons';
 import { Avatar, Button, Tooltip, message, Input, theme, Dropdown } from 'antd';
 
 // Fonction utilitaire pour formater la date de manière plus lisible
@@ -532,7 +532,61 @@ const Chatbot: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [inputValue, chatbotSettings.showNotifications, isAIConfigured, messages, state.appSettings.aiSettings]);
+  }, [inputValue, chatbotSettings.showNotifications, isAIConfigured, messages, state.appSettings.aiSettings, state]);
+
+  // Actions rapides
+  const handleQuickAction = useCallback(async (action: string) => {
+    let prompt = '';
+    if (action === 'workload') {
+      prompt = "Analyse ma charge de travail actuelle et préviens-moi si je risque le surmenage.";
+    } else if (action === 'priorities') {
+      prompt = "Quelles sont les priorités pour la semaine prochaine ?";
+    } else if (action === 'blockers') {
+      prompt = "Qu'est-ce qui bloque mes projets en ce moment ?";
+    }
+
+    if (!prompt) return;
+
+    // Simuler l'envoi du message par l'utilisateur
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      content: prompt,
+      sender: 'user',
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setIsLoading(true);
+
+    try {
+      // Pour l'analyse de charge, on peut utiliser directement la méthode spécialisée si on veut une réponse structurée
+      // Mais ici on veut une réponse dans le chat
+      const response = await AIService.generateAIResponse(
+        prompt,
+        messages.slice(-5).map(m => ({
+          role: m.sender === 'user' ? 'user' as const : 'assistant' as const,
+          content: m.content
+        })),
+        aiSettings,
+        null, // project
+        null, // task
+        state // appState
+      );
+
+      const botResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        content: response.content,
+        sender: 'bot',
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, botResponse]);
+    } catch (error) {
+      console.error('Erreur Quick Action:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [messages, aiSettings, state]);
 
   // Gestionnaire de la touche Entrée (supprimé car Inline dans le composant)
 
@@ -735,7 +789,26 @@ const Chatbot: React.FC = () => {
                     backgroundSize: '200% 200%',
                     animation: 'gradient 8s ease infinite',
                   }}>Comment puis-je vous aider ?</h3>
-                  <p style={{ color: isDark ? '#ccc' : '#666' }}>Posez-moi des questions sur vos projets ou tâches.</p>
+                  <p style={{ color: isDark ? '#ccc' : '#666', marginBottom: '24px' }}>Posez-moi des questions sur vos projets ou tâches.</p>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', width: '100%' }}>
+                    <Button
+                      icon={<BarChartOutlined />}
+                      onClick={() => handleQuickAction('workload')}
+                      style={{ borderRadius: '12px', height: 'auto', padding: '10px', fontSize: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}
+                    >
+                      <span style={{ fontWeight: 600 }}>Analyse Charge</span>
+                      <span style={{ fontSize: '10px', opacity: 0.7 }}>Éviter le surmenage</span>
+                    </Button>
+                    <Button
+                      icon={<BulbOutlined />}
+                      onClick={() => handleQuickAction('priorities')}
+                      style={{ borderRadius: '12px', height: 'auto', padding: '10px', fontSize: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}
+                    >
+                      <span style={{ fontWeight: 600 }}>Priorités</span>
+                      <span style={{ fontSize: '10px', opacity: 0.7 }}>Semaine prochaine</span>
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 messages.map((msg) => (
@@ -805,6 +878,42 @@ const Chatbot: React.FC = () => {
                 }}
               />
             </ChatBody>
+
+            {/* Quick Actions Bar */}
+            <div style={{
+              padding: '8px 16px',
+              display: 'flex',
+              gap: '6px',
+              overflowX: 'auto',
+              borderTop: '1px solid ' + (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'),
+              background: isDark ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)',
+              scrollbarWidth: 'none'
+            }}>
+              <Button
+                size="small"
+                icon={<BarChartOutlined />}
+                onClick={() => handleQuickAction('workload')}
+                style={{ borderRadius: '8px', fontSize: '11px', display: 'flex', alignItems: 'center', height: '28px', border: '1px solid #ccc9', background: 'transparent' }}
+              >
+                Charge
+              </Button>
+              <Button
+                size="small"
+                icon={<BulbOutlined />}
+                onClick={() => handleQuickAction('priorities')}
+                style={{ borderRadius: '8px', fontSize: '11px', display: 'flex', alignItems: 'center', height: '28px', border: '1px solid #ccc9', background: 'transparent' }}
+              >
+                Priorités
+              </Button>
+              <Button
+                size="small"
+                icon={<RobotOutlined />}
+                onClick={() => handleQuickAction('blockers')}
+                style={{ borderRadius: '8px', fontSize: '11px', display: 'flex', alignItems: 'center', height: '28px', border: '1px solid #ccc9', background: 'transparent' }}
+              >
+                Blocages
+              </Button>
+            </div>
 
             <InputContainer $isDark={isDark}>
               <StyledInput

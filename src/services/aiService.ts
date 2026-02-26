@@ -38,6 +38,43 @@ export class AIService {
    */
 
   /**
+   * Tente d'extraire et de parser un JSON de manière robuste
+   */
+  private static tryExtractJson(content: string): any {
+    if (!content) return null;
+
+    // Nettoyage agressif des blocs de code markdown
+    let cleaned = content.replace(/```(?:json)?([\s\S]*?)```/gi, '$1').trim();
+
+    // Extraction du bloc JSON le plus large (entre { } ou [ ])
+    const jsonMatch = cleaned.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
+    if (!jsonMatch) return null;
+
+    let jsonStr = jsonMatch[0].trim();
+
+    try {
+      // 1. Tentative de parse standard
+      return JSON.parse(jsonStr);
+    } catch (e) {
+      try {
+        // 2. Tentative de correction des erreurs communes (virgules traînantes, etc.)
+        // Supprime les virgules avant une fermeture de crochet ou d'accolade
+        const fixedJson = jsonStr
+          .replace(/,\s*([\]\}])/g, '$1')
+          // Tente de gérer les retours à la ligne non échappés dans les chaînes (cas rare mais arrive)
+          .replace(/\n/g, '\\n')
+          // Mais il faut pas échapper les \n qui font déjà partie d'un \n légitime
+          .replace(/\\\\n/g, '\\n');
+
+        return JSON.parse(fixedJson);
+      } catch (e2) {
+        console.warn('Échec définitif du parsing JSON IA:', e2);
+        return null;
+      }
+    }
+  }
+
+  /**
    * Nettoie le contenu de la réponse IA en supprimant les blocs de réflexion (DeepSeek, etc.)
    */
   private static cleanContent(content: string): string {
@@ -55,12 +92,19 @@ export class AIService {
       cleaned = finalMatch[1];
     }
 
-    // 3. Suppression des préambules persistants (Approche, Plan, répétition de prompt)
-    // On nettoie les "Approche :", "Plan :", "Voici le rapport :" en début de texte
-    cleaned = cleaned
-      .replace(/^(Approche|Plan|Réflexion|Analyse|Voici|D'abord|Je vais)\s*:?.*?\n/gi, '')
-      .replace(/^.*?demandé un rapport.*?\n/gi, '')
-      .replace(/\[FINAL_START\]|\[FINAL_END\]/gi, ''); // Supprimer les balises restantes
+    // 3. Nettoyage agressif des préambules "Réflexion :", "Je vais...", etc.
+    // Si on détecte un JSON on déplace le pointeur au début du JSON
+    const firstBrace = cleaned.search(/[\{\[]/);
+    if (firstBrace > 0) {
+      // Mais seulement si ce n'est pas une balise [FINAL_START] qui a été trouvée
+      const preText = cleaned.substring(0, firstBrace);
+      if (!preText.includes('[FINAL')) {
+        cleaned = cleaned.substring(firstBrace);
+      }
+    }
+
+    // 4. Suppression des blocs de code Markdown
+    cleaned = cleaned.replace(/```(?:json)?([\s\S]*?)```/gi, '$1');
 
     return cleaned.trim();
   }
@@ -152,10 +196,11 @@ Ton rôle est double :
    - Paramètres d'IA : Pour changer de modèle ou de fournisseur (OpenAI/OpenRouter).
    - Collaboration : Explique comment partager un projet (bouton "Partager" sur la carte projet) ou inviter des membres.
 
-2. **Analyste de Données Personnel** : Utilise le contexte utilisateur ci-dessous pour répondre aux questions sur SES projets et tâches.
-   - Donne des conseils sur la gestion de son temps.
-   - Identifie les projets qui stagnent.
-   - Suggère des priorités basées sur les échéances proches.
+3. **Analyste de Charge (Workload)** : Tu surveilles la santé de l'utilisateur. Si trop de tâches sont accumulées sur une courte période, préviens-le.
+   - Si l'utilisateur a plus de 7h de travail estimé sur un jour, signale un risque de surmenage.
+   - Aide à réorganiser le calendrier si des échéances sont impossibles à tenir.
+
+4. **Expert en Estimation** : Basé sur l'historique des tâches complétées, aide à estimer le temps requis pour les nouvelles tâches.
 
 ## DOCUMENTATION DE RÉFÉRENCE
 ${documentation}
@@ -163,6 +208,9 @@ ${documentation}
 ${appDataInfo}
 
 ## TES RÈGLES D'OR :
+- **IDENTIFICATION DES BLOQUAGE** : Analyse toujours si un projet stagne (ex: aucune tâche terminée depuis 1 semaine) ou si des dépendances semblent manquer.
+- **PRIORITÉS** : Si on te demande les priorités, regarde les dates d'échéances les plus proches et l'importance des projets.
+- **TON** : Proactif, encourageant, mais lucide sur la charge de travail.
 - **IMPORTANT** : NE PRODUIS JAMAIS DE RÉFLEXION INTERNE OU DE COMMENTAIRE SUR TON TRAVAIL.
 - **STRUCTURE** : Ta réponse finale doit IMPÉRATIVEMENT être entourée des balises [FINAL_START] et [FINAL_END]. Tout ce qui est en dehors de ces balises sera ignoré.
   Exemple : [FINAL_START]Contenu utile ici...[FINAL_END]`;
@@ -406,47 +454,56 @@ ${appDataInfo}
       prompt += '\n';
     }
 
-    // Instructions améliorées avec groupement et évitement de doublons
+    // Instructions améliorées : format strict pour éviter les erreurs de parsing
     prompt += `Génère 3-5 nouvelles sous-tâches pour cette tâche.\n`;
     prompt += `IMPORTANT:\n`;
-    prompt += `- NE PAS générer de sous-tâches qui existent déjà dans la liste ci-dessus\n`;
-    prompt += `- Regroupe les sous-tâches similaires par catégories logiques si possible\n`;
-    prompt += `- Sois spécifique et actionnable\n`;
-    prompt += `- Format JSON avec groupes optionnels:\n`;
-    prompt += `{"group":"Nom du groupe","tasks":[{"title":"Sous-tâche 1","description":"..."},{"title":"Sous-tâche 2","description":"..."}]}\n`;
-    prompt += `Si pas de groupe, utilise: [{"title":"Tâche 1","description":"..."},...]`;
+    prompt += `- NE PAS générer de sous-tâches déjà existantes\n`;
+    prompt += `- Sois extrêmement concis et actionnable\n`;
+    prompt += `- RÉPONDS EXCLUSIVEMENT sous ce format JSON entre les balises [FINAL_START] et [FINAL_END] :\n`;
+    prompt += `[FINAL_START]\n`;
+    prompt += `[\n`;
+    prompt += `  {"title": "Sous-tâche 1", "description": "Détails optionnels"},\n`;
+    prompt += `  {"title": "Sous-tâche 2", "description": "Détails optionnels"}\n`;
+    prompt += `]\n`;
+    prompt += `[FINAL_END]\n`;
 
     return prompt;
   }
 
   private static parseSubTasksResponse(content: string): GeneratedSubTask[] {
     try {
-      // Essayer d'extraire le JSON de la réponse
-      const jsonMatch = content.match(/\[\s*\{.*\}\s*\]/s);
+      // 1. Essayer d'extraire le JSON de la réponse (Array ou Object avec 'tasks')
+      const parsed = AIService.tryExtractJson(content);
 
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-
-        // Vérifier si c'est le format avec groupes
-        if (parsed.length > 0 && parsed[0].group && parsed[0].tasks) {
-          // Aplatir les groupes en une liste simple de sous-tâches
-          const flattenedTasks: GeneratedSubTask[] = [];
-          parsed.forEach((group: any) => {
-            if (group.tasks && Array.isArray(group.tasks)) {
-              group.tasks.forEach((task: any) => {
-                flattenedTasks.push({
-                  title: task.title || 'Sous-tâche sans titre',
-                  description: task.description || '',
-                  group: group.group || 'Sans groupe'
+      if (parsed) {
+        // Cas A : C'est directement un tableau de tâches
+        if (Array.isArray(parsed)) {
+          // Vérifier s'il s'agit d'un tableau de groupes (format complexe)
+          if (parsed.length > 0 && parsed[0].tasks) {
+            const flattened: GeneratedSubTask[] = [];
+            parsed.forEach((g: any) => {
+              if (g.tasks && Array.isArray(g.tasks)) {
+                g.tasks.forEach((t: any) => {
+                  flattened.push({ title: t.title || t.name, description: t.description || '' });
                 });
-              });
-            }
-          });
-          return flattenedTasks;
+              }
+            });
+            return flattened;
+          }
+
+          return parsed.map(t => ({
+            title: t.title || t.name || t,
+            description: t.description || ''
+          }));
         }
 
-        // Format standard (sans groupes)
-        return parsed;
+        // Cas B : C'est un objet (ex: { tasks: [...] } ou { group: "...", tasks: [...] })
+        if (parsed.tasks && Array.isArray(parsed.tasks)) {
+          return parsed.tasks.map((t: any) => ({
+            title: t.title || t.name || 'Sous-tâche',
+            description: t.description || ''
+          }));
+        }
       }
 
       // Si pas de JSON valide, essayer de parser manuellement
@@ -454,13 +511,32 @@ ${appDataInfo}
 
       const subTasks: GeneratedSubTask[] = [];
 
+      // Mots-clés indiquant une ligne de réflexion à ignorer
+      const reasoningKeywords = [
+        'premièrement', 'deuxièmement', 'ensuite', 'enfin', 'je vais',
+        'regardons', 'l\'instruction', 'sujet', 'possibles', 'mais je dois',
+        'groupes logiques', 'réflexion', 'analyse', 'voici', 'étape',
+        'pour cette', 'je suggère', 'basé sur', 'pour décomposer'
+      ];
+
       for (const line of lines) {
-        const match = line.match(/^[\d\-\.\s]*(.+?)(?:\.|:|$)/);
+        const lowerLine = line.toLowerCase().trim();
+
+        // Ignorer les lignes trop courtes ou qui semblent être de la réflexion
+        if (lowerLine.length < 3 || reasoningKeywords.some(kw => lowerLine.startsWith(kw))) {
+          continue;
+        }
+
+        const match = line.match(/^[\d\-\.\s*]*(.+?)(?:\.|:|$)/);
         if (match && match[1]) {
-          subTasks.push({
-            title: match[1].trim(),
-            description: ''
-          });
+          const title = match[1].trim();
+          // S'assurer que le titre est substantiel et ne ressemble pas à une phrase de transition
+          if (title.length > 5 && !title.includes('je dois') && !title.includes('vais générer')) {
+            subTasks.push({
+              title: title,
+              description: ''
+            });
+          }
         }
       }
 
@@ -547,13 +623,12 @@ ${appDataInfo}
       }
 
       // Essayer d'extraire le JSON de la réponse
-      try {
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          return JSON.parse(jsonMatch[0]);
-        }
-      } catch (e) {
-        console.warn('Impossible de parser la réponse JSON, utilisation du texte brut');
+      const parsed = AIService.tryExtractJson(content);
+      if (parsed) {
+        return {
+          title: parsed.title || title || 'Sans titre',
+          description: parsed.description || content
+        };
       }
 
       // Si on n'a pas pu extraire de JSON, on utilise le contenu brut
@@ -820,14 +895,22 @@ ${appDataInfo}
         throw new Error('Aucun contenu généré');
       }
 
-      // Extraire le JSON
-      const jsonMatch = content.match(/\[\s*\{.*\}\s*\]/s);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+      // Extraire le JSON (plus robuste)
+      const arrayMatch = content.match(/\[\s*\{[\s\S]*\}\s*\]/);
+      if (arrayMatch) {
+        try {
+          return JSON.parse(arrayMatch[0]);
+        } catch (e) {
+          console.error('Erreur parsing match JSON array:', e);
+        }
       }
 
-      // Tentative de parse directe si le regex échoue mais que le contenu ressemble à du JSON
+      // Tentative de parse directe ou extraction de la zone [...]
       try {
+        const jsonOnly = content.substring(content.indexOf('['), content.lastIndexOf(']') + 1);
+        if (jsonOnly && jsonOnly.startsWith('[') && jsonOnly.endsWith(']')) {
+          return JSON.parse(jsonOnly);
+        }
         return JSON.parse(content);
       } catch (e) {
         throw new Error('Format de réponse invalide');
@@ -837,6 +920,136 @@ ${appDataInfo}
       throw error;
     }
   }
+  /**
+   * Analyse la charge de travail actuelle de l'utilisateur
+   */
+  static async analyzeWorkload(settings: AISettings, appState: AppState): Promise<string> {
+    try {
+      const appData = getAppDataSummary(appState);
+      const allTasks = appState.projects.flatMap(p => p.tasks || []).filter(t => t.status !== 'done');
+
+      // Grouper les tâches par date d'échéance
+      const workloadByDay: Record<string, { count: number, hours: number, tasks: string[] }> = {};
+
+      allTasks.forEach(task => {
+        if (!task.dueDate) return;
+
+        const start = new Date(task.startDate || task.dueDate);
+        const end = new Date(task.dueDate);
+        start.setHours(0, 0, 0, 0);
+        end.setHours(0, 0, 0, 0);
+
+        const diffMs = end.getTime() - start.getTime();
+        const diffDays = Math.max(1, Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1);
+
+        const totalHours = (task.estimatedHours || 2);
+        const hoursPerDay = totalHours / diffDays;
+
+        for (let i = 0; i < diffDays; i++) {
+          const currentDate = new Date(start);
+          currentDate.setDate(currentDate.getDate() + i);
+          const dateStr = currentDate.toISOString().split('T')[0];
+
+          if (!workloadByDay[dateStr]) {
+            workloadByDay[dateStr] = { count: 0, hours: 0, tasks: [] };
+          }
+          workloadByDay[dateStr].count++;
+          workloadByDay[dateStr].hours += hoursPerDay;
+          workloadByDay[dateStr].tasks.push(`${task.title} (${Math.round(hoursPerDay * 10) / 10}h/j)`);
+        }
+      });
+
+      const prompt = `Analyse cette charge de travail et préviens-moi si des jours sont surchargés (plus de 7h/jour) ou si des échéances semblent impossibles à tenir.
+      
+      DONNÉES DU WORKLOAD :
+      ${JSON.stringify(workloadByDay)}
+      
+      STATISTIQUES GLOBALES :
+      ${JSON.stringify(appData.stats)}
+      
+      Réponds par une analyse concise et des recommandations concrètes pour éviter le surmenage.`;
+
+      return await this.generateAiText(settings, prompt);
+    } catch (error) {
+      console.error('Erreur analyse workload:', error);
+      return "Désolé, je n'ai pas pu analyser la charge de travail pour le moment.";
+    }
+  }
+
+  /**
+   * Estime le temps nécessaire pour une tâche en se basant sur l'historique et les dates
+   */
+  static async estimateTaskDuration(
+    settings: AISettings,
+    appState: AppState,
+    taskTitle: string,
+    taskDescription?: string,
+    startDate?: string,
+    dueDate?: string
+  ): Promise<{ estimatedHours: number; suggestedDueDate?: string; reasoning: string }> {
+    try {
+      const completedTasks = appState.projects
+        .flatMap(p => p.tasks || [])
+        .filter(t => t.status === 'done' && t.completedAt);
+
+      const historyData = completedTasks.map(t => {
+        const start = new Date(t.startDate || t.createdAt);
+        const end = new Date(t.completedAt!);
+        const actualHours = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60)));
+        return {
+          title: t.title,
+          estimated: t.estimatedHours || 'N/A',
+          actual: actualHours
+        };
+      }).slice(0, 15);
+
+      const timeframe = (startDate && dueDate) ? ` du ${startDate} au ${dueDate}` : '';
+
+      const prompt = `Estime le temps total de travail nécessaire (en heures) pour cette tâche :
+      Titre: ${taskTitle}
+      Description: ${taskDescription || 'N/A'}
+      Délai prévu:${timeframe || ' Non précisé'}
+
+      REGLES IMPORTANTES:
+      1. Basse-toi sur cet historique de complétion : ${JSON.stringify(historyData)}
+      2. COHERENCE TEMPORELLE: Ton estimation doit être réaliste par rapport au délai. 
+         Une journée de travail standard = 8h de productivité réelle.
+         Si tu estimes 100h de travail pour une tâche qui finit demain, c'est IMPOSSIBLE. 
+         Dans ce cas, donne l'estimation REELLE du travail nécessaire (ex: 40h) mais suggère EXPLICITEMENT dans le 'reasoning' que le délai (dates) doit être allongé car le travail ne rentre pas dans le temps imparti.
+      
+      Réponds uniquement au format JSON : { "estimatedHours": nombre, "reasoning": "explication" }`;
+
+      const response = await this.generateAiText(settings, prompt);
+
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const result = JSON.parse(jsonMatch[0]);
+        const finalHours = result.estimatedHours || 2;
+
+        let finalSuggestedDate = dueDate;
+
+        // Logique de cohérence temporelle : si > 8h, calculer la date d'échéance suggérée
+        if (finalHours > 8) {
+          const start = new Date(startDate || new Date().toISOString().split('T')[0]);
+          const daysNeeded = Math.ceil(finalHours / 8);
+          const suggestedEnd = new Date(start);
+          suggestedEnd.setDate(suggestedEnd.getDate() + (daysNeeded - 1));
+          finalSuggestedDate = suggestedEnd.toISOString().split('T')[0];
+        }
+
+        return {
+          estimatedHours: finalHours,
+          suggestedDueDate: finalSuggestedDate,
+          reasoning: result.reasoning
+        };
+      }
+      return { estimatedHours: 2, reasoning: "Estimation par défaut (2h)" };
+    } catch (error) {
+      console.error('Erreur estimation prédictive:', error);
+      return { estimatedHours: 2, reasoning: "Impossible d'analyser l'historique pour le moment." };
+    }
+  }
+
   static async fetchOpenRouterModels(apiKey: string): Promise<{ id: string; name: string; context_length: number; pricing: any }[]> {
     try {
       const response = await fetch('https://openrouter.ai/api/v1/models', {

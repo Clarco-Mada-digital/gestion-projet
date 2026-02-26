@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Calendar as CalendarIcon, Clock, Plus, X as XIcon, Edit2, Eye, Image as ImageIcon, Video, Music, Link as LinkIcon } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, Plus, X as XIcon, Edit2, Eye, Image as ImageIcon, Video, Music, Link as LinkIcon, Sparkles } from 'lucide-react';
 import { Task, Project, SubTask, Attachment, User } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { SubTasksList } from './SubTasksList';
@@ -112,6 +112,8 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
 
   // Mode édition/visualisation
   const [isEditing, setIsEditing] = useState(false);
+  const [isEstimating, setIsEstimating] = useState(false);
+  const [estimationReasoning, setEstimationReasoning] = useState('');
 
   // Gérer l'ajout d'un tag
   const [isAddingTag, setIsAddingTag] = useState(false);
@@ -832,7 +834,40 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
                     ) : (
                       // Tâche d'un jour : permettre la saisie manuelle
                       <div>
-                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Heures estimées</label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Heures estimées</label>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setIsEstimating(true);
+                              try {
+                                const estimation = await AIService.estimateTaskDuration(
+                                  state.appSettings.aiSettings,
+                                  state,
+                                  editedTask.title,
+                                  editedTask.description,
+                                  editedTask.startDate,
+                                  editedTask.dueDate
+                                );
+                                setEditedTask({
+                                  ...editedTask,
+                                  dueDate: estimation.suggestedDueDate || editedTask.dueDate,
+                                  estimatedHours: estimation.estimatedHours > 8 ? 0 : estimation.estimatedHours
+                                });
+                                setEstimationReasoning(estimation.reasoning);
+                              } catch (e) {
+                                console.error(e);
+                              } finally {
+                                setIsEstimating(false);
+                              }
+                            }}
+                            disabled={isEstimating}
+                            className="text-[10px] flex items-center px-1.5 py-0.5 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-md border border-purple-200 dark:border-purple-800 hover:bg-purple-100 transition-colors font-bold uppercase tracking-tighter"
+                          >
+                            <Sparkles className={`w-3 h-3 mr-1 ${isEstimating ? 'animate-spin' : ''}`} />
+                            {isEstimating ? 'Calcul...' : 'Estimer via IA'}
+                          </button>
+                        </div>
                         <div className="relative">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Clock className="h-5 w-5 text-gray-400" />
@@ -846,9 +881,16 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
                             placeholder="0"
                           />
                         </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          Saisie manuelle pour les tâches d'un jour
-                        </p>
+                        {estimationReasoning && (
+                          <p className="text-[10px] text-purple-500 italic mt-1 font-medium">
+                            💡 {estimationReasoning}
+                          </p>
+                        )}
+                        {!estimationReasoning && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Saisie manuelle pour les tâches d'un jour
+                          </p>
+                        )}
                       </div>
                     )
                   ) : (
