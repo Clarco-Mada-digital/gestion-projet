@@ -455,9 +455,12 @@ export function SettingsView() {
                       onClick={async () => {
                         try {
                           setIsLoading(true);
-                          const result = await firebaseService.loginCalendar();
+                          const result = await firebaseService.loginCalendar(true); // On force ici pour le bouton explicite
                           if (result) {
-                            dispatch({ type: 'SET_GOOGLE_TOKEN', payload: result.accessToken });
+                            dispatch({
+                              type: 'SET_GOOGLE_TOKEN',
+                              payload: { token: result.accessToken, timestamp: result.timestamp }
+                            });
                             dispatch({ type: 'SET_CALENDAR_EMAIL', payload: result.email });
                             setSuccess('Connexion à l\'agenda réussie !');
                           }

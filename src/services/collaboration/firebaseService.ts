@@ -128,8 +128,9 @@ export const firebaseService = {
 
   /**
    * Authentification spécifique pour Google Calendar (indépendante de Firebase)
+   * @param forceConsent Si vrai, force l'affichage de l'écran de sélection de compte et de consentement
    */
-  async loginCalendar(): Promise<{ accessToken: string; email: string }> {
+  async loginCalendar(forceConsent: boolean = false): Promise<{ accessToken: string; email: string; expiresIn: number; timestamp: number }> {
     if (!ensureInitialized()) throw new Error("Firebase n'est pas configuré");
     const provider = new GoogleAuthProvider();
 
@@ -137,11 +138,20 @@ export const firebaseService = {
     provider.addScope('https://www.googleapis.com/auth/calendar');
     provider.addScope('https://www.googleapis.com/auth/tasks');
 
-    // Forcer le choix du compte et le consentement pour l'access_type offline
-    provider.setCustomParameters({
-      prompt: 'select_account consent',
-      access_type: 'offline'
-    });
+    // Paramètres personnalisés pour améliorer l'expérience utilisateur
+    const params: any = {
+      access_type: 'offline',
+    };
+
+    // On ne demande le consentement que si forcé ou si c'est la première fois
+    if (forceConsent) {
+      params.prompt = 'select_account consent';
+    } else {
+      // 'select_account' permet de choisir le compte sans forcément re-valider toutes les permissions
+      params.prompt = 'select_account';
+    }
+
+    provider.setCustomParameters(params);
 
     try {
       // On utilise l'instance calendarAuth pour ne pas interférer avec l'auth principale
@@ -155,9 +165,11 @@ export const firebaseService = {
 
       return {
         accessToken,
-        email: result.user.email || 'Inconnu'
+        email: result.user.email || 'Inconnu',
+        expiresIn: 3600, // Google tokens durent généralement 1 heure
+        timestamp: Date.now()
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erreur d'authentification Agenda:", error);
       throw error;
     }

@@ -174,25 +174,27 @@ export function CalendarView() {
   useEffect(() => {
     const fetchRealGoogleEvents = async () => {
       if (showExternalCalendar && days.length > 0) {
-        // Vérifier si l'utilisateur est déjà connecté à l'agenda
+        // 1. Vérifier si le token est expiré ou manquant
+        const tokenAgeMs = (state.googleTokenTimestamp && state.googleAccessToken) ? Date.now() - state.googleTokenTimestamp : Infinity;
+        const isTokenExpired = tokenAgeMs > 3500 * 1000; // ~58 minutes
+
+        // 2. Vérifier si l'utilisateur est déjà connecté à Firebase pour l'agenda
         const isCalendarLoggedIn = await firebaseService.isCalendarLoggedIn();
-        
-        if (!isCalendarLoggedIn && !state.googleAccessToken) {
-          console.log('[Calendar] Non connecté à l\'agenda, tentative de reconnexion automatique...');
-          try {
-            const result = await firebaseService.loginCalendar();
-            if (result) {
-              dispatch({ type: 'SET_GOOGLE_TOKEN', payload: result.accessToken });
-              dispatch({ type: 'SET_CALENDAR_EMAIL', payload: result.email });
-              console.log('[Calendar] Reconnexion automatique réussie');
-            }
-          } catch (error) {
-            console.error('[Calendar] Erreur reconnexion automatique:', error);
+
+        // Si on n'a pas de token ou s'il est expiré, et qu'on est déjà loggué, on tente une récupération discrète (si possible)
+        // Note: signInWithPopup sera bloqué par le navigateur s'il n'est pas déclenché par un clic.
+        // On ne le tente auto que si on est sûr que le token manque totalement au démarrage
+        if ((!state.googleAccessToken || isTokenExpired) && isCalendarLoggedIn && !isSyncing) {
+          console.log('[Calendar] Token expiré ou manquant, une reconnexion sera nécessaire.');
+          // On ne déclenche pas loginCalendar ici car il serait bloqué par le popup blocker
+          // On laisse le message d'erreur s'afficher avec un bouton d'action
+          if (state.googleAccessToken) {
+            setSyncError("Session Google expirée. Veuillez cliquer pour reconnecter.");
           }
-          return;
+          return false;
         }
 
-        if (state.googleAccessToken) {
+        if (state.googleAccessToken && !isTokenExpired) {
           setIsSyncing(true);
           setSyncError(null);
           try {
@@ -215,7 +217,12 @@ export function CalendarView() {
             return true;
           } catch (error: any) {
             console.error("Erreur de récupération du calendrier réel:", error);
-            setSyncError(error.message || "Erreur de connexion Google");
+            // Si l'erreur est une erreur d'authentification (401)
+            if (error.message?.includes('401') || error.message?.toLowerCase().includes('auth') || error.message?.toLowerCase().includes('token')) {
+              setSyncError("Session Google expirée");
+            } else {
+              setSyncError(error.message || "Erreur de connexion Google");
+            }
             setIsSyncing(false);
             return false;
           }
@@ -387,6 +394,31 @@ export function CalendarView() {
                         >
                           <Info className="w-3 h-3 mr-1" /> Activer l'API Tasks
                         </a>
+                      ) : syncError.includes('expirée') ? (
+                        <button
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setIsSyncing(true);
+                            try {
+                              const result = await firebaseService.loginCalendar(false); // Pas de force consent ici
+                              if (result) {
+                                dispatch({ type: 'SET_GOOGLE_TOKEN', payload: { token: result.accessToken, timestamp: result.timestamp } });
+                                setSyncError(null);
+                                // On recharge les événements
+                                setTimeout(() => fetchRealGoogleEvents(), 100);
+                              }
+                            } catch (err) {
+                              console.error("Échec reconnexion rapide:", err);
+                              setSyncError("Échec reconnexion");
+                            } finally {
+                              setIsSyncing(false);
+                            }
+                          }}
+                          className="flex items-center hover:underline bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded text-amber-600 dark:text-amber-400 animate-pulse"
+                        >
+                          <Bell className="w-3 h-3 mr-1" /> Reconnecter l'agenda
+                        </button>
                       ) : (
                         <>⚠️ Erreur de sync.</>
                       )}
@@ -396,9 +428,27 @@ export function CalendarView() {
                       ✓ Agenda synchronisé ({externalEvents.length} évènements)
                     </span>
                   ) : (
-                    <span className="ml-1 text-amber-500 text-xs font-bold flex items-center cursor-pointer hover:underline" onClick={() => dispatch({ type: 'SET_VIEW', payload: 'settings' })}>
+                    <button
+                      className="ml-1 text-amber-500 text-xs font-bold flex items-center cursor-pointer hover:underline"
+                      onClick={async () => {
+                        setIsSyncing(true);
+                        try {
+                          const result = await firebaseService.loginCalendar(false);
+                          if (result) {
+                            dispatch({ type: 'SET_GOOGLE_TOKEN', payload: { token: result.accessToken, timestamp: result.timestamp } });
+                            dispatch({ type: 'SET_CALENDAR_EMAIL', payload: result.email });
+                            setSyncError(null);
+                            setTimeout(() => fetchRealGoogleEvents(), 100);
+                          }
+                        } catch (err) {
+                          setSyncError("Échec connexion");
+                        } finally {
+                          setIsSyncing(false);
+                        }
+                      }}
+                    >
                       <Bell className="w-3 h-3 mr-1 animate-bounce" /> Synchronisation requise
-                    </span>
+                    </button>
                   )}
                 </span>
               )}
@@ -440,10 +490,19 @@ export function CalendarView() {
               {showExternalCalendar && !state.googleAccessToken && (
                 <div
                   className="ml-2 flex items-center justify-center p-1 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 cursor-pointer transition-colors shadow-sm"
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    dispatch({ type: 'SET_VIEW', payload: 'settings' });
+                    try {
+                      const result = await firebaseService.loginCalendar(false);
+                      if (result) {
+                        dispatch({ type: 'SET_GOOGLE_TOKEN', payload: { token: result.accessToken, timestamp: result.timestamp } });
+                        dispatch({ type: 'SET_CALENDAR_EMAIL', payload: result.email });
+                        setTimeout(() => fetchRealGoogleEvents(), 100);
+                      }
+                    } catch (err) {
+                      dispatch({ type: 'SET_VIEW', payload: 'settings' });
+                    }
                   }}
                   title="Synchronisation Google requise"
                 >

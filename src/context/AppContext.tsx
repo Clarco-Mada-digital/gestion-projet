@@ -9,6 +9,7 @@ export interface AppState {
   users: User[];
   cloudUser: FirebaseUser | null;
   googleAccessToken?: string;
+  googleTokenTimestamp?: number;
   calendarEmail?: string;
   theme: 'light' | 'dark';
   currentView: string;
@@ -49,7 +50,7 @@ type AppAction =
   | { type: 'IMPORT_DATA'; payload: any }
   | { type: 'EXPORT_DATA' }
   | { type: 'SET_CLOUD_USER'; payload: FirebaseUser | null }
-  | { type: 'SET_GOOGLE_TOKEN'; payload: string | undefined }
+  | { type: 'SET_GOOGLE_TOKEN'; payload: { token: string; timestamp: number } | string | undefined }
   | { type: 'SET_CALENDAR_EMAIL'; payload: string | undefined }
   | { type: 'CLEAR_GOOGLE_SESSION' }
   | { type: 'SYNC_PROJECTS'; payload: Project[] }
@@ -144,6 +145,7 @@ const initialState: AppState = {
   }],
   cloudUser: null,
   googleAccessToken: undefined,
+  googleTokenTimestamp: undefined,
   calendarEmail: undefined,
   theme: 'light',
   currentView: 'today',
@@ -464,11 +466,18 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
     case 'SET_CLOUD_USER':
       return { ...state, cloudUser: action.payload };
     case 'SET_GOOGLE_TOKEN':
-      return { ...state, googleAccessToken: action.payload };
+      if (typeof action.payload === 'object' && action.payload !== null && 'token' in action.payload) {
+        return {
+          ...state,
+          googleAccessToken: action.payload.token,
+          googleTokenTimestamp: action.payload.timestamp
+        };
+      }
+      return { ...state, googleAccessToken: action.payload as string | undefined };
     case 'SET_CALENDAR_EMAIL':
       return { ...state, calendarEmail: action.payload };
     case 'CLEAR_GOOGLE_SESSION':
-      return { ...state, googleAccessToken: undefined, calendarEmail: undefined };
+      return { ...state, googleAccessToken: undefined, googleTokenTimestamp: undefined, calendarEmail: undefined };
     case 'SYNC_PROJECTS': {
       const incomingProjects = action.payload; // Projets venant du Cloud
       const incomingIds = new Set(incomingProjects.map(p => p.id));
@@ -664,6 +673,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const savedAppSettings = localStorage.getItem('astroProjectManagerAppSettings');
         const savedEmailSettings = localStorage.getItem('astroProjectManagerEmailSettings');
         const savedGoogleToken = localStorage.getItem('astroProjectManagerGoogleToken');
+        const savedGoogleTokenTimestamp = localStorage.getItem('astroProjectManagerGoogleTokenTimestamp');
         const savedCalendarEmail = localStorage.getItem('astroProjectManagerCalendarEmail');
 
         // 2. Préparer les valeurs par défaut
@@ -723,6 +733,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             appSettings,
             emailSettings,
             googleAccessToken: savedGoogleToken || undefined,
+            googleTokenTimestamp: savedGoogleTokenTimestamp ? parseInt(savedGoogleTokenTimestamp) : undefined,
             calendarEmail: savedCalendarEmail || undefined
           }
         });
@@ -803,8 +814,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       if (state.googleAccessToken) {
         localStorage.setItem('astroProjectManagerGoogleToken', state.googleAccessToken);
+        if (state.googleTokenTimestamp) {
+          localStorage.setItem('astroProjectManagerGoogleTokenTimestamp', state.googleTokenTimestamp.toString());
+        }
       } else {
         localStorage.removeItem('astroProjectManagerGoogleToken');
+        localStorage.removeItem('astroProjectManagerGoogleTimestamp');
       }
 
       if (state.calendarEmail) {
@@ -815,7 +830,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (error) {
       console.error('Erreur lors de la sauvegarde de la session Google:', error);
     }
-  }, [state.googleAccessToken, state.calendarEmail, state.isLoading]);
+  }, [state.googleAccessToken, state.googleTokenTimestamp, state.calendarEmail, state.isLoading]);
 
   // Appliquer le thème
   useEffect(() => {
