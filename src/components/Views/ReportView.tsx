@@ -204,7 +204,6 @@ export function ReportView() {
     const reportContent = editedReport || aiReport;
     if (!reportContent || !report) return;
 
-    // Créer le contenu du fichier
     const formatDate = (date: Date) => {
       return date.toLocaleDateString('fr-FR', {
         day: '2-digit',
@@ -215,7 +214,6 @@ export function ReportView() {
 
     const fileName = `Rapport_${formatDate(report.startDate)}_au_${formatDate(report.endDate)}.txt`;
 
-    // Créer le contenu complet du rapport
     const fullContent = `RAPPORT D'ACTIVITÉ
 Période: ${formatDate(report.startDate)} au ${formatDate(report.endDate)}
 Généré le: ${new Date().toLocaleDateString('fr-FR', {
@@ -235,7 +233,6 @@ ${'='.repeat(80)}
 Ce rapport a été généré automatiquement depuis l'application de gestion de projets.
 `;
 
-    // Créer un blob et télécharger
     const blob = new Blob([fullContent], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -246,7 +243,34 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    setEmailStatus({ type: 'success', message: 'Rapport téléchargé avec succès !' });
+    setEmailStatus({ type: 'success', message: 'Rapport téléchargé (.txt) !' });
+    setTimeout(() => setEmailStatus({ type: null, message: '' }), 3000);
+  };
+
+  const handleDownloadMarkdown = () => {
+    const reportContent = editedReport || aiReport;
+    if (!reportContent || !report) return;
+
+    const formatDate = (date: Date) => {
+      const d = date.getDate().toString().padStart(2, '0');
+      const m = (date.getMonth() + 1).toString().padStart(2, '0');
+      const y = date.getFullYear();
+      return `${d}-${m}-${y}`;
+    };
+
+    const fileName = `Rapport_${formatDate(report.startDate)}_au_${formatDate(report.endDate)}.md`;
+
+    const blob = new Blob([reportContent], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setEmailStatus({ type: 'success', message: 'Rapport téléchargé (.md) !' });
     setTimeout(() => setEmailStatus({ type: null, message: '' }), 3000);
   };
 
@@ -434,6 +458,11 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
               });
 
               if (completedSubTasks.length > 0) {
+                // Si la tâche principale est déjà terminée (dans completedMainTasks), 
+                // on ne l'ajoute pas ici pour éviter les doublons dans le contexte IA
+                const alreadyIncluded = completedMainTasks.some(mt => mt.id === task.id);
+                if (alreadyIncluded) return null;
+
                 return {
                   ...task,
                   completedSubTasks
@@ -444,7 +473,16 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
             .filter((task): task is Task & { completedSubTasks: (SubTask & { completedAt: string })[] } => task !== null)
           : [];
 
-        const totalTasks = allTasks.length;
+        const upcomingTasks = allTasks
+          .filter(task => task.status !== 'done')
+          .sort((a, b) => {
+            if (a.status === 'in-progress' && b.status !== 'in-progress') return -1;
+            if (a.status !== 'in-progress' && b.status === 'in-progress') return 1;
+            return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+          })
+          .slice(0, 5);
+
+        const totalTasksCount = allTasks.length;
         const totalCompletedTasks = completedMainTasks.length;
         const totalCompletedSubTasks = allCompletedSubTasks.length;
 
@@ -488,8 +526,15 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
           projectName: project.name,
           completedTasks: totalCompletedTasks,
           completedSubTasks: totalCompletedSubTasks,
-          totalTasks,
-          tasks: reportTasks
+          totalTasks: totalTasksCount,
+          tasks: reportTasks,
+          upcomingTasks: upcomingTasks.map(task => ({
+            id: task.id,
+            title: task.title,
+            status: task.status,
+            priority: task.priority,
+            subTasks: task.subTasks
+          }))
         };
       });
 
@@ -522,8 +567,8 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
         openrouterApiKey: projectAiSettings?.openrouterApiKey || state.appSettings.aiSettings?.openrouterApiKey || null,
         openaiModel: projectAiSettings?.openaiModel || state.appSettings.aiSettings?.openaiModel || 'gpt-3.5-turbo',
         openrouterModel: projectAiSettings?.openrouterModel || state.appSettings.aiSettings?.openrouterModel || 'meta-llama/llama-3.1-8b-instruct:free',
-        maxTokens: 1500, // Plus de tokens pour les rapports longs
-        temperature: 0.3, // Plus de précision pour les rapports
+        maxTokens: 2500, // Augmenté pour éviter les rapports tronqués par la réflexion
+        temperature: 0.1, // Minimum de créativité pour éviter les monologues
         isConfigured: true,
         lastTested: null,
         lastTestStatus: null,
@@ -542,158 +587,144 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
       }
 
       // Construire le contexte avec les données réelles
-      let contexteRealData = `DONNÉES RÉELLES DU PROJET:\n\n`;
+      let contexteRealData = `PÉRIODE DU RAPPORT: du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}\n\n`;
 
-      // @ts-nocheck
-      report.projects.forEach((project: any) => {
-        contexteRealData += `PROJET: ${project.name}\n`;
+      report.projects.forEach((prjData: any) => {
+        contexteRealData += `PROJET: ${prjData.projectName}\n`;
 
-        if (project.tasks && project.tasks.length > 0) {
-          const completedTasks = project.tasks.filter((task: any) => task.status === 'completed');
-          const completedSubTasks = project.tasks.flatMap((task: any) =>
-            task.subTasks ? task.subTasks.filter((subTask: any) => subTask.status === 'completed') : []
-          );
+        // Tâches effectuées
+        const performedTasks = prjData.tasks || [];
+        if (performedTasks.length > 0) {
+          contexteRealData += `TÂCHES EFFECTUÉES:\n`;
+          performedTasks.forEach((task: any) => {
+            const completedDate = task.completedAt ? new Date(task.completedAt).toLocaleDateString('fr-FR') : '';
+            const dateStr = completedDate ? ` (terminée le ${completedDate})` : '';
+            contexteRealData += `- ${task.title}${dateStr}\n`;
 
-          contexteRealData += `Tâches terminées: ${completedTasks.length}\n`;
-          completedTasks.forEach((task: any) => {
-            const completedDate = task.completedAt ? new Date(task.completedAt).toLocaleDateString('fr-FR') : 'Date non spécifiée';
-            contexteRealData += `- ${task.title} (terminée: ${completedDate})\n`;
+            // Inclure les sous-tâches si présentes
+            if (task.subTasks && task.subTasks.length > 0) {
+              task.subTasks.forEach((st: any) => {
+                const stStatus = st.completed ? '[x]' : '[ ]';
+                contexteRealData += `  ${stStatus} ${st.title}\n`;
+              });
+            }
           });
+        }
 
-          if (completedSubTasks.length > 0) {
-            contexteRealData += `Sous-tâches terminées: ${completedSubTasks.length}\n`;
-            completedSubTasks.forEach((subTask: any) => {
-              const completedDate = subTask.completedAt ? new Date(subTask.completedAt).toLocaleDateString('fr-FR') : 'Date non spécifiée';
-              contexteRealData += `  • ${subTask.title} (terminée: ${completedDate})\n`;
-            });
-          }
-        } else {
-          contexteRealData += `Aucune tâche terminée\n`;
+        // Tâches suivantes
+        const upcoming = prjData.upcomingTasks || [];
+        if (upcoming.length > 0) {
+          contexteRealData += `TÂCHES SUIVANTES:\n`;
+          upcoming.forEach((task: any) => {
+            const statusLabel = task.status === 'in-progress' ? 'En cours' : 'À faire';
+            contexteRealData += `- ${task.title} [${statusLabel}]\n`;
+
+            // Inclure les sous-tâches actives si présentes
+            if (task.subTasks && task.subTasks.length > 0) {
+              task.subTasks.forEach((st: any) => {
+                const stStatus = st.completed ? '[x]' : '[ ]';
+                contexteRealData += `  ${stStatus} ${st.title}\n`;
+              });
+            }
+          });
         }
         contexteRealData += '\n';
       });
 
-      // Prompt pour l'IA avec les données réelles
-      const prompt = `En tant que directeur de projet, rédige un rapport professionnel d'activité basé EXCLUSIVEMENT sur les données ci-dessous.
+      const prompt = `Génère un rapport d'activité professionnel au format Markdown, prêt à être envoyé par email.
 
+PÉRIODE : ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}
+DONNÉES :
 ${contexteRealData}
 
-CONSIGNES IMPORTANTES:
-- Style: Exécutif, professionnel, factuel
-- Structure: TITRE PROFESSIONNEL + RÉSUMÉ EXÉCUTIF + RÉALISATIONS MAJEURES + PERSPECTIVES
-- Maximum 300 mots
-- Ne mentionne JAMAIS que tu es une IA
-- Pas de "Voici le rapport" ou autres préambules
-- Utilise des formulations professionnelles: "concrétisation", "jalons", "optimisation", "dynamique productive"
+STRUCTURE REQUISE :
+Bonjour,
 
-Génère UNIQUEMENT le contenu du rapport, sans aucune réflexion interne.`;
+Veuillez trouver ci-dessous le bilan de mes activités pour la période du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}.
 
-      const aiResponse = await AIService.generateAiText(finalAISettings, prompt);
+# BILAN D'ACTIVITÉ OPÉRATIONNELLE
 
-      console.log('Réponse IA reçue:', aiResponse);
+## RÉSUMÉ EXÉCUTIF
+(Un paragraphe factuel de 2-3 lignes sur l'état global et les points clés)
 
-      // Si l'IA échoue, générer un rapport par défaut
-      if (!aiResponse || aiResponse.includes('Erreur') || aiResponse.includes('error') || aiResponse.includes('Failed') || aiResponse.includes('Unauthorized')) {
-        console.warn('L\'IA a échoué, génération d\'un rapport par défaut');
+## RÉALISATIONS MAJEURES
+(Détails par projet : tâches terminées [x] et sous-tâches indentées)
 
-        const defaultReport = `BILAN D'ACTIVITÉ OPÉRATIONNELLE
+## PROCHAINES ÉTAPES
+(Liste claire des tâches planifiées pour la période suivante)
 
-RÉSUMÉ EXÉCUTIF
-Période d'activité marquée par la réalisation des objectifs principaux avec une progression constante des tâches planifiées.
+Je reste à votre disposition pour toute information complémentaire.
 
-RÉALISATIONS MAJEURES
-• Finalisation des tâches prioritaires dans les délais prévus
-• Maintien de la qualité et des standards établis
-• Collaboration efficace au sein de l'équipe projet
+RÈGLES :
+- Produis UNIQUEMENT le contenu entre ###REPORT_START### et ###REPORT_END###.
+- Style : Professionnel, factuel, sans fioritures excessives mais poli.
+- Langue : Français.
 
-PERSPECTIVES
-• Poursuite de l'optimisation des processus en cours
-• Renforcement des compétences techniques via formations continues
-• Anticipation des prochains jalons critiques`;
-
-        const currentUser = state.users[0];
-        const userName = currentUser?.name || 'Responsable de Projet';
-        const userPos = currentUser?.position ? ` ${currentUser?.position?.trim()}` : '';
-        const userDept = currentUser?.department ? ` ${currentUser?.department?.trim()}` : '';
-
-        const finalReport = `${defaultReport}\n\n---\nCordialement,\n\n${userName}${userPos}${userDept}`;
-
-        setAiReport(finalReport);
-        setEditedReport(finalReport);
-        setIsEditing(false);
-        return;
-      }
-
-      const currentUser = state.users[0];
-      const userName = currentUser?.name || 'Responsable de Projet';
-      const userPos = currentUser?.position ? ` ${currentUser?.position?.trim()}` : '';
-      const userDept = currentUser?.department ? ` ${currentUser?.department?.trim()}` : '';
-
-      const finalReport = `${aiResponse.trim()}\n\n---\nCordialement,\n\n${userName}${userPos}${userDept}`;
-
-      setAiReport(finalReport);
-      setEditedReport(finalReport);
-      setIsEditing(false);
-
-      /* // CODE IA COMMENTÉ TEMPORAIREMENT
-      // Prompt simplifié pour éviter les erreurs
-      const prompt = `Génère un rapport professionnel d'activité basé sur ces données. 
-Style: Exécutif, factuel, élégant.
-Structure: 
-- TITRE: Grand titre professionnel
-- RÉSUMÉ: 2-3 lignes sur l'avancement
-- RÉALISATIONS: Succès clés en puces
-- PERSPECTIVES: 3 objectifs pour la suite
-
-IMPORTANT: Ne mentionne pas que tu es une IA. Sois concis (max 200 mots).`;
+###REPORT_START###
+(Le rapport commence ici avec le "Bonjour")
+###REPORT_END###`;
 
       const aiResponse = await AIService.generateAiText(finalAISettings, prompt);
 
-      console.log('Réponse IA reçue:', aiResponse);
+      // Nettoyage robuste
+      let finalAiResponse = aiResponse.trim();
 
-      // Si l'IA échoue, générer un rapport par défaut
-      if (!aiResponse || aiResponse.includes('Erreur') || aiResponse.includes('error') || aiResponse.includes('Failed') || aiResponse.includes('Unauthorized')) {
-        console.warn('L\'IA a échoué, génération d\'un rapport par défaut');
-        
-        const defaultReport = `BILAN D'ACTIVITÉ OPÉRATIONNELLE
+      if (finalAiResponse.includes('###REPORT_START###')) {
+        const startTag = '###REPORT_START###';
+        const endTag = '###REPORT_END###';
+        const startIdx = finalAiResponse.lastIndexOf(startTag) + startTag.length;
+        const endIdx = finalAiResponse.includes(endTag) ? finalAiResponse.lastIndexOf(endTag) : finalAiResponse.length;
+        finalAiResponse = finalAiResponse.substring(startIdx, endIdx).trim();
+      }
 
-RÉSUMÉ EXÉCUTIF
-Période d'activité marquée par la réalisation des objectifs principaux avec une progression constante des tâches planifiées.
+      finalAiResponse = finalAiResponse
+        .replace(/^\(.*?rapport.*?\)\n?/i, '')
+        .replace(/^(Préliminaire|Premièrement|Voici|D'après|Analysons|L'analyse).*?\n/gi, '')
+        .trim();
 
-RÉALISATIONS MAJEURES
-• Finalisation des tâches prioritaires dans les délais prévus
-• Maintien de la qualité et des standards établis
-• Collaboration efficace au sein de l'équipe projet
+      console.log('Réponse IA nettoyée:', finalAiResponse);
 
-PERSPECTIVES
-• Poursuite de l'optimisation des processus en cours
-• Renforcement des compétences techniques via formations continues
-• Anticipation des prochains jalons critiques`;
+      // Si l'IA échoue, générer un rapport formaté basé sur les données réelles
+      if (!finalAiResponse || finalAiResponse.length < 50 || finalAiResponse.includes('Erreur') || finalAiResponse.includes('error') || finalAiResponse.includes('Failed')) {
+        console.warn('L\'IA a échoué, génération d\'un rapport à partir des données locales');
 
-        const currentUser = state.users[0];
-        const userName = currentUser?.name || 'Responsable de Projet';
-        const userPos = currentUser?.position ? ` ${currentUser?.position?.trim()}` : '';
-        const userDept = currentUser?.department ? ` ${currentUser?.department?.trim()}` : '';
+        let fallbackReport = `Bonjour,\n\nVeuillez trouver ci-dessous le bilan d'activité opérationnelle du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}.\n\n`;
+        fallbackReport += `# BILAN D'ACTIVITÉ OPÉRATIONNELLE\n\n`;
+        fallbackReport += `## RÉSUMÉ EXÉCUTIF\nProgression régulière sur l'ensemble des projets avec réalisation des jalons prévus.\n\n`;
 
-        const finalReport = `${defaultReport}\n\n---\nCordialement,\n\n${userName}${userPos}${userDept}`;
-        
-        setAiReport(finalReport);
-        setEditedReport(finalReport);
-        setIsEditing(false);
-        return;
+        report.projects.forEach((prj: any) => {
+          fallbackReport += `### Projet : ${prj.projectName}\n`;
+          fallbackReport += `#### Tâches effectuées\n`;
+          prj.tasks.forEach((t: any) => {
+            fallbackReport += `- [x] ${t.title}\n`;
+            if (t.subTasks) {
+              t.subTasks.forEach((st: any) => {
+                fallbackReport += `  - [x] ${st.title}\n`;
+              });
+            }
+          });
+
+          if (prj.upcomingTasks && prj.upcomingTasks.length > 0) {
+            fallbackReport += `\n#### Tâches suivantes\n`;
+            prj.upcomingTasks.forEach((t: any) => {
+              fallbackReport += `- [ ] ${t.title}\n`;
+            });
+          }
+          fallbackReport += `\n`;
+        });
+
+        fallbackReport += `Je reste à votre disposition pour toute information complémentaire.\n`;
+        finalAiResponse = fallbackReport.trim();
       }
 
       const currentUser = state.users[0];
-      const userName = currentUser?.name || 'Responsable de Projet';
-      const userPos = currentUser?.position ? ` ${currentUser?.position?.trim()}` : '';
-      const userDept = currentUser?.department ? ` ${currentUser?.department?.trim()}` : '';
+      const signature = `\n\n---\nCordialement,\n\n${currentUser?.name || 'Responsable de Projet'}${currentUser?.position ? `, ${currentUser.position}` : ''}${currentUser?.department ? ` - ${currentUser.department}` : ''}`;
 
-      const finalReport = `${aiResponse.trim()}\n\n---\nCordialement,\n\n${userName}${userPos}${userDept}`;
-
-      setAiReport(finalReport);
-      setEditedReport(finalReport);
+      const finalReportText = finalAiResponse + signature;
+      setAiReport(finalReportText);
+      setEditedReport(finalReportText);
       setIsEditing(false);
-      */
+      return;
     } catch (error) {
       console.error('Erreur lors de la génération du rapport IA:', error);
 
@@ -929,6 +960,7 @@ PERSPECTIVES
                     </div>
                     {project.tasks.length > 0 ? (
                       <div className="space-y-3">
+                        <div className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wider mb-2">Tâches effectuées</div>
                         {project.tasks.map((task: any) => (
                           <div key={task.id} className={`p-3 border rounded-md transition-colors ${task.isMainTask ? 'bg-green-50 dark:bg-green-900/20' : 'bg-white dark:bg-gray-800'} hover:bg-gray-50 dark:hover:bg-gray-700`}>
                             <div className="flex items-start justify-between gap-4">
@@ -978,6 +1010,36 @@ PERSPECTIVES
                     ) : (
                       <p className="text-sm text-gray-500 italic">Aucune tâche terminée pour cette période.</p>
                     )}
+
+                    {project.upcomingTasks && project.upcomingTasks.length > 0 && (
+                      <div className="mt-6 space-y-3">
+                        <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-2">Tâches suivantes</div>
+                        {project.upcomingTasks.map((task: any) => (
+                          <div key={task.id} className="p-3 border border-dashed rounded-md bg-gray-50/50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex items-start gap-3">
+                                <div className="mt-1">
+                                  <div className="h-5 w-5 rounded-full border-2 border-gray-300 dark:border-gray-600 flex items-center justify-center">
+                                    <span className="text-gray-400 text-[10px]">{task.status === 'in-progress' ? '→' : '○'}</span>
+                                  </div>
+                                </div>
+                                <div className="flex-1">
+                                  <div className="font-medium text-gray-700 dark:text-gray-300 flex items-center">
+                                    {task.title}
+                                    <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded-full ${task.status === 'in-progress' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
+                                      {task.status === 'in-progress' ? 'En cours' : 'À faire'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              <span className={`px-2 py-1 text-xs rounded-full whitespace-nowrap opacity-70 ${task.priority === 'high' ? 'bg-red-100 text-red-800' : task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+                                {task.priority === 'high' ? 'Haute' : task.priority === 'medium' ? 'Moyenne' : 'Basse'}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -999,7 +1061,8 @@ PERSPECTIVES
                       <Button variant="outline" size="sm" onClick={handleEditReport} disabled={isSendingEmail}><Edit className="w-4 h-4 mr-2" />Modifier</Button>
                       <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(aiReport)} disabled={isSendingEmail}><FileText className="w-4 h-4 mr-2" />Copier</Button>
                       <Button variant="outline" size="sm" onClick={handleSaveToHistory} disabled={isSendingEmail} className="text-blue-600 border-blue-200 hover:bg-blue-50"><Save className="w-4 h-4 mr-2" />Enregistrer</Button>
-                      <Button variant="outline" size="sm" onClick={handleDownloadReport} disabled={isSendingEmail}><FileText className="w-4 h-4 mr-2" />Télécharger</Button>
+                      <Button variant="outline" size="sm" onClick={handleDownloadReport} disabled={isSendingEmail}><FileText className="w-4 h-4 mr-2" />Texte (.txt)</Button>
+                      <Button variant="outline" size="sm" onClick={handleDownloadMarkdown} disabled={isSendingEmail}><FileText className="w-4 h-4 mr-2" />Markdown (.md)</Button>
                       <Button variant="primary" size="sm" onClick={() => handleOpenEmailDialog()} disabled={isSendingEmail} className="bg-blue-600 hover:bg-blue-700 text-white">
                         {isSendingEmail ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}Envoyer par email
                       </Button>

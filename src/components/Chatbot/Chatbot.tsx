@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { MessageOutlined, RobotOutlined, SendOutlined, CloseOutlined, SettingOutlined, DeleteOutlined } from '@ant-design/icons';
-import { Avatar, Button, Tooltip, message, Input, theme, Modal, Typography } from 'antd';
+import { MessageOutlined, RobotOutlined, SendOutlined, CloseOutlined, DeleteOutlined, DownloadOutlined, FileTextOutlined, CopyOutlined, MoreOutlined } from '@ant-design/icons';
+import { Avatar, Button, Tooltip, message, Input, theme, Dropdown } from 'antd';
 
 // Fonction utilitaire pour formater la date de manière plus lisible
 export const formatMessageDate = (date: Date): string => {
@@ -43,7 +43,6 @@ export const formatMessageDate = (date: Date): string => {
   const fullDate = messageDate.toLocaleDateString('fr-FR', dateOptions);
   return `${fullDate} à ${timeString}`;
 };
-import ChatbotSettings from './ChatbotSettings';
 import type { InputRef } from 'antd';
 import { motion, AnimatePresence } from 'framer-motion';
 import styled from '@emotion/styled';
@@ -165,16 +164,13 @@ const ChatWindow = styled(motion.div) <{ $isDark: boolean }>`
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  border: 1px solid ${({ $isDark, theme }) => $isDark ? theme.token?.colorBorder : '#6e45e2'};
-  color: ${({ $isDark, theme }) => $isDark ? theme.token?.colorText : 'inherit'};
+  border: 1px solid ${({ $isDark, theme }: any) => $isDark ? (theme.token?.colorBorder || '#303030') : '#6e45e2'};
+  color: ${({ $isDark }) => $isDark ? '#ffffff' : 'inherit'};
 `;
 
 const ChatHeader = styled.div`
   background: linear-gradient(135deg, #5f6f8f, #374151);
-  background-blend-mode: multiply;
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
+  color: white;
   padding: 16px;
   display: flex;
   align-items: center;
@@ -182,6 +178,10 @@ const ChatHeader = styled.div`
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  
+  span {
+    color: white !important;
+  }
 `;
 
 const ChatBody = styled.div<{ $isDark: boolean }>`
@@ -194,7 +194,6 @@ const ChatBody = styled.div<{ $isDark: boolean }>`
       : 'rgba(0, 0, 0, 0.03)'};
   backdrop-filter: ${({ $isDark }) =>
     $isDark ? 'blur(5px) brightness(0.8)' : 'blur(5px)'};
-  border-radius: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -210,28 +209,39 @@ const ChatBody = styled.div<{ $isDark: boolean }>`
     30% { transform: translateY(-4px); }
   }
   
-  color: ${({ $isDark, theme }) => $isDark ? theme.token?.colorText : 'inherit'};
+  color: ${({ $isDark }) => $isDark ? '#ffffff' : 'inherit'};
   font-family: 'Inter', sans-serif;
-  font-weight: 400;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.4;
 `;
 
-const MessageBubble = styled(motion.div) <{ $isUser: boolean }>`
+const MessageActions = styled.div<{ $isUser: boolean }>`
+  position: absolute;
+  top: -10px;
+  ${({ $isUser }) => ($isUser ? 'left: -10px;' : 'right: -10px;')};
+  display: none;
+  gap: 4px;
+  z-index: 10;
+`;
+
+const MessageBubble = styled(motion.div) <{ $isUser: boolean; $isDark: boolean }>`
   max-width: 80%;
   padding: 12px 16px;
   line-height: 1.4;
   position: relative;
   word-wrap: break-word;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  backdrop-filter: ${({ $isUser }) => ($isUser ? 'blur(5px) brightness(0.8)' : 'blur(5px)')};
-  background: ${({ $isUser, theme }) => $isUser ? '#6e45e240' : 'rgba(255, 255, 255, 0.05)'};
-  color: ${({ $isUser, theme }) => $isUser ? theme.token?.colorTextInverse : theme.token?.colorText};
-  border: ${({ $isUser, theme }) => $isUser ? 'none' : `1px solid ${theme.token?.colorBorder}`};
-  border-radius: 12px;
-  border-image: linear-gradient(135deg, #5f6f8f, #374151) 1;
+  backdrop-filter: ${({ $isUser }) => ($isUser ? 'blur(5px) brightness(0.8)' : 'blur(5px)')};  
+  color: ${({ $isUser, $isDark }) => $isUser ? ($isDark ? '#ffffff' : 'inherit') : ($isDark ? '#ffffff' : 'inherit')};
+  border: ${({ $isUser }) => ($isUser ? 'none' : '1px solid rgba(255,255,255,0.1)')};
+  border-radius: 15px;
+  border-image: ${({ $isUser }) => $isUser ? 'none' : 'linear-gradient(135deg, #5f6f8f, #374151) 1'};
   border-image-slice: 1;
   align-self: ${({ $isUser }) => ($isUser ? 'flex-end' : 'flex-start')};
+
+  &:hover .message-actions {
+    display: flex;
+  }
 `;
 
 const MessageTime = styled.span`
@@ -244,7 +254,7 @@ const MessageTime = styled.span`
 const InputContainer = styled.div<{ $isDark: boolean }>`
   display: flex;
   padding: 12px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid ${({ $isDark }) => ($isDark ? 'rgba(255, 255, 255, 0.1)' : '#f0f0f0')};
   background: ${({ $isDark }) => $isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)'};
   backdrop-filter: ${({ $isDark }) => $isDark ? 'blur(5px) brightness(0.8)' : 'blur(5px)'};
   border-radius: 12px;
@@ -315,7 +325,7 @@ const SendButton = styled(Button)`
   }
 `;
 
-const ChatButton = styled(Button)`
+const ChatButton = styled(Button) <{ $isDark: boolean }>`
   &.hidden {
     opacity: 0;
     pointer-events: none;
@@ -373,14 +383,13 @@ const Chatbot: React.FC = () => {
   const isDark = token.colorBgLayout === '#141414' ||
     token.colorBgContainer === '#1f1f1f' ||
     document.body.getAttribute('data-theme') === 'dark';
-  const { isOpen, setIsOpen, settings: chatbotSettings, updateSettings } = useChatbot();
+  const { isOpen, setIsOpen, settings: chatbotSettings } = useChatbot();
   const { state } = useApp();
   // Utilisation explicite des propriétés nécessaires
   const { aiSettings } = state.appSettings;
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [settingsVisible, setSettingsVisible] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<InputRef>(null);
 
@@ -525,39 +534,17 @@ const Chatbot: React.FC = () => {
     }
   }, [inputValue, chatbotSettings.showNotifications, isAIConfigured, messages, state.appSettings.aiSettings]);
 
-  // Gestionnaire de la touche Entrée
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  }, [handleSendMessage]);
-
-  // La fonction generateBotResponse a été supprimée car non utilisée dans cette version
+  // Gestionnaire de la touche Entrée (supprimé car Inline dans le composant)
 
   // Basculer l'état d'ouverture/fermeture du chat
   const toggleChat = useCallback(() => {
-    setIsOpen(prev => !prev);
+    setIsOpen(!isOpen);
     if (!isOpen) {
-      // Donner le focus au champ de saisie quand on ouvre le chat
       setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
     }
-  }, [isOpen]);
-
-  // Effacer l'historique de la conversation
-  // Gérer l'ouverture/fermeture des paramètres
-  const handleSettingsClick = useCallback(() => {
-    setSettingsVisible(true);
-  }, []);
-
-  const handleSettingsClose = useCallback((newSettings?: any) => {
-    if (newSettings) {
-      updateSettings(newSettings);
-    }
-    setSettingsVisible(false);
-  }, [updateSettings]);
+  }, [isOpen, setIsOpen]);
 
   const clearChat = useCallback(() => {
     if (window.confirm('Voulez-vous vraiment effacer l\'historique de la conversation ?')) {
@@ -572,6 +559,77 @@ const Chatbot: React.FC = () => {
       localStorage.removeItem('chatbotMessages');
     }
   }, []);
+
+  const handleExportSingleMessage = useCallback((content: string, type: 'md' | 'txt') => {
+    const timestamp = new Date().getTime();
+    if (type === 'md') {
+      const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Resultat_IA_${timestamp}.md`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      message.success('Résultat exporté (.md)');
+    } else {
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Resultat_IA_${timestamp}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      message.success('Résultat exporté (.txt)');
+    }
+  }, []);
+
+  const exportChatMarkdown = useCallback(() => {
+    if (messages.length === 0) return;
+
+    let content = "# Historique de conversation Nexus IA\n\n";
+    messages.forEach(msg => {
+      const role = msg.sender === 'user' ? "### Utilisateur" : "### Nexus IA";
+      const date = msg.timestamp.toLocaleString('fr-FR');
+      content += `${role} (${date})\n${msg.content}\n\n---\n\n`;
+    });
+
+    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Conversation_NexusIA_${new Date().getTime()}.md`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    message.success('Conversation exportée en Markdown (.md)');
+  }, [messages]);
+
+  const exportChatText = useCallback(() => {
+    if (messages.length === 0) return;
+
+    let content = "HISTORIQUE DE CONVERSATION NEXUS IA\n" + "=".repeat(40) + "\n\n";
+    messages.forEach(msg => {
+      const role = msg.sender === 'user' ? "UTILISATEUR" : "NEXUS IA";
+      const date = msg.timestamp.toLocaleString('fr-FR');
+      content += `[${date}] ${role}:\n${msg.content}\n\n${'-'.repeat(20)}\n\n`;
+    });
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Conversation_NexusIA_${new Date().getTime()}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    message.success('Conversation exportée en Texte (.txt)');
+  }, [messages]);
 
   return (
     <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 1000 }}>
@@ -606,24 +664,30 @@ const Chatbot: React.FC = () => {
                 }}>Nexus IA</span>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
+                <Tooltip title="Export Markdown (.md)">
+                  <Button
+                    type="text"
+                    icon={<DownloadOutlined style={{ color: 'white' }} />}
+                    onClick={exportChatMarkdown}
+                    disabled={messages.length <= 1}
+                  />
+                </Tooltip>
+                <Tooltip title="Export Texte (.txt)">
+                  <Button
+                    type="text"
+                    icon={<FileTextOutlined style={{ color: 'white' }} />}
+                    onClick={exportChatText}
+                    disabled={messages.length <= 1}
+                  />
+                </Tooltip>
                 <Tooltip title="Effacer la conversation">
                   <Button
                     type="text"
                     icon={<DeleteOutlined style={{ color: 'red' }} />}
                     onClick={clearChat}
-                    disabled={messages.length <= 1} // Disable if only welcome message or empty
+                    disabled={messages.length <= 1}
                   />
                 </Tooltip>
-                {/* <Tooltip title="Paramètres">
-                  <Button 
-                    type="text" 
-                    icon={<SettingOutlined style={{ color: 'white' }} />} 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleSettingsClick();
-                    }}
-                  />
-                </Tooltip> */}
                 <Tooltip title="Fermer">
                   <Button
                     type="text"
@@ -678,10 +742,27 @@ const Chatbot: React.FC = () => {
                   <MessageBubble
                     key={msg.id}
                     $isUser={msg.sender === 'user'}
+                    $isDark={isDark}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.2 }}
                   >
+                    {!msg.sender || msg.sender === 'bot' ? (
+                      <MessageActions $isUser={false} className="message-actions">
+                        <Tooltip title="Copier">
+                          <Button size="small" shape="circle" icon={<CopyOutlined />} onClick={() => { navigator.clipboard.writeText(msg.content); message.success('Copié !'); }} />
+                        </Tooltip>
+                        <Dropdown menu={{
+                          items: [
+                            { key: 'md', label: 'Markdown (.md)', icon: <DownloadOutlined />, onClick: () => handleExportSingleMessage(msg.content, 'md') },
+                            { key: 'txt', label: 'Texte (.txt)', icon: <FileTextOutlined />, onClick: () => handleExportSingleMessage(msg.content, 'txt') }
+                          ]
+                        }} placement="bottomRight">
+                          <Button size="small" shape="circle" icon={<MoreOutlined />} />
+                        </Dropdown>
+                      </MessageActions>
+                    ) : null}
+
                     <MarkdownRenderer content={msg.content} isDark={isDark} />
                     <MessageTime>
                       {formatMessageDate(msg.timestamp)}
@@ -693,6 +774,7 @@ const Chatbot: React.FC = () => {
               {isLoading && (
                 <MessageBubble
                   $isUser={false}
+                  $isDark={isDark}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   style={{ alignSelf: 'flex-start' }}
@@ -724,7 +806,7 @@ const Chatbot: React.FC = () => {
               />
             </ChatBody>
 
-            <InputContainer>
+            <InputContainer $isDark={isDark}>
               <StyledInput
                 ref={inputRef}
                 value={inputValue}
@@ -754,6 +836,7 @@ const Chatbot: React.FC = () => {
 
       <Tooltip title={isOpen ? 'Fermer le chat' : 'Ouvrir le chat'}>
         <ChatButton
+          $isDark={isDark}
           type="primary"
           shape="circle"
           onClick={toggleChat}

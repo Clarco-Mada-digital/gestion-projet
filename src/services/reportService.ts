@@ -74,7 +74,7 @@ export class ReportService {
       const stats = this.calculateStatistics(reportData);
 
       // Préparer le prompt structuré
-      const prompt = this.buildStructuredPrompt(reportData, stats);
+      const prompt = this.buildStructuredPrompt(reportData);
 
       // Générer le rapport avec le modèle approprié
       const reportSettings = {
@@ -147,89 +147,72 @@ export class ReportService {
     };
   }
 
-  private static buildStructuredPrompt(data: ReportData, stats: any): string {
-    let prompt = `Tu es un expert en gestion de projet qui génère des rapports d'activité professionnels et structurés.\n\n`;
+  private static buildStructuredPrompt(data: ReportData): string {
+    let prompt = `Tu es un expert en gestion de projet. Ta tâche est de générer un rapport d'activité professionnel au format Markdown.\n\n`;
 
-    prompt += `CONTEXTE :\n`;
-    prompt += `- Période d'analyse : ${data.period}\n`;
-    prompt += `- Nombre de projets : ${data.projects.length}\n`;
-    prompt += `- Projets identifiés : ${data.projects.map(p => p.name).join(', ')}\n\n`;
+    prompt += `DONNÉES DU PROJET :\n`;
+    prompt += `- Période : ${data.period}\n`;
 
-    prompt += `DONNÉES BRUTES :\n`;
-    data.projects.forEach((project, pIndex) => {
-      prompt += `\nPROJET ${pIndex + 1} : "${project.name}"\n`;
-      prompt += `Tâches (${project.tasks.length}) :\n`;
-      project.tasks.forEach((task, tIndex) => {
-        const status = task.status === 'done' ? '✓' : task.status === 'in-progress' ? '→' : '○';
-        prompt += `  ${tIndex + 1}. ${status} ${task.title} (${task.priority})\n`;
-        if (task.subTasks && task.subTasks.length > 0) {
-          task.subTasks.forEach((subTask) => {
-            const subStatus = subTask.completed ? '✓' : '○';
-            prompt += `    - ${subStatus} ${subTask.title}\n`;
-          });
-        }
-      });
+    data.projects.forEach((project) => {
+      prompt += `\nPROJET : "${project.name}"\n`;
+
+      const doneTasks = project.tasks.filter(t => t.status === 'done' || t.status === 'completed');
+      if (doneTasks.length > 0) {
+        prompt += `TÂCHES EFFECTUÉES :\n`;
+        doneTasks.forEach((task) => {
+          prompt += `- [x] ${task.title}\n`;
+          if (task.subTasks && task.subTasks.length > 0) {
+            task.subTasks.forEach((st) => {
+              prompt += `  ${st.completed ? '[x]' : '[ ]'} ${st.title}\n`;
+            });
+          }
+        });
+      }
+
+      const nextTasks = project.tasks.filter(t => t.status !== 'done' && t.status !== 'completed');
+      if (nextTasks.length > 0) {
+        prompt += `TÂCHES SUIVANTES :\n`;
+        nextTasks.forEach((task) => {
+          prompt += `- [ ] ${task.title} (${task.status})\n`;
+          if (task.subTasks && task.subTasks.length > 0) {
+            task.subTasks.forEach((st) => {
+              prompt += `  ${st.completed ? '[x]' : '[ ]'} ${st.title}\n`;
+            });
+          }
+        });
+      }
     });
 
-    prompt += `\nRAPPORT ATTENDU :\n`;
-    prompt += `Génère un rapport d'activité professionnel et structuré avec :\n`;
-    prompt += `1. TITRE : En majuscules, percutant et professionnel (ex: "BILAN D'ACTIVITÉ OPÉRATIONNELLE")\n`;
-    prompt += `2. RÉSUMÉ EXÉCUTIF : 3-4 lignes synthétisant l'avancement global\n`;
-    prompt += `3. RÉALISATIONS MAJEURES : 3-5 réalisations les plus importantes par projet, avec dates et statuts\n`;
-    prompt += `4. ANALYSE DE PERFORMANCE : métriques clés, répartition des priorités, taux de complétion\n`;
-    prompt += `5. PERSPECTIVES : 3-5 objectifs stratégiques pour la période suivante\n`;
-    prompt += `6. CONCLUSION : synthèse finale en 2-3 lignes\n\n`;
+    prompt += `\nCONSIGNES DE RÉDACTION :\n`;
+    prompt += `1. Format : Markdown professionnel avec titres (# et ##).\n`;
+    prompt += `2. Structure : Un titre, une section "Tâches effectuées", et une section "Tâches suivantes".\n`;
+    prompt += `3. Style : Direct, factuel, sans fioritures ni analyses stratégiques.\n`;
+    prompt += `4. IMPORTANT : Pas de résumé exécutif, pas de perspectives, pas de conclusion analytique.\n`;
+    prompt += `5. Pas de blabla d'IA ("Voici le rapport", etc.).\n\n`;
 
-    prompt += `FORMAT JSON OBLIGATOIRE :\n`;
-    prompt += `{\n`;
-    prompt += `  "titre": "Titre professionnel en MAJUSCULES",\n`;
-    prompt += `  "periode": "${data.period}",\n`;
-    prompt += `  "date_generation": "${new Date().toLocaleDateString('fr-FR')}",\n`;
-    prompt += `  "resume_executif": "Résumé synthétique en 3-4 lignes",\n`;
-    prompt += `  "realisations_majeures": [\n`;
-    prompt += `    {"titre": "Réalisation 1", "projet": "Nom du projet", "description": "Description brève", "date_completion": "JJ/MM/AAAA", "statut": "terminée|en_cours", "impact": "Impact sur le projet"},\n`;
-    prompt += `    {"titre": "Réalisation 2", "projet": "Nom du projet", "description": "Description brève", "date_completion": "JJ/MM/AAAA", "statut": "terminée|en_cours", "impact": "Impact sur le projet"}\n`;
-    prompt += `  ],\n`;
-    prompt += `  "analyse_performance": {\n`;
-    prompt += `    "taches_total": ${stats.totalTasks},\n`;
-    prompt += `    "taches_completees": ${stats.completedTasks},\n`;
-    prompt += `    "taches_en_cours": ${stats.inProgressTasks},\n`;
-    prompt += `    "taches_en_attente": ${stats.pendingTasks},\n`;
-    prompt += `    "taux_completion_global": ${stats.globalCompletionRate},\n`;
-    prompt += `    "repartition_priorites": {\n`;
-    prompt += `      "haute": ${stats.repartition_priorites.haute},\n`;
-    prompt += `      "moyenne": ${stats.repartition_priorites.moyenne},\n`;
-    prompt += `      "basse": ${stats.repartition_priorites.basse}\n`;
-    prompt += `    },\n`;
-    prompt += `    "projets_avancement": [\n`;
-    stats.projets_avancement.forEach((projet: any) => {
-      prompt += `      {"nom": "${projet.nom}", "taches_total": ${projet.taches_total}, "taches_completees": ${projet.taches_completees}, "taches_en_cours": ${projet.taches_en_cours}, "taux_completion": ${projet.taux_completion}}\n`;
-    });
-    prompt += `    ]\n`;
-    prompt += `  },\n`;
-    prompt += `  "perspectives": [\n`;
-    prompt += `    "Objectif stratégique 1",\n`;
-    prompt += `    "Objectif opérationnel 2",\n`;
-    prompt += `    "Objectif d'amélioration continue 3"\n`;
-    prompt += `  ],\n`;
-    prompt += `  "conclusion": "Conclusion stratégique et vision d'avenir"\n`;
-    prompt += `}\n\n`;
-
-    prompt += `IMPORTANT : Réponds UNIQUEMENT avec le JSON valide, sans aucun texte avant ou après. Le rapport doit être professionnel, factuel et élégant.`;
+    prompt += `Génère uniquement le contenu Markdown du rapport.`;
 
     return prompt;
   }
 
   private static cleanResponse(response: string): string {
-    // Nettoyer la réponse en supprimant les réflexions et salutations
-    return response
-      .replace(/Nous devons générer.*?[\s\S]*/, '') // Supprimer les réflexions initiales
-      .replace(/Analysons les données.*?[\s\S]*/, '') // Supprimer l'analyse des données
-      .replace(/Il faut.*?[\s\S]*/, '') // Supprimer les instructions
-      .replace(/Note :.*?[\s\S]*/, '') // Supprimer les notes
-      .replace(/---[\s\S]*Cordialement.*/, '') // Supprimer les salutations
-      .replace(/Clarco Dev MADA-Digital.*/, '') // Supprimer les signatures
+    let cleaned = response.trim();
+
+    // Si la réponse contient un titre Markdown, on commence à partir de là
+    if (cleaned.includes('# ')) {
+      cleaned = cleaned.substring(cleaned.indexOf('# '));
+    }
+
+    // Supprimer les préambules courants
+    cleaned = cleaned
+      .replace(/^(Préliminaire|Premièrement|Voici|D'après|Analysons|Nous devons).*?\n/gi, '')
+      .replace(/^(L'analyse des données|Le rapport suivant).*?\n/gi, '')
       .trim();
+
+    // Supprimer les réflexions entre balises de pensée si présentes (ex: <thought>...</thought>)
+    cleaned = cleaned.replace(/<thought>[\s\S]*?<\/thought>/gi, '').trim();
+
+    return cleaned;
   }
 
   private static parseReportResponse(response: string): GeneratedReport | null {
