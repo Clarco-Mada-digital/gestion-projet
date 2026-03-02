@@ -4,7 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { Card } from '../UI/Card';
 import { Button } from '../UI/Button';
 import { Modal } from '../UI/Modal';
-import { Task, Project, ExternalEvent } from '../../types';
+import { Task, Project, ExternalEvent, TaskStatus } from '../../types';
 import { EditTaskForm } from '../Tasks/EditTaskForm';
 import { googleCalendarService } from '../../services/collaboration/googleCalendarService';
 import { firebaseService } from '../../services/collaboration/firebaseService';
@@ -101,7 +101,7 @@ export function CalendarView() {
       if (selectedUserIds.length > 0) {
         return task.assignees.some(userId => selectedUserIds.includes(userId));
       }
-      return true;
+      return task.status !== 'non-suivi';
     }) as Task[] : [], [showProjects, state.projects, selectedProjectIds, selectedUserIds, showUnfollowedProjects]);
 
   // Fusionner les tâches et les événements externes pour l'affichage

@@ -8,6 +8,7 @@ import AIService from '../../services/aiService';
 import { message } from 'antd';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { TaskStatus } from '../../types';
 
 export function TodayView() {
   const { state } = useApp();
@@ -87,7 +88,7 @@ export function TodayView() {
     .map(project => ({
       ...project,
       tasks: project.tasks.filter(task =>
-        isTaskInDateRange(task, new Date())
+        isTaskInDateRange(task, new Date()) && task.status !== 'non-suivi'
       )
     }))
     .filter(project => project.tasks.length > 0);
@@ -107,7 +108,8 @@ export function TodayView() {
       }
       return project.status === 'active';
     })
-    .flatMap(p => p.tasks);
+    .flatMap(p => p.tasks)
+    .filter(task => task.status !== 'non-suivi');
 
   // Tâches en retard (uniquement des projets actifs)
   const overdueTasks = allTasks.filter(task => {
@@ -118,6 +120,7 @@ export function TodayView() {
     return (
       taskDueDate < today &&
       task.status !== 'done' &&
+      task.status !== 'non-suivi' &&
       !isTaskInDateRange(task, today)
     );
   });

@@ -19,11 +19,14 @@ export interface Attachment {
   uploadedBy?: string;
 }
 
+// Types de statuts de tâches
+export type TaskStatus = 'todo' | 'in-progress' | 'done' | 'non-suivi';
+
 export interface Task {
   id: string;
   title: string;
   description: string;
-  status: string;
+  status: TaskStatus;
   priority: 'low' | 'medium' | 'high';
   startDate: string;
   dueDate: string;
@@ -47,7 +50,7 @@ export function createDefaultTask(): Task {
     id: '',
     title: '',
     description: '',
-    status: 'todo',
+    status: 'todo' as TaskStatus,
     priority: 'medium',
     startDate: today,
     dueDate: today,
@@ -59,7 +62,7 @@ export function createDefaultTask(): Task {
     subTasks: [],
     notes: '',
     estimatedHours: 0,
-    endDate: today
+    attachments: []
   };
 }
 

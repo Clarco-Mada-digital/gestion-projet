@@ -3,7 +3,7 @@ import { Calendar, FileText, CheckCircle, X, ChevronDown, Send, Loader2, Edit, S
 import { Button } from '../UI/Button';
 import { Card } from '../UI/Card';
 import { useApp } from '../../context/AppContext';
-import { Task, AISettings, SubTask } from '../../types';
+import { Task, AISettings, SubTask, TaskStatus } from '../../types';
 import { AIService } from '../../services/aiService';
 import { Input } from '../UI/Input';
 import { Textarea } from '../UI/Textarea';
@@ -425,13 +425,17 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
       .map(project => {
         const allTasks = project.tasks || [];
 
-        const completedMainTasks = allTasks.filter((task): task is Task & { completedAt: string } => {
+        const completedMainTasks = allTasks
+          .filter(task => task.status !== 'non-suivi')
+          .filter((task): task is Task & { completedAt: string } => {
           if (task.status !== 'done' || !task.completedAt) return false;
           const taskCompletedDate = new Date(task.completedAt);
           return isDateInRange(taskCompletedDate, start, end);
         });
 
-        const allCompletedSubTasks = allTasks.flatMap(task => {
+        const allCompletedSubTasks = allTasks
+          .filter(task => task.status !== 'non-suivi')
+          .flatMap(task => {
           const subTasks = task.subTasks || [];
           return subTasks
             .filter((subTask): subTask is SubTask & { completedAt: string } => {
@@ -451,6 +455,7 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
 
         const tasksWithCompletedSubTasks = includeSubTasks
           ? allTasks
+            .filter(task => task.status !== 'non-suivi')
             .map(task => {
               const subTasks = task.subTasks || [];
               const completedSubTasks = subTasks.filter((subTask): subTask is SubTask & { completedAt: string } => {
@@ -475,7 +480,7 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
           : [];
 
         const upcomingTasks = allTasks
-          .filter(task => task.status !== 'done')
+          .filter(task => task.status !== 'done' && task.status !== 'non-suivi')
           .sort((a, b) => {
             if (a.status === 'in-progress' && b.status !== 'in-progress') return -1;
             if (a.status !== 'in-progress' && b.status === 'in-progress') return 1;
@@ -483,7 +488,7 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
           })
           .slice(0, 5);
 
-        const totalTasksCount = allTasks.length;
+        const totalTasksCount = allTasks.filter(task => task.status !== 'non-suivi').length;
         const totalCompletedTasks = completedMainTasks.length;
         const totalCompletedSubTasks = allCompletedSubTasks.length;
 
@@ -593,8 +598,27 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
       report.projects.forEach((prjData: any) => {
         contexteRealData += `PROJET: ${prjData.projectName}\n`;
 
+        // Tâches actives (non terminées)
+        const activeTasks = (prjData.tasks || []).filter(task => task.status !== 'done' && task.status !== 'non-suivi');
+        if (activeTasks.length > 0) {
+          contexteRealData += `TÂCHES EN COURS:\n`;
+          activeTasks.forEach((task: any) => {
+            const dueDate = task.dueDate ? new Date(task.dueDate).toLocaleDateString('fr-FR') : '';
+            const dateStr = dueDate ? ` (échéance le ${dueDate})` : '';
+            contexteRealData += `- ${task.title}${dateStr}\n`;
+
+            // Inclure les sous-tâches si présentes
+            if (task.subTasks && task.subTasks.length > 0) {
+              task.subTasks.forEach((st: any) => {
+                const stStatus = st.completed ? '[x]' : '[ ]';
+                contexteRealData += `  ${stStatus} ${st.title}\n`;
+              });
+            }
+          });
+        }
+
         // Tâches effectuées
-        const performedTasks = prjData.tasks || [];
+        const performedTasks = (prjData.tasks || []).filter(task => task.status === 'done');
         if (performedTasks.length > 0) {
           contexteRealData += `TÂCHES EFFECTUÉES:\n`;
           performedTasks.forEach((task: any) => {
@@ -959,10 +983,10 @@ RÈGLES :
                         </div>
                       )}
                     </div>
-                    {project.tasks.length > 0 ? (
+                    {project.tasks.filter(task => task.status !== 'non-suivi').length > 0 ? (
                       <div className="space-y-3">
                         <div className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wider mb-2">Tâches effectuées</div>
-                        {project.tasks.map((task: any) => (
+                        {project.tasks.filter(task => task.status !== 'non-suivi').map((task: any) => (
                           <div key={task.id} className={`p-3 border rounded-md transition-colors ${task.isMainTask ? 'bg-green-50 dark:bg-green-900/20' : 'bg-white dark:bg-gray-800'} hover:bg-gray-50 dark:hover:bg-gray-700`}>
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex items-start gap-3">
@@ -1012,10 +1036,10 @@ RÈGLES :
                       <p className="text-sm text-gray-500 italic">Aucune tâche terminée pour cette période.</p>
                     )}
 
-                    {project.upcomingTasks && project.upcomingTasks.length > 0 && (
+                    {project.upcomingTasks && project.upcomingTasks.filter(task => task.status !== 'non-suivi').length > 0 && (
                       <div className="mt-6 space-y-3">
                         <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-2">Tâches suivantes</div>
-                        {project.upcomingTasks.map((task: any) => (
+                        {project.upcomingTasks.filter(task => task.status !== 'non-suivi').map((task: any) => (
                           <div key={task.id} className="p-3 border border-dashed rounded-md bg-gray-50/50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex items-start gap-3">

@@ -1,19 +1,18 @@
-import { useState, useCallback, memo } from 'react';
-import { Clock, Users, MoreHorizontal, Edit, CheckCircle2 } from 'lucide-react';
-import { Task } from '../../types';
+import React, { useState, useCallback, memo } from 'react';
+import { Calendar, Clock, Edit2, Trash2, MessageSquare, MoreHorizontal, CheckCircle2, AlertCircle, Paperclip, User as UserType, MapPin, Eye, EyeOff } from 'lucide-react';
+import { Task, Project, SubTask, Attachment, User, TaskStatus } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { useModal } from '../../context/ModalContext';
 import { Card } from '../UI/Card';
 import { EditTaskForm } from './EditTaskForm';
+import { SubTasksList } from './SubTasksList';
+import { TaskComments } from './TaskComments';
+import { calculateDuration, isMultiDayTask, isTaskInDateRange } from '../../utils/dateUtils';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-
-interface TaskCardProps {
-  task: Task;
-  showProject?: boolean;
-  className?: string;
-  isDragging?: boolean;
-}
+import { CompactAttachments } from '../UI/CompactAttachments';
+import { cloudinaryService } from '../../services/collaboration/cloudinaryService';
+import { localAttachmentService } from '../../services/localAttachmentService';
 
 // Fonction pour nettoyer le markdown mal formé
 const cleanMarkdown = (text: string): string => {
@@ -130,6 +129,11 @@ const TaskCardComponent = ({ task, className = '', isDragging = false }: TaskCar
     project.ownerId !== state.cloudUser?.uid &&
     project.memberRoles?.[state.cloudUser?.uid || ''] === 'viewer';
 
+  const isOwner = project?.source === 'firebase' &&
+    project.ownerId === state.cloudUser?.uid;
+
+  const canEdit = !isViewer && (project.source !== 'firebase' || isOwner);
+
   const toggleStatus = useCallback(() => {
     if (isViewer) {
       alert("Vous n'avez pas les droits pour modifier le statut de cette tâche.");
@@ -137,11 +141,14 @@ const TaskCardComponent = ({ task, className = '', isDragging = false }: TaskCar
     }
 
     const now = new Date().toISOString();
-    let newStatus: 'todo' | 'in-progress' | 'done';
+    let newStatus: TaskStatus;
 
     // Basculer entre 'done' et 'in-progress' pour les clics simples
     if (task.status === 'done') {
       newStatus = 'in-progress';
+    } else if (task.status === 'non-suivi') {
+      // Les tâches non suivies ne changent pas de statut
+      newStatus = 'non-suivi';
     } else {
       newStatus = 'done';
     }
@@ -235,7 +242,7 @@ const TaskCardComponent = ({ task, className = '', isDragging = false }: TaskCar
               className="p-1.5 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
               aria-label="Modifier la tâche"
             >
-              <Edit className="w-4 h-4" />
+              <Edit2 className="w-4 h-4" />
             </button>
           )}
 
@@ -337,7 +344,7 @@ const TaskCardComponent = ({ task, className = '', isDragging = false }: TaskCar
           {/* Assignés */}
           {assignedUsers.length > 0 && (
             <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
-              <Users className="w-3.5 h-3.5 mr-1.5 flex-shrink-0 opacity-75" />
+              <UserType className="w-3.5 h-3.5 mr-1.5 flex-shrink-0 opacity-75" />
               <div className="flex items-center flex-wrap gap-1">
                 {assignedUsers.map((user, index) => (
                   <div
@@ -377,14 +384,16 @@ const TaskCardComponent = ({ task, className = '', isDragging = false }: TaskCar
             }}
             className={`flex items-center text-xs font-medium transition-colors ${task.status === 'done'
               ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+              : task.status === 'non-suivi' 
+                ? 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300'
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
               }`}
           >
             <CheckCircle2
-              className={`w-3.5 h-3.5 mr-1.5 ${task.status === 'done' ? 'fill-current' : ''
+              className={`w-3.5 h-3.5 mr-1.5 ${task.status === 'done' ? 'fill-current' : task.status === 'non-suivi' ? 'fill-gray-400' : ''
                 }`}
             />
-            {task.status === 'done' ? 'Terminée' : 'Marquer comme terminée'}
+            {task.status === 'done' ? 'Terminée' : task.status === 'non-suivi' ? 'Non suivi' : 'Marquer comme terminée'}
           </button>
 
           <div className="flex space-x-2">

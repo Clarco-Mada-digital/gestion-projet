@@ -7,7 +7,7 @@ import { Card } from '../UI/Card';
 import { Button } from '../UI/Button';
 import { Modal } from '../UI/Modal';
 import { CoverImageUpload } from '../UI/CoverImageUpload';
-import { Project, Task, AISettings as AISettingsType, DEFAULT_AI_SETTINGS } from '../../types';
+import { Project, Task, AISettings as AISettingsType, DEFAULT_AI_SETTINGS, TaskStatus } from '../../types';
 import { AISettings } from '../Settings/AISettings';
 import { EditTaskForm } from '../Tasks/EditTaskForm';
 import { Tabs, Form, Input, Select, Row, Col, InputNumber, message } from 'antd';
@@ -831,7 +831,7 @@ export function ProjectsView() {
   const [newTask, setNewTask] = useState<{
     title: string;
     description: string;
-    status: 'todo' | 'in-progress' | 'done';
+    status: TaskStatus;
     priority: 'low' | 'medium' | 'high';
     startDate: string;
     endDate: string;
@@ -2175,12 +2175,12 @@ export function ProjectsView() {
                               {/* Statut */}
                               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${task.status === 'done' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' :
                                 task.status === 'in-progress' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200' :
-                                  task.status === 'blocked' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' :
+                                  task.status === 'non-suivi' ? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200' :
                                     'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
                                 }`}>
                                 {task.status === 'done' ? 'Terminé' :
                                   task.status === 'in-progress' ? 'En cours' :
-                                    task.status === 'blocked' ? 'Bloqué' : 'À faire'}
+                                    task.status === 'non-suivi' ? 'Non suivi' : 'À faire'}
                               </span>
 
                               {/* Priorité */}

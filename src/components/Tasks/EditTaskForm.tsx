@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Calendar as CalendarIcon, Clock, Plus, X as XIcon, Edit2, Eye, Image as ImageIcon, Video, Music, Link as LinkIcon, Sparkles } from 'lucide-react';
-import { Task, Project, SubTask, Attachment, User } from '../../types';
+import { Task, Project, SubTask, Attachment, User, TaskStatus } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { SubTasksList } from './SubTasksList';
 import ReactMarkdown from 'react-markdown';
@@ -718,24 +718,25 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
               {isEditing ? (
                 <select
                   value={editedTask.status}
-                  onChange={(e) => setEditedTask({ ...editedTask, status: e.target.value })}
+                  onChange={(e) => setEditedTask({ ...editedTask, status: e.target.value as TaskStatus })}
                   className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
                 >
                   <option value="todo">À faire</option>
                   <option value="in-progress">En cours</option>
                   <option value="done">Terminé</option>
-                  <option value="blocked">Bloqué</option>
+                  <option value="non-suivi">Non suivi</option>
                 </select>
               ) : (
                 <div className="px-4 py-2.5 bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white flex items-center">
                   <span className={`w-3 h-3 rounded-full mr-2 ${editedTask.status === 'done' ? 'bg-green-500' :
                     editedTask.status === 'in-progress' ? 'bg-blue-500' :
-                      editedTask.status === 'blocked' ? 'bg-red-500' :
+                      editedTask.status === 'non-suivi' ? 'bg-gray-500' :
                         'bg-gray-500'
                     }`} />
                   {editedTask.status === 'todo' ? 'À faire' :
                     editedTask.status === 'in-progress' ? 'En cours' :
-                      editedTask.status === 'done' ? 'Terminé' : 'Bloqué'}
+                      editedTask.status === 'non-suivi' ? 'Non suivi' :
+                        editedTask.status === 'done' ? 'Terminé' : 'Bloqué'}
                 </div>
               )}
             </div>

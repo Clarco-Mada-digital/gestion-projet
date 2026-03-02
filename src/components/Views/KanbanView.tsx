@@ -53,6 +53,12 @@ const defaultColumns: Omit<Column, 'tasks'>[] = [
     title: 'Terminé',
     gradient: 'from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20',
     iconColor: 'from-green-500 to-emerald-500'
+  },
+  {
+    id: 'non-suivi',
+    title: 'Boîte à outils',
+    gradient: 'from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20',
+    iconColor: 'from-orange-500 to-amber-500'
   }
 ];
 
@@ -287,6 +293,11 @@ export function KanbanView() {
         const taskProject = state.projects.find(p => p.id === task.projectId);
         const colDef = taskProject?.kanbanSettings?.customColumns?.find(c => c.id === task.status);
         let displayTitle = colDef ? colDef.title : task.status.replace(/^status-|^custom-/, '').replace(/-/g, ' ');
+        
+        // Renommer "non-suivi" en "Boîte à outils"
+        if (task.status === 'non-suivi') {
+          displayTitle = 'Boîte à outils';
+        }
 
         if (displayTitle.length > 0) {
           displayTitle = displayTitle.charAt(0).toUpperCase() + displayTitle.slice(1);
