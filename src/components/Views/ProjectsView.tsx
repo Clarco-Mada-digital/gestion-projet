@@ -295,6 +295,37 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                   <Archive className="w-4 h-4 mr-3" />
                   {project.status === 'archived' ? 'Désarchiver' : 'Archiver'}
                 </button>
+                {/* Option Suivre/Ne pas suivre */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMenu(false);
+                    const updatedProject = {
+                      ...project,
+                      isFollowed: project.isFollowed !== false ? false : true
+                    };
+                    dispatch({ type: 'UPDATE_PROJECT', payload: updatedProject });
+                    
+                    // Sauvegarder dans Firebase si c'est un projet cloud
+                    if (project.source === 'firebase') {
+                      firebaseService.updateProject(updatedProject);
+                    }
+                  }}
+                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  {project.isFollowed !== false ? (
+                    <>
+                      <Eye className="w-4 h-4 mr-3" />
+                      Ne plus suivre
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-4 h-4 mr-3" />
+                      Suivre le projet
+                    </>
+                  )}
+                </button>
+
                 {/* Option Supprimer (visible seulement pour les projets locaux OU les projets cloud dont on est propriétaire) */}
                 {(project.source !== 'firebase' || state.cloudUser?.uid === project.ownerId) ? (
                   <button
@@ -1086,6 +1117,7 @@ export function ProjectsView() {
       color: newProject.color,
       status: 'active',
       estimatedDuration: newProject.estimatedDuration || 0,
+      isFollowed: true, // Les nouveaux projets sont suivis par défaut
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       tasks: (newProject.tasks || []).map(task => ({

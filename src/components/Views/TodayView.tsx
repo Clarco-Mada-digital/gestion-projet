@@ -78,8 +78,12 @@ export function TodayView() {
         project.memberRoles?.[state.cloudUser?.uid || ''] === 'viewer') {
         return false;
       }
+      // Exclure les projets non suivis
+      if (project.isFollowed === false) {
+        return false;
+      }
       return project.status === 'active';
-    }) // Ne prendre que les projets actifs et non-viewer
+    }) // Ne prendre que les projets actifs, non-viewer et suivis
     .map(project => ({
       ...project,
       tasks: project.tasks.filter(task =>
@@ -95,6 +99,10 @@ export function TodayView() {
       if (project.source === 'firebase' &&
         project.ownerId !== state.cloudUser?.uid &&
         project.memberRoles?.[state.cloudUser?.uid || ''] === 'viewer') {
+        return false;
+      }
+      // Exclure les projets non suivis
+      if (project.isFollowed === false) {
         return false;
       }
       return project.status === 'active';

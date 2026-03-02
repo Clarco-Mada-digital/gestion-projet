@@ -13,11 +13,18 @@ export function CalendarView() {
   const { state, dispatch } = useApp();
   const [currentDate, setCurrentDate] = useState(new Date());
   type ViewMode = 'day' | 'week' | 'month' | 'quarter' | 'semester';
-  const [viewMode, setViewMode] = useState<ViewMode>('month');
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const saved = localStorage.getItem('cal_viewMode');
+    return (saved as ViewMode) || 'month';
+  });
   const [selectedTask, setSelectedTask] = useState<{ task: Task; project: Project } | null>(null);
   const [selectedDayTasks, setSelectedDayTasks] = useState<{ date: Date; tasks: Task[] } | null>(null);
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [showUnfollowedProjects, setShowUnfollowedProjects] = useState(() => {
+    const saved = localStorage.getItem('cal_showUnfollowedProjects');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const parseSafeDate = (dateStr: string) => {
@@ -54,6 +61,14 @@ export function CalendarView() {
     localStorage.setItem('cal_showExternalCalendar', JSON.stringify(showExternalCalendar));
   }, [showExternalCalendar]);
 
+  useEffect(() => {
+    localStorage.setItem('cal_viewMode', viewMode);
+  }, [viewMode]);
+
+  useEffect(() => {
+    localStorage.setItem('cal_showUnfollowedProjects', JSON.stringify(showUnfollowedProjects));
+  }, [showUnfollowedProjects]);
+
 
   const [selectedExternalEvent, setSelectedExternalEvent] = useState<ExternalEvent | null>(null);
   const [isEditExternalModalOpen, setIsEditExternalModalOpen] = useState(false);
@@ -74,10 +89,11 @@ export function CalendarView() {
   const [syncError, setSyncError] = useState<string | null>(null);
 
   // Récupérer les tâches de tous les projets actifs et appliquer les filtres
-  const filteredTasks = showProjects ? (state.projects as Project[])
+  const filteredTasks = React.useMemo(() => showProjects ? (state.projects as Project[])
     .filter((project) => {
       if (project.status !== 'active') return false;
       if (selectedProjectIds.length > 0 && !selectedProjectIds.includes(project.id)) return false;
+      if (!showUnfollowedProjects && project.isFollowed === false) return false;
       return true;
     })
     .flatMap((p) => p.tasks)
@@ -86,7 +102,7 @@ export function CalendarView() {
         return task.assignees.some(userId => selectedUserIds.includes(userId));
       }
       return true;
-    }) as Task[] : [];
+    }) as Task[] : [], [showProjects, state.projects, selectedProjectIds, selectedUserIds, showUnfollowedProjects]);
 
   // Fusionner les tâches et les événements externes pour l'affichage
   const allItems = [
@@ -559,6 +575,17 @@ export function CalendarView() {
                                 <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{project.name}</span>
                               </label>
                             ))}
+                          </div>
+                          <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                            <label className="flex items-center p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={showUnfollowedProjects}
+                                onChange={(e) => setShowUnfollowedProjects(e.target.checked)}
+                                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3"
+                              />
+                              <span className="text-sm text-gray-700 dark:text-gray-300">Afficher les projets non suivis</span>
+                            </label>
                           </div>
                         </div>
                       )}

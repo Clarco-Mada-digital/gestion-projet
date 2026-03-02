@@ -71,6 +71,10 @@ export function KanbanView() {
   const [columnOrder, setColumnOrder] = useState<string[]>([]);
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [showUnfollowedProjects, setShowUnfollowedProjects] = useState(() => {
+    const saved = localStorage.getItem('kanban_showUnfollowedProjects');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
   const [isProjectFilterOpen, setIsProjectFilterOpen] = useState(false);
   const [isUserFilterOpen, setIsUserFilterOpen] = useState(false);
   const [isAddingColumn, setIsAddingColumn] = useState(false);
@@ -93,8 +97,16 @@ export function KanbanView() {
 
     // 1. Identifier tous les projets visibles (même en lecture seule)
     const targetProjects = isAllSelected
-      ? state.projects.filter(p => p.status === 'active')
-      : state.projects.filter(p => selectedProjectIds.includes(p.id));
+      ? state.projects.filter(p => {
+          const isActive = p.status === 'active';
+          const isFollowed = showUnfollowedProjects || p.isFollowed !== false;
+          return isActive && isFollowed;
+        })
+      : state.projects.filter(p => {
+          const isSelected = selectedProjectIds.includes(p.id);
+          const isFollowed = showUnfollowedProjects || p.isFollowed !== false;
+          return isSelected && isFollowed;
+        });
 
     // 2. Agréger toutes les colonnes personnalisées uniques par SLUG
     const aggregatedColsMap = new Map<string, any>();
@@ -129,7 +141,7 @@ export function KanbanView() {
 
     setCustomColumns(Array.from(aggregatedColsMap.values()));
     setColumnOrder(savedOrder);
-  }, [selectedProjectIds, state.appSettings.kanbanSettings, state.projects]);
+  }, [selectedProjectIds, state.appSettings.kanbanSettings, state.projects, showUnfollowedProjects]);
 
   // Fonction utilitaire pour sauvegarder les paramètres
   const saveKanbanSettings = (updatedCols: any[], updatedOrder: string[], updatedTaskOrder?: Record<string, string[]>) => {
@@ -191,6 +203,11 @@ export function KanbanView() {
     localStorage.setItem('kanbanColumnOrder', JSON.stringify(settings.columnOrder));
   };
 
+  // Sauvegarder l'option d'affichage des projets non suivis
+  useEffect(() => {
+    localStorage.setItem('kanban_showUnfollowedProjects', JSON.stringify(showUnfollowedProjects));
+  }, [showUnfollowedProjects]);
+
   // Mettre à jour les colonnes quand les tâches, le projet sélectionné, les colonnes personnalisées ou l'ordre changent
   useEffect(() => {
     let tasksToDisplay = [];
@@ -198,11 +215,20 @@ export function KanbanView() {
     // On affiche tous les projets actifs (le rôle viewer n'empêche pas de VOIR le tableau)
     if (selectedProjectIds.length === 0) {
       tasksToDisplay = state.projects
-        .filter(project => project.status === 'active')
+        .filter(project => {
+          const isActive = project.status === 'active';
+          const isFollowed = showUnfollowedProjects || project.isFollowed !== false;
+          return isActive && isFollowed;
+        })
         .flatMap(p => p.tasks);
     } else {
       tasksToDisplay = state.projects
-        .filter(p => selectedProjectIds.includes(p.id) && p.status === 'active')
+        .filter(p => {
+          const isSelected = selectedProjectIds.includes(p.id);
+          const isActive = p.status === 'active';
+          const isFollowed = showUnfollowedProjects || p.isFollowed !== false;
+          return isSelected && isActive && isFollowed;
+        })
         .flatMap(p => p.tasks);
     }
 
@@ -323,7 +349,7 @@ export function KanbanView() {
     }
 
     setColumns(allColumns);
-  }, [state.projects, selectedProjectIds, selectedUserIds, customColumns, columnOrder]);
+  }, [state.projects, selectedProjectIds, selectedUserIds, customColumns, columnOrder, showUnfollowedProjects]);
 
   const handleAddColumn = () => {
     if (!newColumnTitle.trim()) return;
@@ -589,6 +615,16 @@ export function KanbanView() {
                     >
                       Tous les projets
                     </button>
+                    <div className="h-px bg-gray-100 dark:bg-gray-700 my-1" />
+                    <label className="flex items-center px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={showUnfollowedProjects}
+                        onChange={(e) => setShowUnfollowedProjects(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">Afficher les projets non suivis</span>
+                    </label>
                     <div className="h-px bg-gray-100 dark:bg-gray-700 my-1" />
                     {state.projects
                       .filter(p => p.status === 'active')

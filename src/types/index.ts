@@ -91,6 +91,7 @@ export interface Project {
   estimatedDuration?: number; // Ajouté pour compatibilité avec ProjectsView
   coverImage?: string | null; // URL de l'image de couverture
   coverImagePublicId?: string | null; // ID Public Cloudinary pour suivi/suppression
+  isFollowed?: boolean; // Option pour suivre/ne pas suivre le projet (défaut: true)
 
   // Champs pour la synchronisation Cloud (Firebase)
   source?: 'local' | 'firebase';

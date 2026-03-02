@@ -168,6 +168,7 @@ export class TrelloImportService {
       description: trelloBoard.desc || 'Projet importé depuis Trello',
       color: '#3B82F6',
       status: 'active' as const,
+      isFollowed: true, // Les projets importés sont suivis par défaut
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       tasks: tasks,
