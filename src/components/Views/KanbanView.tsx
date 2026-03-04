@@ -572,8 +572,8 @@ export function KanbanView() {
   }, [dispatch, columns, customColumns, columnOrder, selectedProjectIds, state.projects, state.appSettings.kanbanSettings, saveKanbanSettings]);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden space-y-4">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div className="flex flex-col h-[calc(100vh-5rem)] md:h-[calc(100vh-8rem)] overflow-hidden">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 flex-shrink-0 p-4">
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-4">
             <div className="w-12 h-12 bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
@@ -781,14 +781,14 @@ export function KanbanView() {
         </div>
       )}
 
-      <div className="flex-1 overflow-x-auto pb-4">
+      <div className="flex-1 overflow-x-auto overflow-y-hidden p-4">
         <DragDropContext onDragEnd={onDragEnd}>
           <Droppable droppableId="all-columns" direction="horizontal" type="COLUMN">
             {(provided) => (
               <div
                 ref={provided.innerRef}
                 {...provided.droppableProps}
-                className="flex space-x-6 pb-4 px-4"
+                className="flex h-full space-x-6"
                 style={{ minWidth: 'max-content' }}
               >
                 {columns.map((column, index) => (
@@ -801,7 +801,7 @@ export function KanbanView() {
                       <div
                         ref={provided.innerRef}
                         {...provided.draggableProps}
-                        className={`flex-shrink-0 w-[450px] h-full ${snapshot.isDragging ? 'shadow-2xl z-10' : 'shadow-md hover:shadow-lg'
+                        className={`flex-shrink-0 w-[450px] h-auto md:max-h-full ${snapshot.isDragging ? 'shadow-2xl z-10' : 'shadow-md hover:shadow-lg'
                           }`}
                         style={{
                           ...provided.draggableProps.style,
@@ -809,7 +809,7 @@ export function KanbanView() {
                         }}
                       >
                         <Card
-                          className={`bg-gradient-to-br ${column.gradient} p-4 h-full flex flex-col`}
+                          className={`bg-gradient-to-br ${column.gradient} p-4 h-auto md:max-h-full flex flex-col min-h-0`}
                           gradient
                           blur={!snapshot.isDragging}
                         >
@@ -869,7 +869,9 @@ export function KanbanView() {
                               </div>
                             </div>
                             <div className="flex items-center space-x-2">
-                              <div className={`bg-gradient-to-r ${column.iconColor} text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg`}>
+                              <div
+                                className={`bg-gradient-to-r ${column.iconColor} text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg`}
+                              >
                                 {column.tasks.length}
                               </div>
                               {column.isCustom && (
@@ -908,7 +910,7 @@ export function KanbanView() {
                               <div
                                 ref={provided.innerRef}
                                 {...provided.droppableProps}
-                                className={`flex-1 overflow-y-auto scrollbar-thin p-2 rounded-lg custom-scrollbar ${snapshot.isDraggingOver
+                                className={`flex-1 overflow-y-auto scrollbar-thin p-2 rounded-lg custom-scrollbar min-h-0 ${snapshot.isDraggingOver
                                   ? 'bg-black/5 dark:bg-white/5 ring-2 ring-blue-400/50'
                                   : 'bg-transparent'
                                   }`}
