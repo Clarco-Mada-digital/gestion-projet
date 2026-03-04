@@ -3,6 +3,8 @@ import { Calendar, Clock, Edit2, Trash2, MessageSquare, MoreHorizontal, CheckCir
 import { Task, Project, SubTask, Attachment, User, TaskStatus } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { useModal } from '../../context/ModalContext';
+import { useNotifications } from '../../hooks/useNotifications';
+import { useOffline } from '../../hooks/useOffline';
 import { Card } from '../UI/Card';
 import { EditTaskForm } from './EditTaskForm';
 import { SubTasksList } from './SubTasksList';
@@ -13,6 +15,16 @@ import remarkGfm from 'remark-gfm';
 import { CompactAttachments } from '../UI/CompactAttachments';
 import { cloudinaryService } from '../../services/collaboration/cloudinaryService';
 import { localAttachmentService } from '../../services/localAttachmentService';
+
+interface TaskCardProps {
+  task: Task;
+  project?: Project | null;
+  onEdit?: (task: Task) => void;
+  onDelete?: (taskId: string, projectId: string) => void;
+  onStatusChange?: (taskId: string, newStatus: TaskStatus) => void;
+  className?: string;
+  isDragging?: boolean;
+}
 
 // Fonction pour nettoyer le markdown mal formé
 const cleanMarkdown = (text: string): string => {
@@ -57,9 +69,11 @@ const areEqual = (prevProps: TaskCardProps, nextProps: TaskCardProps): boolean =
   return taskPropsEqual;
 };
 
-const TaskCardComponent = ({ task, className = '', isDragging = false }: TaskCardProps): JSX.Element | null => {
+const TaskCardComponent: React.FC<TaskCardProps> = ({ task, project, onEdit, onDelete, onStatusChange, className, isDragging = false }) => {
   const { state, dispatch } = useApp();
   const { openModal, closeModal } = useModal();
+  const { showTaskCompleted } = useNotifications();
+  const { saveTaskOffline } = useOffline();
   const [showMenu, setShowMenu] = useState(false);
 
   // Vérifier que la tâche est valide
@@ -75,8 +89,8 @@ const TaskCardComponent = ({ task, className = '', isDragging = false }: TaskCar
   }
 
   // Récupérer le projet associé à la tâche
-  const project = state.projects.find(p => p.id === task.projectId);
-  const projectName = project?.name || 'Projet inconnu';
+  const taskProject = state.projects.find(p => p.id === task.projectId);
+  const projectName = taskProject?.name || 'Projet inconnu';
 
   // Récupérer les utilisateurs assignés
   const assignedUsers = state.users.filter(u => task.assignees.includes(u.id));
@@ -132,7 +146,7 @@ const TaskCardComponent = ({ task, className = '', isDragging = false }: TaskCar
   const isOwner = project?.source === 'firebase' &&
     project.ownerId === state.cloudUser?.uid;
 
-  const canEdit = !isViewer && (project.source !== 'firebase' || isOwner);
+  const canEdit = !isViewer && (project?.source !== 'firebase' || isOwner);
 
   const toggleStatus = useCallback(() => {
     if (isViewer) {
@@ -153,16 +167,28 @@ const TaskCardComponent = ({ task, className = '', isDragging = false }: TaskCar
       newStatus = 'done';
     }
 
+    const updatedTask = {
+      ...task,
+      status: newStatus,
+      updatedAt: now,
+      completedAt: newStatus === 'done' ? now : undefined
+    };
+
     dispatch({
       type: 'UPDATE_TASK',
-      payload: {
-        ...task,
-        status: newStatus,
-        updatedAt: now,
-        completedAt: newStatus === 'done' ? now : undefined
-      }
+      payload: updatedTask
     });
-  }, [dispatch, task, isViewer]);
+
+    // Afficher une notification si la tâche est marquée comme terminée
+    if (newStatus === 'done' && task.status !== 'done') {
+      showTaskCompleted(updatedTask);
+    }
+
+    // Sauvegarder localement si hors-ligne
+    if (!navigator.onLine) {
+      saveTaskOffline(updatedTask);
+    }
+  }, [dispatch, task, isViewer, saveTaskOffline, showTaskCompleted]);
 
   const handleEdit = useCallback(() => {
     try {

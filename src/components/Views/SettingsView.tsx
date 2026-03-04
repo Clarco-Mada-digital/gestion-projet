@@ -11,6 +11,8 @@ import { AISettings } from '../Settings/AISettings';
 import { DataManagement } from '../Settings/DataManagement';
 import { ContactManagement } from '../Settings/ContactManagement';
 import { AppearanceSettings } from '../Settings/AppearanceSettings';
+import { NotificationSettings } from '../Settings/NotificationSettings';
+import { PWASettings } from '../Settings/PWASettings';
 import {
   User as UserIcon,
   Users,
@@ -25,7 +27,8 @@ import {
   ShieldCheck,
   Check,
   Info,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
+  Smartphone
 } from 'lucide-react';
 
 
@@ -48,6 +51,7 @@ export function SettingsView() {
     { id: 'email', name: 'Email', icon: Mail, subtitle: 'Configuration SMTP/EmailJS' },
     { id: 'ai', name: 'IA Settings', icon: Cpu, subtitle: 'OpenAI, OpenRouter & modèles' },
     { id: 'notifications', name: 'Notifications', icon: Bell, subtitle: 'Alertes & préférences' },
+    { id: 'pwa', name: 'PWA & Hors-ligne', icon: Smartphone, subtitle: 'Application & mode hors-ligne' },
     { id: 'calendar', name: 'Calendrier', icon: CalendarIcon, subtitle: 'Synchronisation Agenda' },
     { id: 'data', name: 'Données', icon: Database, subtitle: 'Export, Import & Backup' },
   ];
@@ -300,110 +304,10 @@ export function SettingsView() {
         return <DataManagement />;
 
       case 'notifications':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-semibold mb-6">Paramètres de notification</h2>
-              <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
-                <div className="px-4 py-5 sm:p-6">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Préférences de notification</h3>
+        return <NotificationSettings />;
 
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Notifications par email</h4>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Recevez des notifications importantes par email</p>
-                      </div>
-                      <button
-                        onClick={() => dispatch({
-                          type: 'UPDATE_USER',
-                          payload: {
-                            emailNotifications: !state.users[0]?.emailNotifications
-                          }
-                        })}
-                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${state.users[0]?.emailNotifications !== false ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'}`}
-                        role="switch"
-                        aria-checked={state.users[0]?.emailNotifications !== false}
-                      >
-                        <span className="sr-only">Notifications email</span>
-                        <span
-                          aria-hidden="true"
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${state.users[0]?.emailNotifications !== false ? 'translate-x-5' : 'translate-x-0'}`}
-                        />
-                      </button>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Notifications push</h4>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Recevez des notifications sur votre appareil</p>
-                      </div>
-                      <button
-                        onClick={() => dispatch({
-                          type: 'UPDATE_USER',
-                          payload: {
-                            pushNotifications: !state.users[0]?.pushNotifications
-                          }
-                        })}
-                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${state.users[0]?.pushNotifications ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'}`}
-                        role="switch"
-                        aria-checked={state.users[0]?.pushNotifications}
-                      >
-                        <span className="sr-only">Notifications push</span>
-                        <span
-                          aria-hidden="true"
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${state.users[0]?.pushNotifications ? 'translate-x-5' : 'translate-x-0'}`}
-                        />
-                      </button>
-                    </div>
-
-                    <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Types de notifications</h4>
-                      <div className="space-y-3">
-                        <div className="flex items-center">
-                          <input
-                            id="notif-news"
-                            name="notif-news"
-                            type="checkbox"
-                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                            defaultChecked
-                          />
-                          <label htmlFor="notif-news" className="ml-3 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Nouvelles fonctionnalités
-                          </label>
-                        </div>
-                        <div className="flex items-center">
-                          <input
-                            id="notif-updates"
-                            name="notif-updates"
-                            type="checkbox"
-                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                            defaultChecked
-                          />
-                          <label htmlFor="notif-updates" className="ml-3 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Mises à jour système
-                          </label>
-                        </div>
-                        <div className="flex items-center">
-                          <input
-                            id="notif-promo"
-                            name="notif-promo"
-                            type="checkbox"
-                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                            defaultChecked
-                          />
-                          <label htmlFor="notif-promo" className="ml-3 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Offres promotionnelles
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
+      case 'pwa':
+        return <PWASettings />;
 
       case 'ai':
         return <AISettings />;

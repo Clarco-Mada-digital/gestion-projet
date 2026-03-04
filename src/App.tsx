@@ -87,7 +87,9 @@ function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <AppProvider>
       <ModalProvider>
-        {children}
+        <ChatbotProvider>
+          {children}
+        </ChatbotProvider>
       </ModalProvider>
     </AppProvider>
   );
@@ -96,9 +98,7 @@ function AppProviders({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <AppProviders>
-      <ChatbotProvider>
-        <AppContent />
-      </ChatbotProvider>
+      <AppContent />
     </AppProviders>
   );
 }

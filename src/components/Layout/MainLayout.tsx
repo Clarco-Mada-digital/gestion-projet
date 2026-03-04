@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { NotificationCenter } from '../UI/NotificationCenter';
+import { OfflineIndicator } from '../UI/OfflineIndicator';
 import { Menu } from 'lucide-react';
 
 interface MainLayoutProps {
@@ -37,6 +38,7 @@ export function MainLayout({ children, currentView }: MainLayoutProps) {
             </h2>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
+            <OfflineIndicator />
             <NotificationCenter />
             <div className="h-8 w-[1px] bg-gray-200 dark:bg-gray-700 mx-1 sm:mx-2 hidden xs:block"></div>
             <div className="flex items-center gap-2">

@@ -361,6 +361,9 @@ export interface Notification {
   message: string;
   type: 'mention' | 'task_assigned' | 'deadline_approaching' | 'project_update' | 'reply_added' | 'reaction_added';
   link?: string;
+  projectId?: string;
+  taskId?: string;
+  projectName?: string;
   isRead: boolean;
   createdAt: string;
 }
