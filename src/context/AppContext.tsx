@@ -330,7 +330,7 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       userSettings.timezone = userSettings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
       const newUser: User = {
-        id: `user - ${Date.now()} `,
+        id: `user-${Date.now()}`,
         name: action.payload.name || '',
         email: action.payload.email || '',
         avatar: action.payload.avatar || '',
@@ -666,7 +666,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       for (const project of projectsToSync) {
         try {
-          console.log(`[Sync - Live] Synchronisation automatique du projet: ${project.name} `);
+          console.log(`[Sync-Live] Synchronisation automatique du projet: ${project.name}`);
           await firebaseService.syncProject(project);
 
           // On met à jour localement lastSyncedAt pour marquer comme synchronisé
@@ -676,7 +676,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           // Pour l'instant on laisse comme ça car syncProject met à jour Firebase 
           // et au prochain polling/refresh localement, updatedAt égalera lastSyncedAt sur Firebase.
         } catch (error) {
-          console.error(`[Sync - Live] Erreur lors de la synchronisation de ${project.name}: `, error);
+          console.error(`[Sync-Live] Erreur lors de la synchronisation de ${project.name}: `, error);
         }
       }
     }, 2000); // 2 secondes de délai après la dernière modification
@@ -908,25 +908,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       styleEl.innerHTML = `
         :root {
-  --color - primary: ${color};
-}
+          --color-primary: ${color};
+        }
 
         /* Override common blue classes */
-        .bg - blue - 500 { background - color: ${color} !important; }
-        .bg - blue - 600 { background - color: ${color} !important; filter: brightness(0.9); }
-        .hover\\: bg - blue - 600:hover { background - color: ${color} !important; filter: brightness(0.9); }
-        .hover\\: bg - blue - 700:hover { background - color: ${color} !important; filter: brightness(0.8); }
-        .text - blue - 500 { color: ${color} !important; }
-        .text - blue - 600 { color: ${color} !important; filter: brightness(0.9); }
-        .border - blue - 500 { border - color: ${color} !important; }
-        .focus\\: ring - blue - 500:focus { --tw - ring - color: ${color} !important; }
+        .bg-blue-500 { background-color: ${color} !important; }
+        .bg-blue-600 { background-color: ${color} !important; filter: brightness(0.9); }
+        .hover\\:bg-blue-600:hover { background-color: ${color} !important; filter: brightness(0.9); }
+        .hover\\:bg-blue-700:hover { background-color: ${color} !important; filter: brightness(0.8); }
+        .text-blue-500 { color: ${color} !important; }
+        .text-blue-600 { color: ${color} !important; filter: brightness(0.9); }
+        .border-blue-500 { border-color: ${color} !important; }
+        .focus\\:ring-blue-500:focus { --tw-ring-color: ${color} !important; }
 `;
     }
 
     // Appliquer la taille de police
     const fontSize = state.appSettings.fontSize || 'medium';
     document.documentElement.classList.remove('font-size-small', 'font-size-medium', 'font-size-large');
-    document.documentElement.classList.add(`font - size - ${fontSize} `);
+    document.documentElement.classList.add(`font-size-${fontSize}`);
 
     // Appliquer la police d'écriture
     if (state.appSettings.fontFamily) {

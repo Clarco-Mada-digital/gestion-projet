@@ -62,6 +62,145 @@ const MODELS: Record<ProviderType, ModelOption[]> = {
   ]
 };
 
+interface ModelSelectProps {
+  form: FormInstance<FormValues>;
+  labelStyle: string;
+  dynamicModels: any[];
+  isFetching: boolean;
+  searchTerm: string;
+  onSearch: (val: string) => void;
+  isDarkMode: boolean;
+}
+
+const ModelSelect = React.memo<ModelSelectProps>(({ form, labelStyle, dynamicModels, isFetching, searchTerm, onSearch, isDarkMode }) => {
+  const provider = (Form.useWatch('provider', form) as ProviderType) || 'openai';
+  const modelName = provider === 'openai' ? 'openaiModel' : 'openrouterModel';
+
+  // S'assurer que le provider est valide
+  const staticModels = MODELS[provider] || MODELS.openai;
+
+  // Toujours mettre l'option Auto en premier pour OpenRouter
+  let allModels = staticModels;
+  if (provider === 'openrouter' && dynamicModels.length > 0) {
+    const autoModel = staticModels.find(m => m.value === 'openrouter/auto');
+    const otherModels = dynamicModels.filter(m => m.value !== 'openrouter/auto');
+    allModels = autoModel ? [autoModel, ...otherModels] : dynamicModels;
+  } else if (provider === 'openrouter') {
+    allModels = staticModels;
+  } else {
+    allModels = dynamicModels.length > 0 ? dynamicModels : staticModels;
+  }
+
+  // Filtrer les modèles par recherche
+  const filteredModels = allModels.filter(m =>
+    m.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    m.value.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Récupérer la valeur actuelle
+  const currentModelValue = Form.useWatch(modelName, form);
+
+  return (
+    <div className="space-y-4">
+      <Form.Item
+        name={modelName}
+        rules={[{ required: true, message: 'Veuillez sélectionner un modèle' }]}
+        className="hidden"
+      >
+        <Input type="hidden" />
+      </Form.Item>
+
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <label className={labelStyle}>Modèle IA</label>
+        <Input
+          placeholder="Rechercher un modèle..."
+          value={searchTerm}
+          onChange={e => onSearch(e.target.value)}
+          className="max-w-xs rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          allowClear
+          prefix={<svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>}
+        />
+      </div>
+
+      {isFetching ? (
+        <div className="flex items-center justify-center p-12 bg-gray-50 dark:bg-gray-900/50 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-gray-500">Chargement des modèles depuis OpenRouter...</p>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 h-[400px] overflow-y-auto pr-2 custom-scrollbar p-1">
+          {filteredModels.map((model) => {
+            const isSelected = currentModelValue === model.value;
+            const isFree = model.label.toLowerCase().includes('gratuit') || model.value.endsWith(':free');
+
+            return (
+              <div
+                key={model.value}
+                onClick={() => form.setFieldValue(modelName, model.value)}
+                className={`
+                  group relative flex flex-col p-4 cursor-pointer rounded-xl border-2 transition-all duration-200
+                  ${isSelected
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 bg-white dark:bg-gray-800'
+                  }
+                `}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`font-semibold text-sm truncate mr-2 ${isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-white'}`}>
+                    {model.label.split(':')[0]}
+                  </span>
+                  {isSelected ? (
+                    <div className="shrink-0 h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center">
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="shrink-0 h-5 w-5 rounded-full border border-gray-300 dark:border-gray-600 group-hover:border-blue-400 transition-colors"></div>
+                  )}
+                </div>
+
+                <span className={`text-[10px] break-all mb-1 ${isSelected ? 'text-blue-600 dark:text-blue-200' : 'text-gray-500 dark:text-gray-400'}`}>
+                  ID: {model.value}
+                </span>
+
+                {model.context && (
+                  <span className="text-[10px] text-gray-400">
+                    Contexte: {(model.context / 1024).toFixed(0)}k
+                  </span>
+                )}
+
+                {isFree && (
+                  <span className="absolute top-2 right-2 px-2 py-0.5 text-[10px] font-bold uppercase rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                    Gratuit
+                  </span>
+                )}
+              </div>
+            );
+          })}
+
+          {filteredModels.length === 0 && (
+            <div className="col-span-full py-12 text-center bg-gray-50 dark:bg-gray-900/50 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+              <p className="text-gray-500">Aucun modèle ne correspond à votre recherche</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="mt-4 flex items-start space-x-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-md">
+        <svg className="w-4 h-4 mt-0.5 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <div className="flex-1">
+          <p className="font-medium text-gray-700 dark:text-gray-300">Note sur les modèles</p>
+          <p>Plus le modèle est puissant, plus il sera capable de comprendre des tâches complexes. Les modèles OpenRouter sont mis à jour dynamiquement.</p>
+        </div>
+      </div>
+    </div>
+  );
+});
 
 export const AISettings: React.FC<AISettingsProps> = ({
   value: externalValue,
@@ -257,146 +396,6 @@ export const AISettings: React.FC<AISettingsProps> = ({
   };
 
 
-  interface ModelSelectProps {
-    form: FormInstance<FormValues>;
-    labelStyle: string;
-    dynamicModels: any[];
-    isFetching: boolean;
-    searchTerm: string;
-    onSearch: (val: string) => void;
-  }
-
-  const ModelSelect = React.memo<ModelSelectProps>(({ form, labelStyle, dynamicModels, isFetching, searchTerm, onSearch }) => {
-    const provider = (Form.useWatch('provider', form) as ProviderType) || 'openai';
-    const modelName = provider === 'openai' ? 'openaiModel' : 'openrouterModel';
-
-    // S'assurer que le provider est valide
-    const staticModels = MODELS[provider] || MODELS.openai;
-
-    // Toujours mettre l'option Auto en premier pour OpenRouter
-    let allModels = staticModels;
-    if (provider === 'openrouter' && dynamicModels.length > 0) {
-      const autoModel = staticModels.find(m => m.value === 'openrouter/auto');
-      const otherModels = dynamicModels.filter(m => m.value !== 'openrouter/auto');
-      allModels = autoModel ? [autoModel, ...otherModels] : dynamicModels;
-    } else if (provider === 'openrouter') {
-      allModels = staticModels;
-    } else {
-      allModels = dynamicModels.length > 0 ? dynamicModels : staticModels;
-    }
-
-    // Filtrer les modèles par recherche
-    const filteredModels = allModels.filter(m =>
-      m.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.value.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    // Récupérer la valeur actuelle
-    const currentModelValue = Form.useWatch(modelName, form);
-
-    return (
-      <div className="space-y-4">
-        <Form.Item
-          name={modelName}
-          rules={[{ required: true, message: 'Veuillez sélectionner un modèle' }]}
-          className="hidden"
-        >
-          <Input type="hidden" />
-        </Form.Item>
-
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <label className={labelStyle}>Modèle IA</label>
-          <Input
-            placeholder="Rechercher un modèle..."
-            value={searchTerm}
-            onChange={e => onSearch(e.target.value)}
-            className="max-w-xs rounded-lg dark:bg-gray-700 dark:border-gray-600"
-            allowClear
-            prefix={<svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>}
-          />
-        </div>
-
-        {isFetching ? (
-          <div className="flex items-center justify-center p-12 bg-gray-50 dark:bg-gray-900/50 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700">
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-sm text-gray-500">Chargement des modèles depuis OpenRouter...</p>
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 h-[400px] overflow-y-auto pr-2 custom-scrollbar p-1">
-            {filteredModels.map((model) => {
-              const isSelected = currentModelValue === model.value;
-              const isFree = model.label.toLowerCase().includes('gratuit') || model.value.endsWith(':free');
-
-              return (
-                <div
-                  key={model.value}
-                  onClick={() => form.setFieldValue(modelName, model.value)}
-                  className={`
-                    group relative flex flex-col p-4 cursor-pointer rounded-xl border-2 transition-all duration-200
-                    ${isSelected
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
-                      : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 bg-white dark:bg-gray-800'
-                    }
-                  `}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={`font-semibold text-sm truncate mr-2 ${isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-white'}`}>
-                      {model.label.split(':')[0]}
-                    </span>
-                    {isSelected ? (
-                      <div className="shrink-0 h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center">
-                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                    ) : (
-                      <div className="shrink-0 h-5 w-5 rounded-full border border-gray-300 dark:border-gray-600 group-hover:border-blue-400 transition-colors"></div>
-                    )}
-                  </div>
-
-                  <span className={`text-[10px] break-all mb-1 ${isSelected ? 'text-blue-600 dark:text-blue-200' : 'text-gray-500 dark:text-gray-400'}`}>
-                    ID: {model.value}
-                  </span>
-
-                  {model.context && (
-                    <span className="text-[10px] text-gray-400">
-                      Contexte: {(model.context / 1024).toFixed(0)}k
-                    </span>
-                  )}
-
-                  {isFree && (
-                    <span className="absolute top-2 right-2 px-2 py-0.5 text-[10px] font-bold uppercase rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                      Gratuit
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-
-            {filteredModels.length === 0 && (
-              <div className="col-span-full py-12 text-center bg-gray-50 dark:bg-gray-900/50 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700">
-                <p className="text-gray-500">Aucun modèle ne correspond à votre recherche</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="mt-4 flex items-start space-x-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-md">
-          <svg className="w-4 h-4 mt-0.5 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <div className="flex-1">
-            <p className="font-medium text-gray-700 dark:text-gray-300">Note sur les modèles</p>
-            <p>Plus le modèle est puissant, plus il sera capable de comprendre des tâches complexes. Les modèles OpenRouter sont mis à jour dynamiquement.</p>
-          </div>
-        </div>
-      </div>
-    );
-  });
-
-
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
@@ -509,6 +508,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
                 isFetching={isFetchingModels}
                 searchTerm={searchTerm}
                 onSearch={setSearchTerm}
+                isDarkMode={isDarkMode}
               />
             </div>
 
