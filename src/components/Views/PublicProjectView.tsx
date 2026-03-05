@@ -21,7 +21,10 @@ import {
   Activity,
   ChevronLeft,
   LayoutGrid,
-  CalendarSearch
+  CalendarSearch,
+  Paperclip,
+  ExternalLink,
+  FileText
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -54,10 +57,11 @@ const isTaskActiveOnDay = (task: Task, date: Date) => {
 
 // --- Sub-components ---
 
-const DashboardView = ({ project, stats, tasks, onSelectView }: {
+const DashboardView = ({ project, stats, tasks, attachments, onSelectView }: {
   project: Project,
   stats: { total: number, done: number, progress: number, inProgress: number },
   tasks: Task[],
+  attachments: any[],
   onSelectView: (v: ViewMode) => void
 }) => {
   const projectColor = project.color || '#4f46e5';
@@ -67,12 +71,27 @@ const DashboardView = ({ project, stats, tasks, onSelectView }: {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-shrink-0">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-          className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-[2.5rem] p-8 relative overflow-hidden shadow-xl border border-gray-100 dark:border-gray-700 font-sans"
+          className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-[2.5rem] p-8 relative overflow-hidden shadow-xl border border-gray-100 dark:border-gray-700 font-sans group/card"
         >
-          <div className="absolute top-0 right-0 w-48 h-48 opacity-10 blur-[60px] rounded-full -mr-10 -mt-10" style={{ backgroundColor: projectColor }}></div>
+          {/* Background Layer: Cover Image or Gradient */}
+          {project.coverImage ? (
+            <>
+              <div className="absolute inset-0 z-0">
+                <img
+                  src={project.coverImage}
+                  alt=""
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover/card:scale-110"
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-white via-white/95 to-white/40 dark:from-gray-900 dark:via-gray-900/95 dark:to-gray-900/40 opacity-90"></div>
+              </div>
+            </>
+          ) : (
+            <div className="absolute top-0 right-0 w-48 h-48 opacity-10 blur-[60px] rounded-full -mr-10 -mt-10" style={{ backgroundColor: projectColor }}></div>
+          )}
+
           <div className="relative z-10 flex flex-col h-full justify-between">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 mb-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-50/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-xl border border-gray-100 dark:border-gray-700 mb-4">
                 <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: projectColor }}></span>
                 <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">Aperçu Stratégique</span>
               </div>
@@ -83,7 +102,7 @@ const DashboardView = ({ project, stats, tasks, onSelectView }: {
             </div>
             <button
               onClick={() => onSelectView('timeline')}
-              className="w-fit px-6 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-950 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all hover:translate-x-1"
+              className="w-fit px-6 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-950 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all hover:translate-x-1 shadow-lg"
             >
               Voir la chronologie <ArrowRight className="w-3 h-3" />
             </button>
@@ -163,6 +182,39 @@ const DashboardView = ({ project, stats, tasks, onSelectView }: {
             ))}
           </div>
         </div>
+
+        {/* Section Fichiers Joints */}
+        {attachments.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-[2rem] p-6 border border-gray-100 dark:border-gray-700 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                <Paperclip className="w-3 h-3 text-indigo-500" />
+                Dépôt de fichiers ({attachments.length})
+              </h4>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {attachments.slice(0, 6).map((file, i) => (
+                <a
+                  key={file.id || i}
+                  href={file.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100/50 dark:border-gray-800 hover:border-indigo-300 dark:hover:border-indigo-700 transition-all group"
+                >
+                  <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center shrink-0">
+                    <FileText className="w-3 h-3 text-indigo-500" />
+                  </div>
+                  <span className="text-[9px] font-bold truncate text-gray-600 dark:text-gray-400 group-hover:text-indigo-600 transition-colors">{file.name}</span>
+                </a>
+              ))}
+              {attachments.length > 6 && (
+                <div className="flex items-center justify-center p-2 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+                  <span className="text-[9px] font-black text-gray-400">+{attachments.length - 6} autres</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -472,7 +524,9 @@ export const PublicProjectView = ({ projectId: propProjectId }: { projectId?: st
     </div>
   );
 
-  const tasks = project.tasks || [];
+  const tasks = (project.tasks || []).filter(t => t.status !== 'non-suivi');
+  const allAttachments = tasks.flatMap(t => t.attachments || []);
+
   const stats = {
     total: tasks.length,
     done: tasks.filter(t => t.status === 'done').length,
@@ -540,7 +594,7 @@ export const PublicProjectView = ({ projectId: propProjectId }: { projectId?: st
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 lg:px-10 pb-8 overflow-hidden relative">
         <AnimatePresence mode="wait">
-          {viewMode === 'dashboard' && <motion.div key="db" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full"><DashboardView project={project} stats={stats} tasks={tasks} onSelectView={setViewMode} /></motion.div>}
+          {viewMode === 'dashboard' && <motion.div key="db" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full"><DashboardView project={project} stats={stats} tasks={tasks} attachments={allAttachments} onSelectView={setViewMode} /></motion.div>}
 
           {viewMode === 'board' && (
             <motion.div key="board" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="h-full flex gap-6 overflow-x-auto pb-4 custom-scroll">
@@ -620,6 +674,33 @@ export const PublicProjectView = ({ projectId: propProjectId }: { projectId?: st
               <div className="flex-1 p-10 lg:p-16 overflow-y-auto bg-white dark:bg-[#0F172A]">
                 <div className="max-w-2xl">
                   <div className="mb-12"><h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-indigo-500 mb-6 border-b border-indigo-100 dark:border-indigo-900 pb-2">Mission</h4><div className="prose dark:prose-invert prose-lg font-medium text-gray-500 leading-relaxed"><ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanMarkdown(selectedTask.description)}</ReactMarkdown></div></div>
+
+                  {selectedTask.attachments && selectedTask.attachments.length > 0 && (
+                    <div className="mb-12">
+                      <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-900 dark:text-white mb-6">Documents & Médias</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {selectedTask.attachments.map((file) => (
+                          <a
+                            key={file.id}
+                            href={file.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-4 p-4 rounded-3xl bg-gray-50/50 dark:bg-white/5 border border-gray-100 dark:border-white/5 hover:bg-white dark:hover:bg-white/10 hover:shadow-xl hover:scale-[1.02] transition-all group"
+                          >
+                            <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center shadow-inner">
+                              <FileText className="w-5 h-5 text-indigo-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-[10px] font-black truncate text-gray-900 dark:text-white uppercase">{file.name}</div>
+                              <div className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">{file.type || 'Fichier'}</div>
+                            </div>
+                            <ExternalLink className="w-4 h-4 text-gray-300 group-hover:text-indigo-600 transition-colors" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {selectedTask.subTasks && selectedTask.subTasks.length > 0 && (
                     <div className="space-y-8 pb-12">
                       <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-900 dark:text-white mb-6">Objectifs intermédiaires</h4>

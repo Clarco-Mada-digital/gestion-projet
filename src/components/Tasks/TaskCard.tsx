@@ -1,20 +1,14 @@
 import React, { useState, useCallback, memo } from 'react';
-import { Calendar, Clock, Edit2, Trash2, MessageSquare, MoreHorizontal, CheckCircle2, AlertCircle, Paperclip, User as UserType, MapPin, Eye, EyeOff } from 'lucide-react';
-import { Task, Project, SubTask, Attachment, User, TaskStatus } from '../../types';
+import { Clock, Edit2, MoreHorizontal, CheckCircle2, User as UserType } from 'lucide-react';
+import { Task, Project, TaskStatus } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { useModal } from '../../context/ModalContext';
 import { useNotifications } from '../../hooks/useNotifications';
 import { useOffline } from '../../hooks/useOffline';
 import { Card } from '../UI/Card';
 import { EditTaskForm } from './EditTaskForm';
-import { SubTasksList } from './SubTasksList';
-import { TaskComments } from './TaskComments';
-import { calculateDuration, isMultiDayTask, isTaskInDateRange } from '../../utils/dateUtils';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { CompactAttachments } from '../UI/CompactAttachments';
-import { cloudinaryService } from '../../services/collaboration/cloudinaryService';
-import { localAttachmentService } from '../../services/localAttachmentService';
 
 interface TaskCardProps {
   task: Task;
@@ -69,7 +63,7 @@ const areEqual = (prevProps: TaskCardProps, nextProps: TaskCardProps): boolean =
   return taskPropsEqual;
 };
 
-const TaskCardComponent: React.FC<TaskCardProps> = ({ task, project, onEdit, onDelete, onStatusChange, className, isDragging = false }) => {
+const TaskCardComponent: React.FC<TaskCardProps> = ({ task, project, className, isDragging = false }) => {
   const { state, dispatch } = useApp();
   const { openModal, closeModal } = useModal();
   const { showTaskCompleted } = useNotifications();
@@ -103,7 +97,7 @@ const TaskCardComponent: React.FC<TaskCardProps> = ({ task, project, onEdit, onD
   };
 
   const isOverdue = (() => {
-    if (!isValidDate(task.dueDate) || task.status === 'done') return false;
+    if (!isValidDate(task.dueDate) || task.status === 'done' || task.status === 'non-suivi') return false;
 
     const now = new Date();
     const taskDueDate = new Date(task.dueDate);
@@ -117,7 +111,7 @@ const TaskCardComponent: React.FC<TaskCardProps> = ({ task, project, onEdit, onD
   })();
 
   const isToday = (() => {
-    if (!isValidDate(task.dueDate) || task.status === 'done') return false;
+    if (!isValidDate(task.dueDate) || task.status === 'done' || task.status === 'non-suivi') return false;
     const now = new Date();
     const taskDueDate = new Date(task.dueDate);
     return taskDueDate.toDateString() === now.toDateString();
@@ -142,11 +136,6 @@ const TaskCardComponent: React.FC<TaskCardProps> = ({ task, project, onEdit, onD
   const isViewer = project?.source === 'firebase' &&
     project.ownerId !== state.cloudUser?.uid &&
     project.memberRoles?.[state.cloudUser?.uid || ''] === 'viewer';
-
-  const isOwner = project?.source === 'firebase' &&
-    project.ownerId === state.cloudUser?.uid;
-
-  const canEdit = !isViewer && (project?.source !== 'firebase' || isOwner);
 
   const toggleStatus = useCallback(() => {
     if (isViewer) {
@@ -238,7 +227,8 @@ const TaskCardComponent: React.FC<TaskCardProps> = ({ task, project, onEdit, onD
 
   return (
     <Card
-      className={`relative group p-4 cursor-pointer ${!isDragging ? 'transition-all duration-200' : 'bg-white dark:bg-gray-800'} ${isOverdue ? 'border-l-4 border-red-500 dark:border-red-700' : ''
+      className={`relative group p-4 cursor-pointer ${!isDragging ? 'transition-all duration-200' : 'bg-white dark:bg-gray-800'} ${isOverdue ? 'border-l-4 border-red-500 dark:border-red-700' :
+        task.status === 'non-suivi' ? 'border-l-4 border-orange-400 dark:border-orange-600 bg-orange-50/30 dark:bg-orange-900/10' : ''
         } ${isToday ? 'ring-1 ring-blue-500/30 dark:ring-blue-500/50' : ''
         } ${className} ${!isDragging ? 'hover:shadow-md' : ''}`}
       hover={!isDragging}
@@ -301,7 +291,7 @@ const TaskCardComponent: React.FC<TaskCardProps> = ({ task, project, onEdit, onD
                         }}
                         className="flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                       >
-                        <Edit className="mr-2 h-4 w-4" />
+                        <Edit2 className="mr-2 h-4 w-4" />
                         <span>Modifier</span>
                       </button>
                       <button
@@ -410,7 +400,7 @@ const TaskCardComponent: React.FC<TaskCardProps> = ({ task, project, onEdit, onD
             }}
             className={`flex items-center text-xs font-medium transition-colors ${task.status === 'done'
               ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300'
-              : task.status === 'non-suivi' 
+              : task.status === 'non-suivi'
                 ? 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300'
                 : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
               }`}

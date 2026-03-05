@@ -42,7 +42,7 @@ export function AboutView() {
           </div>
           <div>
             <h1 className={`${headingClass} font-black tracking-tight text-gray-900 dark:text-white`}>
-              ProjectFlow <span className="text-indigo-600">v1.5</span>
+              ProjectFlow <span className="text-indigo-600">v1.6</span>
             </h1>
             <p className={`${baseTextClass} text-gray-500 dark:text-gray-400 mt-1 font-medium`}>
               Documentation & Nouveautés Stratégiques
@@ -66,7 +66,7 @@ export function AboutView() {
                   </h2>
                   <p className={`${baseTextClass} text-gray-600 dark:text-gray-400 leading-relaxed`}>
                     ProjectFlow n'est plus seulement un gestionnaire de tâches. C'est un écosystème complet qui fait le pont entre votre organisation interne et la communication avec vos clients.
-                    Cette version 1.5 introduit le partage public sécurisé et un moteur de rendu de calendrier de nouvelle génération.
+                    Cette version 1.6 introduit l'intelligence artificielle avancée, le partage public premium avec support des pièces jointes et des images de couverture.
                   </p>
                 </div>
               </div>
@@ -85,9 +85,9 @@ export function AboutView() {
                   Partagez vos progrès en toute transparence. Générez un lien unique pour vos clients afin qu'ils suivent l'avancement sans avoir de compte.
                 </p>
                 <ul className="mt-4 space-y-2 text-[11px] font-bold text-gray-400 uppercase tracking-widest">
-                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-blue-500 rounded-full" /> Dashboard Client Premium</li>
-                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-blue-500 rounded-full" /> 5 modes de vue (Kanban, Agenda...)</li>
-                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-blue-500 rounded-full" /> Zéro installation requise</li>
+                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-blue-500 rounded-full" /> Dashboard Client avec Support Attachments</li>
+                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-blue-500 rounded-full" /> Images de Couverture & Customisation</li>
+                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-blue-500 rounded-full" /> Filtrage Intelligent (Non-suivi)</li>
                 </ul>
               </Card>
 
@@ -136,9 +136,9 @@ export function AboutView() {
                   Interface optimisée pour une productivité sans friction. Expérience plein écran (100vh) sans scroll superflu.
                 </p>
                 <ul className="mt-4 space-y-2 text-[11px] font-bold text-gray-400 uppercase tracking-widest">
-                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-purple-500 rounded-full" /> Kanban avec colonnes indépendantes</li>
-                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-purple-500 rounded-full" /> Mode Sombre automatique (System)</li>
-                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-purple-500 rounded-full" /> Police & UI optimisées</li>
+                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-purple-500 rounded-full" /> IA : Recherche de Modèles & Paramètres</li>
+                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-purple-500 rounded-full" /> Kanban Coloré & Alertes Contextuelles</li>
+                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-purple-500 rounded-full" /> Fluidité 100vh sans friction</li>
                 </ul>
               </Card>
             </div>
@@ -160,8 +160,16 @@ export function AboutView() {
                     <div className="w-px h-full bg-gray-100 dark:bg-gray-800 relative"><div className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 bg-indigo-500 rounded-full" /></div>
                     <div className="pb-6">
                       <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Mars 2026</p>
-                      <h4 className="text-sm font-bold mb-1 text-gray-900 dark:text-white">Passage à l'architecture v1.5</h4>
-                      <p className={`${baseTextClass} text-gray-500 leading-relaxed`}>Introduction du Dashboard public et stabilisation des vues multi-échelles. Refactorisation majeure de l'Agenda pour le support du "Task Spanning".</p>
+                      <h4 className="text-sm font-bold mb-1 text-gray-900 dark:text-white">Stabilisation v1.6 (AI & Public Assets)</h4>
+                      <p className={`${baseTextClass} text-gray-500 leading-relaxed`}>Intégration de l'IA native, support des fichiers joints dans la vue publique, images de couverture et refonte visuelle des tâches non suivies.</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="w-px h-full bg-gray-100 dark:bg-gray-800 relative"><div className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-300 rounded-full" /></div>
+                    <div className="pb-6">
+                      <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Février 2026</p>
+                      <h4 className="text-sm font-bold mb-1 text-gray-900 dark:text-white">Lancement de la v1.5</h4>
+                      <p className={`${baseTextClass} text-gray-500 leading-relaxed`}>Introduction du Dashboard public et stabilisation des vues multi-échelles. Support du "Task Spanning".</p>
                     </div>
                   </div>
                 </div>
