@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Archive, AlertTriangle, Calendar, Cpu, ChevronDown, Loader2, LogOut, Clock, Eye, Edit2, CheckCircle2, Circle, Check, Upload } from 'lucide-react';
+import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Archive, AlertTriangle, Calendar, Cpu, ChevronDown, Loader2, LogOut, Clock, Eye, Edit2, Check, Upload } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { firebaseService } from '../../services/collaboration/firebaseService';
 import { Card } from '../UI/Card';
@@ -171,6 +171,11 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                     Cloud
                   </span>
                 )}
+                {project.isPublic && (
+                  <span className="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-green-50 text-green-600 border border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800 uppercase tracking-wider">
+                    Public
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -305,10 +310,10 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                       isFollowed: project.isFollowed !== false ? false : true
                     };
                     dispatch({ type: 'UPDATE_PROJECT', payload: updatedProject });
-                    
+
                     // Sauvegarder dans Firebase si c'est un projet cloud
                     if (project.source === 'firebase') {
-                      firebaseService.updateProject(updatedProject);
+                      firebaseService.syncProject(updatedProject);
                     }
                   }}
                   className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
@@ -736,13 +741,7 @@ export function ProjectsView() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [managingMembersProject, setManagingMembersProject] = useState<Project | null>(null);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setNewProject(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
+
 
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -805,7 +804,6 @@ export function ProjectsView() {
   });
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showMenuId, setShowMenuId] = useState<string | null>(null);
   const [showActive, setShowActive] = useState(true); // État pour gérer l'affichage des projets actifs
   const [showPending, setShowPending] = useState(false); // État pour gérer l'affichage des projets en attente (masqué par défaut)
   const [showCompletedProjects, setShowCompletedProjects] = useState(false);
@@ -1162,6 +1160,16 @@ export function ProjectsView() {
       payload: updatedProject
     });
 
+    // Sauvegarder dans Firebase si c'est un projet cloud
+    if (updatedProject.source === 'firebase') {
+      firebaseService.syncProject(updatedProject)
+        .then(() => console.log('[Sync] Projet synchronisé après modification'))
+        .catch(err => {
+          console.error('[Sync] Erreur sync:', err);
+          message.error('Erreur lors de la synchronisation avec le cloud');
+        });
+    }
+
     setEditingProject(null);
     setShowProjectModal(false);
   };
@@ -1196,7 +1204,6 @@ export function ProjectsView() {
 
   const handleArchiveProject = (project: Project) => {
     handleUpdateProjectStatus(project, project.status === 'archived' ? 'active' : 'archived');
-    setShowMenuId(null);
   };
 
   const handleActivateProject = (project: Project) => {
@@ -1235,7 +1242,6 @@ export function ProjectsView() {
     } finally {
       setShowDeleteConfirm(false);
       setProjectToDelete(null);
-      setShowMenuId(null);
     }
   };
 
@@ -1273,32 +1279,6 @@ export function ProjectsView() {
     // setShowProjectModal(true); // Commenté pour éviter le doublon
   };
 
-  const handleCreateProject = () => {
-    setNewProject({
-      name: '',
-      description: '',
-      color: '#1890ff',
-      status: 'active',
-      estimatedDuration: 0,
-      tasks: []
-    });
-    setAISettings({
-      provider: 'openai',
-      openaiApiKey: '',
-      openrouterApiKey: '',
-      openaiModel: 'gpt-3.5-turbo',
-      openrouterModel: 'openai/gpt-3.5-turbo',
-      maxTokens: 1000,
-      temperature: 0.7,
-      isConfigured: false,
-      lastTested: null,
-      lastTestStatus: null,
-      lastTestMessage: null
-    });
-    setActiveTab('general'); // Réinitialiser à l'onglet général
-    setShowProjectModal(true);
-  };
-
   const handleSaveProject = () => {
     if (!newProject.name.trim()) {
       message.error('Veuillez saisir un nom pour le projet');
@@ -1317,6 +1297,17 @@ export function ProjectsView() {
         updatedAt: new Date().toISOString(),
       };
       dispatch({ type: 'UPDATE_PROJECT', payload: updatedProject });
+
+      // Sauvegarder dans Firebase si c'est un projet cloud
+      if (updatedProject.source === 'firebase') {
+        firebaseService.syncProject(updatedProject)
+          .then(() => console.log('[Sync] Projet synchronisé après modification'))
+          .catch(err => {
+            console.error('[Sync] Erreur sync:', err);
+            message.error('Erreur lors de la synchronisation avec le cloud');
+          });
+      }
+
       message.success('Projet mis à jour avec succès');
     } else {
       // Création d'un nouveau projet
@@ -1377,7 +1368,21 @@ export function ProjectsView() {
             icon={Plus}
             onClick={() => {
               resetNewProjectForm();
-              setShowCreateModal(true);
+              setAISettings({
+                provider: 'openai',
+                openaiApiKey: '',
+                openrouterApiKey: '',
+                openaiModel: 'gpt-3.5-turbo',
+                openrouterModel: 'openai/gpt-3.5-turbo',
+                maxTokens: 1000,
+                temperature: 0.7,
+                isConfigured: false,
+                lastTested: null,
+                lastTestStatus: null,
+                lastTestMessage: null
+              });
+              setActiveTab('general');
+              setShowProjectModal(true);
             }}
             variant="gradient"
             size="lg"
@@ -1574,7 +1579,6 @@ export function ProjectsView() {
                               setShowDeleteConfirm(true);
                             }}
                             className="text-red-500 hover:bg-red-50 hover:text-red-600"
-                            title="Quitter le projet"
                           >
                             <LogOut size={16} />
                           </Button>
@@ -1911,6 +1915,23 @@ export function ProjectsView() {
             )}
           </CustomTabPane>
         </Tabs>
+        <div className="flex gap-4 pt-6 mt-6 border-t border-gray-100 dark:border-gray-800">
+          <Button
+            variant="outline"
+            onClick={() => setShowProjectModal(false)}
+            className="flex-1"
+          >
+            Annuler
+          </Button>
+          <Button
+            onClick={handleSaveProject}
+            variant="gradient"
+            className="flex-1"
+            disabled={!newProject.name.trim()}
+          >
+            {editingProject ? 'Enregistrer les modifications' : 'Créer le projet'}
+          </Button>
+        </div>
       </Modal>
 
       <Modal
@@ -2108,6 +2129,86 @@ export function ProjectsView() {
                   style={{ backgroundColor: editingProject?.color }}
                 />
                 <span className="font-mono text-sm text-gray-500 uppercase">{editingProject?.color}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Partage Public */}
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 p-6 rounded-2xl border border-blue-100 dark:border-blue-800/30">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-600 rounded-lg text-white">
+                  <Eye className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Vue publique</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Partagez l'avancement du projet avec vos clients sans compte.</p>
+                </div>
+              </div>
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {editingProject?.isPublic ? 'Activé' : 'Désactivé'}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={!isOwner || isLocal || !isEditingProjectModal}
+                    onClick={() => isOwner && !isLocal && editingProject && setEditingProject({ ...editingProject, isPublic: !editingProject.isPublic })}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${editingProject?.isPublic ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'
+                      } ${(!isOwner || isLocal || !isEditingProjectModal) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <span
+                      className={`${editingProject?.isPublic ? 'translate-x-6' : 'translate-x-1'
+                        } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+                    />
+                  </button>
+                </div>
+                {isLocal ? (
+                  <span className="text-[9px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-tighter">
+                    Cloud uniquement
+                  </span>
+                ) : !isOwner && (
+                  <span className="text-[9px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-tighter">
+                    Réservé au propriétaire
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {editingProject?.isPublic && !isLocal && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                {editingProject.source !== 'firebase' ? (
+                  <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-100 dark:border-yellow-800/30 rounded-xl">
+                    <p className="text-sm text-yellow-800 dark:text-yellow-200 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      Ce projet est local. Partagez-le d'abord sur le Cloud pour activer le lien public.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={`${window.location.origin}${import.meta.env.BASE_URL}v?id=${editingProject.id}`}
+                        className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono text-gray-600 dark:text-gray-400"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          const url = `${window.location.origin}${import.meta.env.BASE_URL}v?id=${editingProject.id}`;
+                          navigator.clipboard.writeText(url);
+                          message.success("Lien copié !");
+                        }}
+                      >
+                        Copier
+                      </Button>
+                    </div>
+                    <p className="text-[10px] text-gray-500 text-center italic">
+                      Toute personne disposant de ce lien pourra consulter l'état du projet en temps réel.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>

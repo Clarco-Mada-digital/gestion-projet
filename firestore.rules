@@ -24,8 +24,8 @@ service cloud.firestore {
 
     // Règles pour la collection 'projects'
     match /projects/{projectId} {
-      // Lecture : seul le propriétaire ou un membre peut lire le projet
-      allow read: if isAuthenticated() && isProjectMember(resource.data);
+      // Lecture : seul le propriétaire ou un membre peut lire le projet, ou s'il est public
+      allow read: if (isAuthenticated() && isProjectMember(resource.data)) || resource.data.isPublic == true;
       
       // Création : tout utilisateur connecté peut créer un projet
       // Note: on vérifie que le ownerId correspond bien à l'utilisateur qui crée

@@ -1,4 +1,4 @@
-import { Github, Mail, Heart, GitBranch, BookOpen, Layers, Calendar as CalendarIcon, Layout } from 'lucide-react';
+import { Github, Mail, Heart, BookOpen, Calendar as CalendarIcon, Layout, ShieldCheck, Zap, Globe } from 'lucide-react';
 import { Card } from '../UI/Card';
 import { useApp } from '../../context/AppContext';
 import { Tabs } from 'antd';
@@ -34,128 +34,136 @@ export function AboutView() {
   const subHeadingClass = subHeadingSizeClasses[fontSize as keyof typeof subHeadingSizeClasses] || 'text-xl';
 
   return (
-    <div className="space-y-8 h-full overflow-y-auto pb-8 pr-2 custom-scrollbar">
+    <div className="space-y-8 h-full overflow-y-auto pb-8 pr-4 custom-scroll">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg">
-            <BookOpen className="w-6 h-6 text-white" />
+          <div className="w-14 h-14 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-[1.25rem] flex items-center justify-center shadow-xl shadow-indigo-500/20">
+            <BookOpen className="w-7 h-7 text-white" />
           </div>
           <div>
-            <h1 className={`${headingClass} font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent`}>
-              Aide & Documentation
+            <h1 className={`${headingClass} font-black tracking-tight text-gray-900 dark:text-white`}>
+              ProjectFlow <span className="text-indigo-600">v1.5</span>
             </h1>
-            <p className={`${baseTextClass} text-gray-600 dark:text-gray-400 mt-1 font-medium`}>
-              Guide complet et informations sur l'application
+            <p className={`${baseTextClass} text-gray-500 dark:text-gray-400 mt-1 font-medium`}>
+              Documentation & Nouveautés Stratégiques
             </p>
           </div>
         </div>
       </div>
 
       <Tabs defaultActiveKey="docs" className="custom-tabs">
-        <TabPane tab="Documentation" key="docs">
+        <TabPane tab="Fonctionnalités" key="docs">
           <div className="grid grid-cols-1 gap-8">
             {/* Introduction */}
-            <Card className="p-6" gradient>
-              <h2 className={`${subHeadingClass} font-bold mb-4 text-primary bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-cyan-600`}>
-                Bienvenue sur Gestion de Projet
-              </h2>
-              <p className={`${baseTextClass} text-gray-700 dark:text-gray-300`}>
-                Cette application est conçue pour simplifier la gestion de vos tâches quotidiennes et de vos projets à long terme.
-                Grâce à une interface intuitive et des outils puissants, vous pouvez organiser votre travail, suivre vos progrès et respecter vos échéances sans stress.
-              </p>
+            <Card className="p-8" gradient>
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-2xl text-indigo-600">
+                  <Zap className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className={`${subHeadingClass} font-black mb-2 text-gray-900 dark:text-white`}>
+                    L'Espace de Travail Moderne
+                  </h2>
+                  <p className={`${baseTextClass} text-gray-600 dark:text-gray-400 leading-relaxed`}>
+                    ProjectFlow n'est plus seulement un gestionnaire de tâches. C'est un écosystème complet qui fait le pont entre votre organisation interne et la communication avec vos clients.
+                    Cette version 1.5 introduit le partage public sécurisé et un moteur de rendu de calendrier de nouvelle génération.
+                  </p>
+                </div>
+              </div>
             </Card>
 
             {/* Guide des Sections */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="p-6" hover>
                 <div className="flex items-center space-x-3 mb-4">
-                  <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
-                    <Layout className="w-6 h-6" />
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/40 rounded-xl text-blue-600">
+                    <Globe className="w-6 h-6" />
                   </div>
-                  <h3 className={`${subHeadingClass} font-bold text-gray-900 dark:text-white`}>Tableau de Bord (Aujourd'hui)</h3>
+                  <h3 className={`${subHeadingClass} font-black text-gray-900 dark:text-white`}>Vue Publique & Client</h3>
                 </div>
-                <p className={`${baseTextClass} text-gray-600 dark:text-gray-400`}>
-                  Votre point de départ quotidien. Cette vue résume les tâches à accomplir aujourd'hui, met en avant les tâches en retard et vous donne un aperçu rapide de votre charge de travail immédiate.
+                <p className={`${baseTextClass} text-gray-500 dark:text-gray-400 leading-relaxed`}>
+                  Partagez vos progrès en toute transparence. Générez un lien unique pour vos clients afin qu'ils suivent l'avancement sans avoir de compte.
                 </p>
-                <ul className="mt-4 list-disc list-inside text-sm text-gray-500 dark:text-gray-400 space-y-1">
-                  <li>Vue synthétique des tâches du jour</li>
-                  <li>Alertes pour les tâches en retard</li>
-                  <li>Progression par projet</li>
+                <ul className="mt-4 space-y-2 text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-blue-500 rounded-full" /> Dashboard Client Premium</li>
+                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-blue-500 rounded-full" /> 5 modes de vue (Kanban, Agenda...)</li>
+                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-blue-500 rounded-full" /> Zéro installation requise</li>
                 </ul>
               </Card>
 
               <Card className="p-6" hover>
                 <div className="flex items-center space-x-3 mb-4">
-                  <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400">
-                    <Layers className="w-6 h-6" />
-                  </div>
-                  <h3 className={`${subHeadingClass} font-bold text-gray-900 dark:text-white`}>Projets & Collaboration</h3>
-                </div>
-                <p className={`${baseTextClass} text-gray-600 dark:text-gray-400`}>
-                  Le cœur de votre organisation. Créez des projets pour regrouper vos tâches par thématique ou objectif.
-                </p>
-                <ul className="mt-4 list-disc list-inside text-sm text-gray-500 dark:text-gray-400 space-y-1">
-                  <li><strong>Collaboration Cloud Sync</strong> (Firebase)</li>
-                  <li>Partage de projets avec d'autres utilisateurs</li>
-                  <li>Gestion des rôles (Propriétaire, Éditeur, Lecteur)</li>
-                  <li>Génération intelligente de tâches par IA</li>
-                </ul>
-              </Card>
-
-              <Card className="p-6" hover>
-                <div className="flex items-center space-x-3 mb-4">
-                  <div className="p-2 bg-pink-100 dark:bg-pink-900/30 rounded-lg text-pink-600 dark:text-pink-400">
-                    <Layout className="w-6 h-6 rotate-90" />
-                  </div>
-                  <h3 className={`${subHeadingClass} font-bold text-gray-900 dark:text-white`}>Tableau Kanban</h3>
-                </div>
-                <p className={`${baseTextClass} text-gray-600 dark:text-gray-400`}>
-                  Visualisez le flux de travail. Déplacez vos tâches d'une colonne à l'autre par simple glisser-déposer.
-                </p>
-                <ul className="mt-4 list-disc list-inside text-sm text-gray-500 dark:text-gray-400 space-y-1">
-                  <li>Colonnes personnalisables</li>
-                  <li>Drag & Drop fluide et prédictif</li>
-                  <li>Indicateurs visuels de priorité et d'assignation</li>
-                </ul>
-              </Card>
-
-              <Card className="p-6" hover>
-                <div className="flex items-center space-x-3 mb-4">
-                  <div className="p-2 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg text-cyan-600 dark:text-cyan-400">
+                  <div className="p-2 bg-amber-100 dark:bg-amber-900/40 rounded-xl text-amber-600">
                     <CalendarIcon className="w-6 h-6" />
                   </div>
-                  <h3 className={`${subHeadingClass} font-bold text-gray-900 dark:text-white`}>Calendrier & Agendas</h3>
+                  <h3 className={`${subHeadingClass} font-black text-gray-900 dark:text-white`}>Agenda Pro (Multi-échelles)</h3>
                 </div>
-                <p className={`${baseTextClass} text-gray-600 dark:text-gray-400`}>
-                  Planification globale. Fusionnez vos tâches de projet avec vos calendriers externes.
+                <p className={`${baseTextClass} text-gray-500 dark:text-gray-400 leading-relaxed`}>
+                  Le nouveau moteur d'agenda gère maintenant les tâches multi-jours avec des barres continues professionnelles.
                 </p>
-                <ul className="mt-4 list-disc list-inside text-sm text-gray-500 dark:text-gray-400 space-y-1">
-                  <li><strong>Synchronisation Gmail / Outlook</strong></li>
-                  <li>Vues : Mois, Semaine, Trimestre, Semestre</li>
-                  <li>Filtres avancés par projet et par membre</li>
-                  <li>Drag & Drop avec confirmation de synchronisation</li>
+                <ul className="mt-4 space-y-2 text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-amber-500 rounded-full" /> Vues Semaine, Mois, Trimestre, Semestre</li>
+                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-amber-500 rounded-full" /> Spanning task (affichage sur une ligne)</li>
+                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-amber-500 rounded-full" /> Synchro Google Calendar & Tasks</li>
+                </ul>
+              </Card>
+
+              <Card className="p-6" hover>
+                <div className="flex items-center space-x-3 mb-4">
+                  <div className="p-2 bg-emerald-100 dark:bg-emerald-900/40 rounded-xl text-emerald-600">
+                    <ShieldCheck className="w-6 h-6" />
+                  </div>
+                  <h3 className={`${subHeadingClass} font-black text-gray-900 dark:text-white`}>Sécurité & Cloud Sync</h3>
+                </div>
+                <p className={`${baseTextClass} text-gray-500 dark:text-gray-400 leading-relaxed`}>
+                  Choisissez entre stockage Local (privé) ou Cloud (collaboration). Sécurité renforcée pour le partage.
+                </p>
+                <ul className="mt-4 space-y-2 text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" /> Publication réservée au Propriétaire</li>
+                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" /> Rôles d'accès précis (Admin, Member...)</li>
+                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" /> Synchronisation temps réel (No-refresh)</li>
+                </ul>
+              </Card>
+
+              <Card className="p-6" hover>
+                <div className="flex items-center space-x-3 mb-4">
+                  <div className="p-2 bg-purple-100 dark:bg-purple-900/40 rounded-xl text-purple-600">
+                    <Layout className="w-6 h-6" />
+                  </div>
+                  <h3 className={`${subHeadingClass} font-black text-gray-900 dark:text-white`}>Ergonomie App-Like</h3>
+                </div>
+                <p className={`${baseTextClass} text-gray-500 dark:text-gray-400 leading-relaxed`}>
+                  Interface optimisée pour une productivité sans friction. Expérience plein écran (100vh) sans scroll superflu.
+                </p>
+                <ul className="mt-4 space-y-2 text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-purple-500 rounded-full" /> Kanban avec colonnes indépendantes</li>
+                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-purple-500 rounded-full" /> Mode Sombre automatique (System)</li>
+                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-purple-500 rounded-full" /> Police & UI optimisées</li>
                 </ul>
               </Card>
             </div>
           </div>
         </TabPane>
 
-        <TabPane tab="À Propos" key="about" >
+        <TabPane tab="Version & Auteur" key="about" >
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             <div className="md:col-span-2 space-y-6">
-              <Card className="p-6" gradient>
-                <h2 className={`${subHeadingClass} font-bold mb-4 text-gray-900 dark:text-white`}>
-                  Innovation et Performance
-                </h2>
-                <p className={`${baseTextClass} text-gray-700 dark:text-gray-300 mb-4`}>
-                  Ce projet est né de la volonté de créer un outil de gestion de tâches qui soit à la fois esthétique, performant et respectueux de la vie privée.
-                </p>
-                <p className={`${baseTextClass} text-gray-700 dark:text-gray-300 mb-4`}>
-                  Depuis la version 1.3, ProjectFlow s'ouvre au monde avec l'intégration des calendriers externes, tout en conservant son architecture "Hybrid Sync" qui vous permet de choisir quelles données restent locales et lesquelles sont partagées dans le Cloud.
-                </p>
-                <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 mt-4">
-                  <GitBranch className="w-4 h-4" />
-                  <span>Version 1.3.0 - Global Sync & Responsive Edition</span>
+              <Card className="p-8" gradient>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className={`${subHeadingClass} font-black text-gray-900 dark:text-white`}>
+                    Journal des évolutions
+                  </h2>
+                  <span className="px-4 py-1.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest">Stable 1.5.0</span>
+                </div>
+                <div className="space-y-4">
+                  <div className="flex gap-4">
+                    <div className="w-px h-full bg-gray-100 dark:bg-gray-800 relative"><div className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 bg-indigo-500 rounded-full" /></div>
+                    <div className="pb-6">
+                      <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Mars 2026</p>
+                      <h4 className="text-sm font-bold mb-1 text-gray-900 dark:text-white">Passage à l'architecture v1.5</h4>
+                      <p className={`${baseTextClass} text-gray-500 leading-relaxed`}>Introduction du Dashboard public et stabilisation des vues multi-échelles. Refactorisation majeure de l'Agenda pour le support du "Task Spanning".</p>
+                    </div>
+                  </div>
                 </div>
               </Card>
 
@@ -165,26 +173,28 @@ export function AboutView() {
                   Soutenez ce projet
                 </h3>
                 <p className={`${baseTextClass} text-gray-700 dark:text-gray-300 mb-4`}>
-                  Ce projet est entièrement gratuit et open source. Si vous appréciez cette application, envisagez de soutenir son développement.
+                  Ce projet est entièrement gratuit et open source. Votre soutien permet de maintenir les serveurs Cloud et d'améliorer continuellement l'IA.
                 </p>
 
                 <div className={`space-y-3 ${baseTextClass}`}>
-                  <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                    <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-1">MVola</h4>
-                    <p className="font-mono bg-white dark:bg-gray-800 p-2 rounded text-gray-800 dark:text-gray-200">
-                      034 37 395 28
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100/50">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-bold text-blue-800 dark:text-blue-200">MVola (Madagascar)</h4>
+                      <Zap className="w-4 h-4 text-blue-500" />
+                    </div>
+                    <p className="font-mono bg-white dark:bg-gray-800 p-3 rounded-xl text-center text-lg font-black text-gray-800 dark:text-gray-200 shadow-sm">
+                      +261 34 37 395 28 / +261 32 88 942 01
                     </p>
                   </div>
 
-                  <div className="flex space-x-4 mt-4">
+                  <div className="flex gap-4 mt-6">
                     <a
                       href="https://github.com/Clarco-Mada-digital/gestion-projet"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex-1 inline-flex items-center justify-center px-4 py-3 bg-gray-950 dark:bg-white text-white dark:text-gray-950 rounded-xl font-bold text-xs transition-all hover:scale-105 shadow-xl"
                     >
                       <Github className="w-4 h-4 mr-2" />
-                      Voir le Code
+                      Code Source
                     </a>
                   </div>
                 </div>
@@ -192,46 +202,39 @@ export function AboutView() {
             </div>
 
             <div className="space-y-6">
-              <Card className="p-6" gradient>
+              <Card className="p-8" gradient>
                 <div className="flex flex-col items-center text-center">
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 mb-4 flex items-center justify-center text-white text-3xl font-bold shadow-lg">
-                    CR
+                  <div className="relative mb-6">
+                    <div className="absolute inset-0 bg-indigo-500 blur-2xl opacity-20" />
+                    <div className="w-28 h-28 rounded-[2.5rem] bg-gradient-to-br from-indigo-500 via-purple-500 to-blue-500 relative flex items-center justify-center text-white text-4xl font-black shadow-2xl">
+                      CR
+                    </div>
                   </div>
-                  <h2 className={`${subHeadingClass} font-bold text-gray-900 dark:text-white`}>
+                  <h2 className={`${subHeadingClass} font-black text-gray-900 dark:text-white tracking-tighter`}>
                     Clarco RAHERINANDRASNA
                   </h2>
-                  <p className={`${baseTextClass} text-blue-500 dark:text-blue-400 font-medium`}>
+                  <div className="mt-1 px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full text-[9px] font-black uppercase tracking-widest">
                     Développeur Full Stack
-                  </p>
-                  <p className={`${baseTextClass} text-gray-500 dark:text-gray-400 mt-2`}>
-                    Créateur & Mainteneur
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-6 leading-relaxed">
+                    "Passionné par le design UI et le développement d'outils de productivité haute performance."
                   </p>
 
-                  <div className="mt-4 space-y-2 w-full">
+                  <div className="mt-8 space-y-3 w-full text-gray-900 dark:text-white">
                     <a
                       href="mailto:brayanraherinandrasana@gmail.com"
-                      className="flex items-center justify-center space-x-2 w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-primary hover:text-white rounded-lg transition-all duration-300"
+                      className="flex items-center justify-between px-5 py-3 bg-gray-50 dark:bg-gray-800/50 hover:bg-indigo-600 hover:text-white rounded-2xl transition-all font-bold text-xs group"
                     >
-                      <Mail className="w-4 h-4" />
-                      <span>Email</span>
+                      <span className="flex items-center gap-3"><Mail className="w-4 h-4" /> Email</span>
+                      <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </a>
                     <a
                       href="https://github.com/clarco-mada-digital"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center space-x-2 w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-800 hover:text-white rounded-lg transition-all duration-300"
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center justify-between px-5 py-3 bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-900 hover:text-white dark:hover:bg-white dark:hover:text-gray-900 rounded-2xl transition-all font-bold text-xs group"
                     >
-                      <Github className="w-4 h-4" />
-                      <span>GitHub Pro</span>
-                    </a>
-                    <a
-                      href="https://github.com/brayan-clark"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center space-x-2 w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-800 hover:text-white rounded-lg transition-all duration-300"
-                    >
-                      <Github className="w-4 h-4" />
-                      <span>GitHub Perso</span>
+                      <span className="flex items-center gap-3"><Github className="w-4 h-4" /> GitHub Pro</span>
+                      <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </a>
                   </div>
                 </div>
@@ -243,3 +246,9 @@ export function AboutView() {
     </div>
   );
 }
+
+// Composant local manquant pour l'Auteur
+const ArrowRight = ({ className }: { className?: string }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+);
+

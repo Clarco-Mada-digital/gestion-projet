@@ -102,6 +102,7 @@ export interface Project {
   members?: string[]; // Liste des IDs des utilisateurs ayant accès
   memberRoles?: Record<string, 'admin' | 'member' | 'viewer'>; // Rôles par utilisateur
   isShared?: boolean;
+  isPublic?: boolean;
   lastSyncedAt?: string;
   kanbanSettings?: {
     columnOrder: string[];

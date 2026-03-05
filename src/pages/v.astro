@@ -1,0 +1,10 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { PublicProjectView } from '../components/Views/PublicProjectView';
+---
+
+<Layout title="Vue publique du projet - ProjectFlow">
+  <main id="public-root" class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <PublicProjectView client:only="react" />
+  </main>
+</Layout>

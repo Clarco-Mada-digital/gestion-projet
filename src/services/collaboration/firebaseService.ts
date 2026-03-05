@@ -116,7 +116,7 @@ export const firebaseService = {
    */
   async isCalendarLoggedIn(): Promise<boolean> {
     if (!ensureInitialized()) return false;
-    
+
     try {
       const currentUser = await calendarAuth.currentUser;
       return !!currentUser;
@@ -272,6 +272,32 @@ export const firebaseService = {
     } catch (error) {
       console.error("Erreur lors de la récupération des projets partagés:", error);
       return [];
+    }
+  },
+
+  /**
+   * Récupère un projet public par son ID (sans authentification nécessaire)
+   */
+  async getPublicProject(projectId: string): Promise<Project | null> {
+    if (!ensureInitialized()) return null;
+
+    try {
+      const projectDoc = await getDoc(doc(db, 'projects', projectId));
+
+      if (projectDoc.exists()) {
+        const data = projectDoc.data() as Project;
+        // Double vérification côté client même si les règles Firestore s'en chargent
+        if (data.isPublic) {
+          return {
+            ...data,
+            source: 'firebase'
+          };
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error("Erreur lors de la récupération du projet public:", error);
+      return null;
     }
   },
 

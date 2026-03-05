@@ -4,8 +4,8 @@ import { cloudinaryService } from '../../services/collaboration/cloudinaryServic
 import { localImageService } from '../../services/localImageService';
 
 interface CoverImageUploadProps {
-  currentImage?: string;
-  currentImagePublicId?: string;
+  currentImage?: string | null;
+  currentImagePublicId?: string | null;
   onImageUploaded: (imageUrl: string, publicId?: string) => void;
   onImageRemoved: () => void;
   projectId?: string;
@@ -42,7 +42,7 @@ export function CoverImageUpload({
     setUploadProgress(0);
 
     try {
-      const isCloudProject = projectSource === 'firebase' || projectSource === 'cloud';
+      const isCloudProject = projectSource === 'firebase';
       if (isCloudProject) {
         // Log l'ancienne image vers la corbeille si elle existe avant d'uploader la nouvelle
         if (currentImage && currentImagePublicId && !currentImage.startsWith('data:')) {
@@ -120,7 +120,7 @@ export function CoverImageUpload({
   }, []);
 
   const handleRemoveImage = useCallback(() => {
-    const isCloudProject = projectSource === 'firebase' || projectSource === 'cloud';
+    const isCloudProject = projectSource === 'firebase';
     if (isCloudProject && currentImage && currentImagePublicId && !currentImage.startsWith('data:')) {
       cloudinaryService.logToTrash(currentImage, currentImagePublicId, 'image', "removed_project_cover");
     }
@@ -142,7 +142,6 @@ export function CoverImageUpload({
   }, [imageUrl, onImageUploaded]);
 
   // Déterminer les limites selon le type de projet
-  const maxSize = projectSource === 'firebase' ? 5 * 1024 * 1024 : 2 * 1024 * 1024;
   const maxSizeText = projectSource === 'firebase' ? '5MB' : '2MB';
 
   return (
