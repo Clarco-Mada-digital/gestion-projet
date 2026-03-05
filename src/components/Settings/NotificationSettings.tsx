@@ -51,6 +51,15 @@ export function NotificationSettings() {
   const checkPermissionStatus = async () => {
     const status = await notificationService.getPermissionStatus();
     setPermissionGranted(status.granted);
+    
+    // Mettre à jour le contexte avec l'état réel des permissions
+    dispatch({
+      type: 'UPDATE_USER_SETTINGS',
+      payload: {
+        ...state.appSettings,
+        pushNotifications: status.granted
+      }
+    });
   };
 
   const loadSettings = () => {
@@ -69,7 +78,7 @@ export function NotificationSettings() {
       type: 'UPDATE_USER_SETTINGS',
       payload: {
         ...state.appSettings,
-        pushNotifications: true
+        pushNotifications: newSettings.taskReminders || newSettings.taskOverdue || newSettings.taskCompleted || newSettings.projectMilestones
       }
     });
   };
@@ -87,6 +96,21 @@ export function NotificationSettings() {
         tag: 'welcome-notification',
         requireInteraction: false,
         vibrate: [100, 50, 100]
+      });
+    }
+  };
+
+  const handleDisableNotifications = async () => {
+    const success = await notificationService.unsubscribe();
+    if (success) {
+      setPermissionGranted(false);
+      // Mettre à jour les paramètres utilisateur dans le contexte
+      dispatch({
+        type: 'UPDATE_USER_SETTINGS',
+        payload: {
+          ...state.appSettings,
+          pushNotifications: false
+        }
       });
     }
   };
@@ -180,7 +204,7 @@ export function NotificationSettings() {
               </Button>
               <Button 
                 variant="ghost" 
-                onClick={() => notificationService.unsubscribe()}
+                onClick={handleDisableNotifications}
               >
                 Désactiver
               </Button>

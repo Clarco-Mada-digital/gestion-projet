@@ -281,6 +281,7 @@ export interface AppSettings {
     welcomeMessage?: string;
     sidebarTheme: 'light' | 'dark' | 'glass';
   };
+  pushNotifications?: boolean; // Ajouté pour les notifications push
 }
 
 export type Theme = 'light' | 'dark';

@@ -39,6 +39,11 @@ export function NotificationCenter() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Vérifier si les notifications sont activées (plus simple et direct)
+  const areNotificationsEnabled = () => {
+    return state.appSettings?.pushNotifications === true;
+  };
+
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const handleMarkAsRead = async (id: string, e: React.MouseEvent) => {
@@ -183,8 +188,8 @@ export function NotificationCenter() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-700 dark:text-gray-300">Notifications activées</span>
-                  <span className={`text-sm font-medium ${canShowNotifications ? 'text-green-600' : 'text-red-600'}`}>
-                    {canShowNotifications ? '✓ Oui' : '✗ Non'}
+                  <span className={`text-sm font-medium ${areNotificationsEnabled() ? 'text-green-600' : 'text-red-600'}`}>
+                    {areNotificationsEnabled() ? '✓ Oui' : '✗ Non'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">

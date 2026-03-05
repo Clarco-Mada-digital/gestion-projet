@@ -125,7 +125,8 @@ const initialAppSettings: AppSettings & { aiSettings: AISettings } = {
     primaryColor: '#3B82F6',
     sidebarTheme: 'glass',
     welcomeMessage: 'Bienvenue dans votre espace projet'
-  }
+  },
+  pushNotifications: true
 };
 
 const initialState: AppState = {

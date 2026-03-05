@@ -196,10 +196,27 @@ class OfflineService {
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction(['syncQueue'], 'readonly');
       const store = transaction.objectStore('syncQueue');
-      const index = store.index('synced');
-      const request = index.getAll(false);
+      
+      // Vérifier si l'index existe avant de l'utiliser
+      let request;
+      if (store.indexNames.contains('synced')) {
+        const index = store.index('synced');
+        request = index.getAll(false);
+      } else {
+        // Fallback: utiliser getAll et filtrer manuellement
+        request = store.getAll();
+      }
 
-      request.onsuccess = () => resolve(request.result || []);
+      request.onsuccess = () => {
+        if (store.indexNames.contains('synced')) {
+          resolve(request.result || []);
+        } else {
+          // Filtrer manuellement si l'index n'existe pas
+          const allItems = request.result || [];
+          const unsyncedItems = allItems.filter((item: any) => !item.synced);
+          resolve(unsyncedItems);
+        }
+      };
       request.onerror = () => reject(request.error);
     });
   }

@@ -10,12 +10,32 @@ export const useNotifications = () => {
   // Référence pour tracker les notifications déjà envoyées
   const sentNotifications = useRef<Set<string>>(new Set());
 
+  // Initialiser les settings par défaut si manquants
+  useEffect(() => {
+    const existingSettings = localStorage.getItem('notificationSettings');
+    if (!existingSettings) {
+      const defaultSettings = {
+        pushNotifications: true,
+        quietHours: {
+          enabled: false,
+          start: '22:00',
+          end: '08:00'
+        },
+        mentions: true,
+        taskReminders: true,
+        taskOverdue: true,
+        taskCompleted: true
+      };
+      localStorage.setItem('notificationSettings', JSON.stringify(defaultSettings));
+    }
+  }, []);
+
   const canShowNotifications = useCallback(() => {
     const settings = localStorage.getItem('notificationSettings');
     if (!settings) return false;
     
     const notificationSettings = JSON.parse(settings);
-    return state.appSettings?.pushNotifications && notificationSettings;
+    return state.appSettings?.pushNotifications === true && !!notificationSettings;
   }, [state.appSettings]);
 
   const isQuietHours = useCallback(() => {
@@ -41,13 +61,11 @@ export const useNotifications = () => {
   const shouldShowTaskNotification = useCallback((task: Task): boolean => {
     // Ne pas notifier pour les tâches non suivies
     if (task.status === 'non-suivi') {
-      console.log('Notification bloquée : tâche non suivie');
       return false;
     }
 
     // Ne pas notifier si le projet n'est pas suivi
     if (!isProjectFollowed(task.projectId)) {
-      console.log('Notification bloquée : projet non suivi');
       return false;
     }
 
@@ -85,7 +103,6 @@ export const useNotifications = () => {
 
     const notificationId = getNotificationId('reminder', task.id, task.dueDate);
     if (wasNotificationSent(notificationId)) {
-      console.log('Notification de rappel déjà envoyée pour la tâche:', task.id);
       return;
     }
 
@@ -100,13 +117,34 @@ export const useNotifications = () => {
 
     const notificationId = getNotificationId('overdue', task.id, task.dueDate);
     if (wasNotificationSent(notificationId)) {
-      console.log('Notification de retard déjà envoyée pour la tâche:', task.id);
       return;
     }
 
+    // 1. Envoyer la notification push locale
     await notificationService.showTaskOverdue(task);
+    
+    // 2. Sauvegarder dans Firebase pour le NotificationCenter
+    try {
+      const { default: notificationService } = await import('../services/collaboration/notificationService');
+      if (state.cloudUser) {
+        const project = state.projects.find(p => p.id === task.projectId);
+        await notificationService.sendNotification({
+          userId: state.cloudUser.uid,
+          title: '⚠️ Tâche en retard',
+          message: `La tâche "${task.title}" du projet "${project?.name || 'Projet inconnu'}" est en retard de plusieurs jours!`,
+          type: 'deadline_approaching',
+          link: `/projects/${task.projectId}?task=${task.id}`,
+          projectId: task.projectId,
+          taskId: task.id,
+          projectName: project?.name || 'Projet inconnu'
+        });
+      }
+    } catch (error) {
+      // Erreur silencieuse
+    }
+    
     markNotificationAsSent(notificationId);
-  }, [canShowNotifications, isQuietHours, shouldShowTaskNotification, getNotificationId, wasNotificationSent, markNotificationAsSent]);
+  }, [canShowNotifications, isQuietHours, shouldShowTaskNotification, getNotificationId, wasNotificationSent, markNotificationAsSent, state.cloudUser, state.projects]);
 
   const showTaskCompleted = useCallback(async (task: Task) => {
     if (!canShowNotifications() || isQuietHours()) return;
@@ -115,13 +153,38 @@ export const useNotifications = () => {
 
     const notificationId = getNotificationId('completed', task.id, task.updatedAt);
     if (wasNotificationSent(notificationId)) {
-      console.log('Notification de complétion déjà envoyée pour la tâche:', task.id);
       return;
     }
 
+    // 1. Envoyer la notification push locale
     await notificationService.showTaskCompleted(task);
+    
+    // 2. Sauvegarder dans Firebase pour le créateur du projet uniquement
+    try {
+      const { default: notificationService } = await import('../services/collaboration/notificationService');
+      const project = state.projects.find(p => p.id === task.projectId);
+      
+      if (project && state.cloudUser) {
+        // Notifier seulement le créateur du projet, et seulement si ce n'est pas lui qui a terminé la tâche
+        if (project.ownerId && project.ownerId !== state.cloudUser.uid) {
+          await notificationService.sendNotification({
+            userId: project.ownerId,
+            title: '🎉 Tâche terminée!',
+            message: `La tâche "${task.title}" du projet "${project.name}" a été terminée par ${state.cloudUser.displayName || 'un membre'}.`,
+            type: 'task_completed',
+            link: `/projects/${task.projectId}?task=${task.id}`,
+            projectId: task.projectId,
+            taskId: task.id,
+            projectName: project.name || 'Projet inconnu'
+          });
+        }
+      }
+    } catch (error) {
+      // Erreur silencieuse
+    }
+    
     markNotificationAsSent(notificationId);
-  }, [canShowNotifications, isQuietHours, shouldShowTaskNotification, getNotificationId, wasNotificationSent, markNotificationAsSent]);
+  }, [canShowNotifications, isQuietHours, shouldShowTaskNotification, getNotificationId, wasNotificationSent, markNotificationAsSent, state.cloudUser, state.projects]);
 
   const showProjectMilestone = useCallback(async (project: Project) => {
     if (!canShowNotifications() || isQuietHours()) return;

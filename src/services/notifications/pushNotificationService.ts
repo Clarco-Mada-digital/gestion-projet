@@ -222,8 +222,6 @@ export class PushNotificationService {
           this.activeNotifications.delete(notificationId);
         }, 10000);
       }
-
-      console.log('Notification affichée:', options.title);
     } catch (error) {
       console.error('Erreur lors de l\'affichage de la notification:', error);
       options.onError?.(error as Error);
@@ -277,13 +275,12 @@ export class PushNotificationService {
         this.subscription = null;
       }
 
-      // Envoyer la désinscription au serveur
-      await fetch('/api/notifications/unsubscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
+      // Révoquer la permission de notification
+      if ('Notification' in window && Notification.permission === 'granted') {
+        // Note: On ne peut pas révoquer directement la permission
+        // Mais on peut nettoyer l'abonnement local
+        this.activeNotifications.clear();
+      }
 
       console.log('Désinscrit des push notifications');
       return true;

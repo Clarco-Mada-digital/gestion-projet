@@ -327,3 +327,6 @@ export const firebaseService = {
     }
   }
 };
+
+// Exporter les instances pour les autres services
+export { db, auth };

@@ -598,11 +598,13 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
                   title: 'Vous avez été mentionné',
                   message: `${currentUser.displayName || 'Un utilisateur'} vous a mentionné: "${newComment.substring(0, 50)}..."`,
                   type: 'mention',
-                  link: `/projects/${projectId}/tasks/${taskId}`
+                  link: `/projects/${projectId}?task=${taskId}`,
+                  projectId: projectId,
+                  taskId: taskId,
+                  projectName: project?.name || 'Projet inconnu'
                 });
-                console.log(`Notification envoyée à ${user.name} pour la mention: ${mentions.find(m => m.includes(user.name?.split(' ')[0] || ''))}`);
               } catch (error) {
-                console.error(`Erreur notification mention pour ${user.name}:`, error);
+                // Erreur silencieuse
               }
             }
           }
