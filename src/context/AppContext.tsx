@@ -1,7 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { Project, Task, ReportEntry, User, UserSettings, ViewMode, Theme, EmailSettings, AppSettings, DEFAULT_AI_SETTINGS, FontSize, AISettings } from '../types';
-import { notificationService } from '../services/collaboration/notificationService';
-import BackgroundNotificationService from '../services/notifications/backgroundNotificationService';
 import { firebaseService } from '../services/collaboration/firebaseService';
 import { User as FirebaseUser } from 'firebase/auth';
 
@@ -332,7 +330,7 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       userSettings.timezone = userSettings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
       const newUser: User = {
-        id: `user-${Date.now()}`,
+        id: `user - ${Date.now()} `,
         name: action.payload.name || '',
         email: action.payload.email || '',
         avatar: action.payload.avatar || '',
@@ -400,9 +398,14 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         users: state.users.map(user => ({
           ...user,
           settings: {
+            theme: 'light',
+            language: 'fr',
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            notifications: true,
+            emailNotifications: true,
             ...user.settings,
             ...action.payload
-          }
+          } as UserSettings
         }))
       };
     case 'SET_FONT_SIZE':
@@ -576,7 +579,7 @@ const AppContext = createContext<{
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
-  // Effet pour synchroniser avec Firebase
+  // Effet pour synchroniser avec Firebase (ÉCOUTE)
   useEffect(() => {
     const unsubscribe = firebaseService.onAuthStateChange(async (user) => {
       dispatch({ type: 'SET_CLOUD_USER', payload: user });
@@ -608,7 +611,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const isSettings = state.currentView === 'settings';
 
       if (isModalVisible || isSettings) {
-        console.log(`[Sync] Rafraîchissement suspendu (${isModalVisible ? 'Modal active' : 'Vue Paramètres'})`);
         return;
       }
 
@@ -639,13 +641,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       refreshData();
     }
 
-    // Polling toutes les 60 secondes (remis à 60s comme demandé, sécurisé par le blocage)
+    // Polling toutes les 60 secondes
     const interval = setInterval(refreshData, 60000);
     return () => clearInterval(interval);
-  }, [state.currentView, state.cloudUser]); // REMOVED state.projects dependency}
+  }, [state.currentView, state.cloudUser]);
 
-  // Synchronisation automatique des modifications vers Firebase - DÉSACTIVÉE pour éviter les erreurs
-  console.log('🔄 Synchronisation automatique désactivée pour éviter les erreurs');
+  // Synchronisation automatique des modifications VERS Firebase (Live Update)
+  useEffect(() => {
+    if (!state.cloudUser) return;
+
+    // On debouche pour éviter d'envoyer trop de requêtes (ex: pendant un drag & drop)
+    const timeoutId = setTimeout(async () => {
+      const projectsToSync = state.projects.filter(p => {
+        // Uniquement les projets cloud dont nous sommes propriétaires ou admins
+        const isCloud = p.source === 'firebase';
+        const hasRights = p.ownerId === state.cloudUser?.uid || p.memberRoles?.[state.cloudUser?.uid || ''] === 'admin' || p.memberRoles?.[state.cloudUser?.uid || ''] === 'member';
+
+        if (!isCloud || !hasRights) return false;
+
+        // Si updatedAt est plus récent que lastSyncedAt, on doit synchroniser
+        if (!p.lastSyncedAt) return true; // Premier sync
+        return new Date(p.updatedAt) > new Date(p.lastSyncedAt);
+      });
+
+      for (const project of projectsToSync) {
+        try {
+          console.log(`[Sync - Live] Synchronisation automatique du projet: ${project.name} `);
+          await firebaseService.syncProject(project);
+
+          // On met à jour localement lastSyncedAt pour marquer comme synchronisé
+          // Note: On ne déclenche pas UPDATE_PROJECT car ça relancerait l'effet,
+          // on peut potentiellement ignorer ce dispatch et laisser refreshData s'en charger 
+          // ou faire un dispatch silencieux si on avait un type dédié.
+          // Pour l'instant on laisse comme ça car syncProject met à jour Firebase 
+          // et au prochain polling/refresh localement, updatedAt égalera lastSyncedAt sur Firebase.
+        } catch (error) {
+          console.error(`[Sync - Live] Erreur lors de la synchronisation de ${project.name}: `, error);
+        }
+      }
+    }, 2000); // 2 secondes de délai après la dernière modification
+
+    return () => clearTimeout(timeoutId);
+  }, [state.projects, state.cloudUser]);
 
   // Effet pour charger les données initiales au démarrage
   useEffect(() => {
@@ -871,25 +908,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       styleEl.innerHTML = `
         :root {
-          --color-primary: ${color};
-        }
-        
+  --color - primary: ${color};
+}
+
         /* Override common blue classes */
-        .bg-blue-500 { background-color: ${color} !important; }
-        .bg-blue-600 { background-color: ${color} !important; filter: brightness(0.9); }
-        .hover\\:bg-blue-600:hover { background-color: ${color} !important; filter: brightness(0.9); }
-        .hover\\:bg-blue-700:hover { background-color: ${color} !important; filter: brightness(0.8); }
-        .text-blue-500 { color: ${color} !important; }
-        .text-blue-600 { color: ${color} !important; filter: brightness(0.9); }
-        .border-blue-500 { border-color: ${color} !important; }
-        .focus\\:ring-blue-500:focus { --tw-ring-color: ${color} !important; }
-      `;
+        .bg - blue - 500 { background - color: ${color} !important; }
+        .bg - blue - 600 { background - color: ${color} !important; filter: brightness(0.9); }
+        .hover\\: bg - blue - 600:hover { background - color: ${color} !important; filter: brightness(0.9); }
+        .hover\\: bg - blue - 700:hover { background - color: ${color} !important; filter: brightness(0.8); }
+        .text - blue - 500 { color: ${color} !important; }
+        .text - blue - 600 { color: ${color} !important; filter: brightness(0.9); }
+        .border - blue - 500 { border - color: ${color} !important; }
+        .focus\\: ring - blue - 500:focus { --tw - ring - color: ${color} !important; }
+`;
     }
 
     // Appliquer la taille de police
     const fontSize = state.appSettings.fontSize || 'medium';
     document.documentElement.classList.remove('font-size-small', 'font-size-medium', 'font-size-large');
-    document.documentElement.classList.add(`font-size-${fontSize}`);
+    document.documentElement.classList.add(`font - size - ${fontSize} `);
 
     // Appliquer la police d'écriture
     if (state.appSettings.fontFamily) {

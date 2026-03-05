@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, User as FirebaseUser, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { firebaseConfig, isFirebaseConfigured } from '../../lib/firebaseConfig';
 import { Project } from '../../types';
@@ -299,6 +299,33 @@ export const firebaseService = {
       console.error("Erreur lors de la récupération du projet public:", error);
       return null;
     }
+  },
+
+  /**
+   * Écoute les mises à jour en temps réel d'un projet public
+   */
+  onPublicProjectUpdate(projectId: string, callback: (project: Project | null) => void) {
+    if (!isFirebaseConfigured()) return () => { };
+
+    // On s'assure que db est initialisé (via ensureInitialized implicitement si on arrive ici via une action)
+    // Mais on peut appeler ensureInitialized pour plus de sécurité
+    ensureInitialized();
+
+    return onSnapshot(doc(db, 'projects', projectId), (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data() as Project;
+        if (data.isPublic) {
+          callback({ ...data, source: 'firebase' });
+        } else {
+          callback(null);
+        }
+      } else {
+        callback(null);
+      }
+    }, (error) => {
+      console.error("Erreur lors de l'écoute du projet public:", error);
+      callback(null);
+    });
   },
 
   /**

@@ -438,7 +438,20 @@ export const PublicProjectView = ({ projectId: propProjectId }: { projectId?: st
 
   useEffect(() => {
     if (!projectId) return;
-    firebaseService.getPublicProject(projectId).then(setProject).catch(() => setError("Lien expiré ou erroné")).finally(() => setLoading(false));
+
+    // Écoute en temps réel des changements du projet
+    const unsubscribe = firebaseService.onPublicProjectUpdate(projectId, (updatedProject) => {
+      if (updatedProject) {
+        setProject(updatedProject);
+        setLoading(false);
+        setError(null);
+      } else {
+        setError("Ce projet n'est plus public ou n'existe pas.");
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
   }, [projectId]);
 
   if (loading) return (
