@@ -185,7 +185,7 @@ const DashboardView = ({ project, stats, tasks, attachments, onSelectView }: {
 
         {/* Section Fichiers Joints */}
         {attachments.length > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-[2rem] p-6 border border-gray-100 dark:border-gray-700 shadow-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-[2rem] p-6 my-6 border border-gray-100 dark:border-gray-700 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h4 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
                 <Paperclip className="w-3 h-3 text-indigo-500" />
