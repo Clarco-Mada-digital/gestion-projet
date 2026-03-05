@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Bell, BellOff, Volume2, VolumeX, Clock, Settings, Smartphone, Monitor } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useNotifications } from '../../hooks/useNotifications';
-import PushNotificationService from '../../services/notifications/pushNotificationService';
 import { Card } from '../UI/Card';
 import { Button } from '../UI/Button';
 
@@ -24,7 +23,7 @@ interface NotificationSettings {
 
 export function NotificationSettings() {
   const { state, dispatch } = useApp();
-  const { isSupported, canShowNotifications, notificationService } = useNotifications();
+  const { isSupported, notificationService } = useNotifications();
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [settings, setSettings] = useState<NotificationSettings>({
     taskReminders: true,
@@ -42,6 +41,9 @@ export function NotificationSettings() {
     }
   });
   const [testNotificationSent, setTestNotificationSent] = useState(false);
+
+  // État combiné pour savoir si les notifications sont vraiment actives
+  const areNotificationsActive = settings.taskReminders || settings.taskOverdue || settings.taskCompleted || settings.projectMilestones;
 
   useEffect(() => {
     checkPermissionStatus();
@@ -65,7 +67,17 @@ export function NotificationSettings() {
   const loadSettings = () => {
     const savedSettings = localStorage.getItem('notificationSettings');
     if (savedSettings) {
-      setSettings(JSON.parse(savedSettings));
+      const parsed = JSON.parse(savedSettings);
+      setSettings(parsed);
+      
+      // Synchroniser avec l'état global
+      dispatch({
+        type: 'UPDATE_USER_SETTINGS',
+        payload: {
+          ...state.users[0]?.settings,
+          pushNotifications: parsed.taskReminders || parsed.taskOverdue || parsed.taskCompleted || parsed.projectMilestones
+        }
+      });
     }
   };
 
@@ -73,12 +85,23 @@ export function NotificationSettings() {
     setSettings(newSettings);
     localStorage.setItem('notificationSettings', JSON.stringify(newSettings));
     
+    const isAnyNotificationEnabled = newSettings.taskReminders || newSettings.taskOverdue || newSettings.taskCompleted || newSettings.projectMilestones;
+    
     // Mettre à jour les paramètres utilisateur dans le contexte
     dispatch({
       type: 'UPDATE_USER_SETTINGS',
       payload: {
+        ...state.users[0]?.settings,
+        pushNotifications: isAnyNotificationEnabled
+      }
+    });
+    
+    // Mettre à jour aussi appSettings pour le NotificationCenter
+    dispatch({
+      type: 'UPDATE_APP_SETTINGS',
+      payload: {
         ...state.appSettings,
-        pushNotifications: newSettings.taskReminders || newSettings.taskOverdue || newSettings.taskCompleted || newSettings.projectMilestones
+        pushNotifications: isAnyNotificationEnabled
       }
     });
   };
@@ -88,6 +111,35 @@ export function NotificationSettings() {
     setPermissionGranted(granted);
     
     if (granted) {
+      // Activer les types de notifications par défaut
+      const enabledSettings = {
+        ...settings,
+        taskReminders: true,
+        taskOverdue: true,
+        taskCompleted: true,
+        projectMilestones: true
+      };
+      
+      // Sauvegarder dans localStorage
+      saveSettings(enabledSettings);
+      
+      // Mettre à jour les deux états
+      dispatch({
+        type: 'UPDATE_USER_SETTINGS',
+        payload: {
+          ...state.users[0]?.settings,
+          pushNotifications: true
+        }
+      });
+      
+      dispatch({
+        type: 'UPDATE_APP_SETTINGS',
+        payload: {
+          ...state.appSettings,
+          pushNotifications: true
+        }
+      });
+      
       // Afficher une notification de test
       await notificationService.showNotification({
         title: '🎉 Notifications activées!',
@@ -104,9 +156,30 @@ export function NotificationSettings() {
     const success = await notificationService.unsubscribe();
     if (success) {
       setPermissionGranted(false);
-      // Mettre à jour les paramètres utilisateur dans le contexte
+      
+      // Désactiver tous les types de notifications
+      const disabledSettings = {
+        ...settings,
+        taskReminders: false,
+        taskOverdue: false,
+        taskCompleted: false,
+        projectMilestones: false
+      };
+      
+      // Sauvegarder dans localStorage
+      saveSettings(disabledSettings);
+      
+      // Mettre à jour les deux états
       dispatch({
         type: 'UPDATE_USER_SETTINGS',
+        payload: {
+          ...state.users[0]?.settings,
+          pushNotifications: false
+        }
+      });
+      
+      dispatch({
+        type: 'UPDATE_APP_SETTINGS',
         payload: {
           ...state.appSettings,
           pushNotifications: false
@@ -172,8 +245,8 @@ export function NotificationSettings() {
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-full ${permissionGranted ? 'bg-green-100 dark:bg-green-900/30' : 'bg-gray-100 dark:bg-gray-800'}`}>
-              {permissionGranted ? (
+            <div className={`p-2 rounded-full ${areNotificationsActive ? 'bg-green-100 dark:bg-green-900/30' : 'bg-gray-100 dark:bg-gray-800'}`}>
+              {areNotificationsActive ? (
                 <Bell className="w-5 h-5 text-green-600 dark:text-green-400" />
               ) : (
                 <BellOff className="w-5 h-5 text-gray-600 dark:text-gray-400" />
@@ -184,13 +257,27 @@ export function NotificationSettings() {
                 Notifications push
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                {permissionGranted ? 'Activées' : 'Désactivées'}
+                {areNotificationsActive ? 'Activées les notifications' : 'Désactivées'}
               </p>
             </div>
           </div>
           
           {!permissionGranted ? (
             <Button onClick={requestPermission}>
+              Activer les notifications
+            </Button>
+          ) : !areNotificationsActive ? (
+            <Button onClick={() => {
+              // Activer les types de notifications par défaut
+              const enabledSettings = {
+                ...settings,
+                taskReminders: true,
+                taskOverdue: true,
+                taskCompleted: true,
+                projectMilestones: true
+              };
+              saveSettings(enabledSettings);
+            }}>
               Activer les notifications
             </Button>
           ) : (
@@ -357,7 +444,7 @@ export function NotificationSettings() {
               <input
                 type="checkbox"
                 checked={settings.quietHours.enabled}
-                onChange={(e) => updateQuietHours(e.target.checked)}
+                onChange={(e) => updateQuietHours(e.target.checked, settings.quietHours.start, settings.quietHours.end)}
                 className="sr-only peer"
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>

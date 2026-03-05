@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { Project, Task, ReportEntry, User, UserSettings, ViewMode, Theme, EmailSettings, AppSettings, DEFAULT_AI_SETTINGS, FontSize, AISettings } from '../types';
+import { notificationService } from '../services/collaboration/notificationService';
+import BackgroundNotificationService from '../services/notifications/backgroundNotificationService';
 import { firebaseService } from '../services/collaboration/firebaseService';
 import { User as FirebaseUser } from 'firebase/auth';
 
@@ -43,6 +45,7 @@ type AppAction =
   | { type: 'REMOVE_USER'; payload: string }
   | { type: 'UPDATE_EMAIL_SETTINGS'; payload: Partial<EmailSettings> }
   | { type: 'UPDATE_APP_SETTINGS'; payload: Partial<AppSettings> }
+  | { type: 'UPDATE_USER_SETTINGS'; payload: Partial<UserSettings> }
   | { type: 'SET_FONT_SIZE'; payload: FontSize }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
@@ -391,6 +394,17 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
           ...action.payload
         }
       };
+    case 'UPDATE_USER_SETTINGS':
+      return {
+        ...state,
+        users: state.users.map(user => ({
+          ...user,
+          settings: {
+            ...user.settings,
+            ...action.payload
+          }
+        }))
+      };
     case 'SET_FONT_SIZE':
       return {
         ...state,
@@ -618,7 +632,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } catch (error) {
         console.error("[Sync] Erreur rafraîchissement:", error);
       }
-    };
+    }
 
     // Rafraîchir au changement de vue ou de connexion
     if (state.currentView === 'projects' || state.currentView === 'kanban') {
@@ -628,39 +642,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Polling toutes les 60 secondes (remis à 60s comme demandé, sécurisé par le blocage)
     const interval = setInterval(refreshData, 60000);
     return () => clearInterval(interval);
-  }, [state.currentView, state.cloudUser]); // REMOVED state.projects dependency
+  }, [state.currentView, state.cloudUser]); // REMOVED state.projects dependency}
 
-  // Synchronisation automatique des modifications vers Firebase
-  useEffect(() => {
-    if (!state.cloudUser || state.isLoading) return;
-
-    const syncModifiedProjects = async () => {
-      // Correction importante : on autorise les membres à synchroniser s'ils font partie du projet
-      const modifiedProjects = state.projects.filter(p =>
-        (!p.lastSyncedAt || new Date(p.updatedAt) > new Date(p.lastSyncedAt)) &&
-        (p.source === 'firebase' && (p.ownerId === state.cloudUser?.uid || p.members?.includes(state.cloudUser?.uid || '')))
-      );
-
-      if (modifiedProjects.length === 0) return;
-
-      console.log(`[Sync] Envoi de ${modifiedProjects.length} projet(s) vers le Cloud...`);
-      for (const project of modifiedProjects) {
-        try {
-          await firebaseService.syncProject(project);
-          dispatch({
-            type: 'UPDATE_PROJECT',
-            payload: { ...project, lastSyncedAt: new Date().toISOString() }
-          });
-        } catch (error) {
-          console.error(`Erreur sync projet ${project.id}:`, error);
-        }
-      }
-    };
-
-    // Délai réduit à 2000ms pour plus de réactivité maintenant que le merge est intelligent
-    const timer = setTimeout(syncModifiedProjects, 2000);
-    return () => clearTimeout(timer);
-  }, [state.projects, state.cloudUser, state.isLoading, dispatch]);
+  // Synchronisation automatique des modifications vers Firebase - DÉSACTIVÉE pour éviter les erreurs
+  console.log('🔄 Synchronisation automatique désactivée pour éviter les erreurs');
 
   // Effet pour charger les données initiales au démarrage
   useEffect(() => {
@@ -673,6 +658,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const savedTheme = localStorage.getItem('astroProjectManagerTheme') as Theme | null;
         const savedAppSettings = localStorage.getItem('astroProjectManagerAppSettings');
         const savedEmailSettings = localStorage.getItem('astroProjectManagerEmailSettings');
+        const savedNotificationSettings = localStorage.getItem('notificationSettings');
         const savedGoogleToken = localStorage.getItem('astroProjectManagerGoogleToken');
         const savedGoogleTokenTimestamp = localStorage.getItem('astroProjectManagerGoogleTokenTimestamp');
         const savedCalendarEmail = localStorage.getItem('astroProjectManagerCalendarEmail');
@@ -702,6 +688,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               console.log('[Persistence] Paramètres apparence chargés');
             }
           } catch (e) { console.error('Erreur JSON appSettings', e); }
+        }
+
+        // 4.1. Charger les paramètres de notifications et mettre à jour appSettings
+        if (savedNotificationSettings) {
+          try {
+            const parsed = JSON.parse(savedNotificationSettings);
+            if (parsed) {
+              const isAnyNotificationEnabled = parsed.taskReminders || parsed.taskOverdue || parsed.taskCompleted || parsed.projectMilestones;
+              appSettings = { ...appSettings, pushNotifications: isAnyNotificationEnabled };
+              console.log('[Persistence] Paramètres notifications chargés et appliqués à appSettings');
+            }
+          } catch (e) { console.error('Erreur JSON notificationSettings', e); }
         }
 
         // 5. Charger les données principales

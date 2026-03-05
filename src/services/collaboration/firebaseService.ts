@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
-import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, User as FirebaseUser, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { firebaseConfig, isFirebaseConfigured } from '../../lib/firebaseConfig';
 import { Project } from '../../types';
 
@@ -14,7 +14,7 @@ let calendarApp: any = null;
 let calendarAuth: any = null;
 
 // Initialisation de Firebase si la configuration est valide
-const ensureInitialized = () => {
+const ensureInitialized = async () => {
   if (!isFirebaseConfigured()) {
     console.error("Firebase n'est pas configuré.");
     return false;
@@ -26,14 +26,14 @@ const ensureInitialized = () => {
       db = getFirestore(app);
       auth = getAuth(app);
       // Activer la persistance de session pour l'auth principale
-      auth.setPersistence('local');
+      await setPersistence(auth, browserLocalPersistence);
     }
     if (!calendarApp) {
       // On initialise une deuxième instance avec un nom différent
       calendarApp = initializeApp(firebaseConfig, "calendar");
       calendarAuth = getAuth(calendarApp);
       // Activer la persistance de session pour l'agenda
-      calendarAuth.setPersistence('local');
+      await setPersistence(calendarAuth, browserLocalPersistence);
     }
   } catch (error) {
     console.error("Erreur lors de l'initialisation de Firebase:", error);

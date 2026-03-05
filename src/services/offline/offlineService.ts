@@ -201,7 +201,7 @@ class OfflineService {
       let request;
       if (store.indexNames.contains('synced')) {
         const index = store.index('synced');
-        request = index.getAll(false);
+        request = index.getAll();
       } else {
         // Fallback: utiliser getAll et filtrer manuellement
         request = store.getAll();
@@ -252,7 +252,7 @@ class OfflineService {
     const transaction = this.db!.transaction(['syncQueue'], 'readwrite');
     const store = transaction.objectStore('syncQueue');
     const index = store.index('synced');
-    const request = index.openCursor(IDBKeyRange.only(true));
+    const request = index.openCursor(IDBKeyRange.only([true]));
 
     request.onsuccess = (event) => {
       const cursor = (event.target as IDBRequest).result;
@@ -501,7 +501,7 @@ class OfflineService {
       projectsCount: projects.length,
       tasksCount: tasks.length,
       pendingSyncCount: syncQueue.length,
-      lastSyncTime
+      lastSyncTime: lastSync
     };
   }
 }

@@ -1,10 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Check, ExternalLink, Trash2, Settings, X } from 'lucide-react';
-import { Notification } from '../../types';
-import { notificationService } from '../../services/collaboration/notificationService';
+import { Bell, BellOff, Settings, X, Check, Trash2, Wifi, WifiOff } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useNotifications } from '../../hooks/useNotifications';
+import { notificationService } from '../../services/collaboration/notificationService';
+import { Notification as NotificationType } from '../../types';
 import { Button } from './Button';
+import { ExternalLink } from 'lucide-react';
+
+interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+  projectId?: string;
+  taskId?: string;
+  projectName?: string;
+  link?: string;
+}
 
 export function NotificationCenter() {
   const { state, dispatch } = useApp();
@@ -12,9 +25,11 @@ export function NotificationCenter() {
     isSupported, 
     canShowNotifications, 
     isQuietHours,
-    clearAllNotifications: clearPWANotifications 
+    clearAllNotifications: clearPWANotifications,
+    getActiveNotificationCount,
+    getRecentNotifications
   } = useNotifications();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [cloudNotifications, setCloudNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -23,10 +38,10 @@ export function NotificationCenter() {
   useEffect(() => {
     if (!state.cloudUser) return;
 
-    const unsubscribe = notificationService.subscribeToNotifications(state.cloudUser.uid, (fetched) => {
-      setNotifications(fetched);
+    const unsubscribe = notificationService.subscribeToNotifications(state.cloudUser.uid, (fetched: NotificationType[]) => {
+      setCloudNotifications(fetched);
     });
-    return () => unsubscribe();
+    return () => unsubscribe?.();
   }, [state.cloudUser]);
 
   useEffect(() => {
@@ -39,97 +54,79 @@ export function NotificationCenter() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Vérifier si les notifications sont activées (plus simple et direct)
   const areNotificationsEnabled = () => {
     return state.appSettings?.pushNotifications === true;
   };
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const unreadCount = cloudNotifications.filter(n => !n.isRead).length;
+  const pwaNotificationCount = getActiveNotificationCount();
+  const pwaNotifications = getRecentNotifications();
 
   const handleMarkAsRead = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     await notificationService.markAsRead(id);
+    // Mettre à jour l'état local pour rafraîchir l'interface
+    setCloudNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
   };
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     await notificationService.deleteNotification(id);
+    // Mettre à jour l'état local pour rafraîchir l'interface
+    setCloudNotifications(prev => prev.filter(n => n.id !== id));
   };
 
   const handleMarkAllAsRead = async () => {
-    if (notifications.length > 0) {
-      await notificationService.markAllAsRead(notifications);
-    }
+    if (!state.cloudUser) return;
+    await notificationService.markAllAsRead(state.cloudUser.uid, cloudNotifications as NotificationType[]);
+    // Mettre à jour l'état local pour rafraîchir l'interface
+    setCloudNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
   };
 
   const handleClearAll = async () => {
-    if (state.cloudUser && notifications.length > 0) {
-      if (window.confirm('Voulez-vous supprimer toutes vos notifications ?')) {
-        await notificationService.clearAllNotifications(state.cloudUser.uid, notifications);
-      }
-    }
+    if (!state.cloudUser) return;
+    await notificationService.clearAllNotifications(state.cloudUser.uid, cloudNotifications as NotificationType[]);
+    // Mettre à jour l'état local pour rafraîchir l'interface
+    setCloudNotifications([]);
   };
 
   const handleNotificationClick = (n: Notification) => {
-    // Marquer comme lu
     if (!n.isRead) {
-      notificationService.markAsRead(n.id);
+      (window as any).notificationService?.markAsRead?.(n.id);
     }
-
-    // Utiliser les données directes de la notification si disponibles
-    if (n.projectId && n.taskId) {
-      dispatch({
-        type: 'NAVIGATE_TO_TASK',
-        payload: { projectId: n.projectId, taskId: n.taskId }
-      });
-      setIsOpen(false);
-      return;
-    }
-
+    
     if (n.projectId) {
-      dispatch({ type: 'SET_SELECTED_PROJECT', payload: n.projectId });
-      dispatch({ type: 'SET_VIEW', payload: 'projects' });
-      setIsOpen(false);
-      return;
-    }
-
-    // Parser le lien seulement si les données directes ne sont pas disponibles
-    if (!n.link) return;
-
-    try {
-      const link = n.link.startsWith('/') ? `${window.location.origin}${n.link}` : n.link;
-      const url = new URL(link);
-      const pathParts = url.pathname.split('/');
-
-      // Format 1: /projects/:projectId?task=:taskId
-      // Format 2: /projects/:projectId/tasks/:taskId
-      const projectIndex = pathParts.indexOf('projects');
-      const projectId = projectIndex !== -1 ? pathParts[projectIndex + 1] : null;
-
-      let taskId = url.searchParams.get('task');
-      if (!taskId && projectIndex !== -1 && pathParts[projectIndex + 2] === 'tasks') {
-        taskId = pathParts[projectIndex + 3];
-      }
-
-      if (projectId && taskId) {
-        dispatch({
-          type: 'NAVIGATE_TO_TASK',
-          payload: { projectId, taskId }
-        });
-        setIsOpen(false);
-      } else if (projectId) {
-        dispatch({ type: 'SET_SELECTED_PROJECT', payload: projectId });
+      const projectExists = state.projects.some(p => p.id === n.projectId);
+      if (projectExists) {
+        if (n.projectId && n.taskId) {
+          dispatch({
+            type: 'NAVIGATE_TO_TASK',
+            payload: { projectId: n.projectId, taskId: n.taskId }
+          });
+          setIsOpen(false);
+          return;
+        }
+        
+        if (n.projectId) {
+          dispatch({ type: 'SET_SELECTED_PROJECT', payload: n.projectId });
+          dispatch({ type: 'SET_VIEW', payload: 'projects' });
+          setIsOpen(false);
+          return;
+        }
+      } else {
+        console.warn('Projet non trouvé pour la notification:', n.projectId);
         dispatch({ type: 'SET_VIEW', payload: 'projects' });
         setIsOpen(false);
-      } else {
-        // Fallback pour les liens simples
-        window.location.href = n.link;
+        return;
       }
-    } catch (e) {
-      console.error("Erreur lors de la navigation depuis notification:", e);
+    }
+
+    if (n.link) {
       window.location.href = n.link;
     }
   };
+
+  const totalNotifications = cloudNotifications.length + pwaNotifications.length;
 
   return (
     <div className="relative" ref={containerRef}>
@@ -151,9 +148,9 @@ export function NotificationCenter() {
         }
       >
         <Bell className="w-5 h-5" />
-        {unreadCount > 0 && (
+        {totalNotifications > 0 && (
           <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white dark:border-gray-900 animate-pulse">
-            {unreadCount > 9 ? '9+' : unreadCount}
+            {totalNotifications > 9 ? '9+' : totalNotifications}
           </span>
         )}
         {!isSupported && (
@@ -215,19 +212,19 @@ export function NotificationCenter() {
             </div>
           )}
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 px-2 pt-2">
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllAsRead}
-                className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline"
+                className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline border border-blue-500 rounded-lg px-2 py-1"
               >
                 Tout lire
               </button>
             )}
-            {notifications.length > 0 && (
+            {totalNotifications > 0 && (
               <button
                 onClick={handleClearAll}
-                className="text-[10px] text-red-500 hover:underline"
+                className="text-[10px] text-red-500 hover:underline border border-red-500 rounded-lg px-2 py-1"
               >
                 Tout effacer
               </button>
@@ -235,7 +232,8 @@ export function NotificationCenter() {
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar">
-            {(showAll ? notifications : notifications.slice(0, 5)).map((n) => (
+            {/* Notifications Cloud */}
+            {(showAll ? cloudNotifications : cloudNotifications.slice(0, 5)).map((n) => (
               <div
                 key={n.id}
                 className={`p-4 border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors relative group ${!n.isRead ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
@@ -281,27 +279,90 @@ export function NotificationCenter() {
                 )}
               </div>
             ))}
+
+            {/* Notifications PWA récentes */}
+            {pwaNotifications.length > 0 && (
+              <div className="p-4 border-t border-gray-100 dark:border-gray-800">
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  🔔 Notifications locales ({pwaNotifications.length})
+                </h4>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {pwaNotifications.map((notification, index) => (
+                    <div
+                      key={notification.id}
+                      className="p-2 border border border-gray-100 dark:border-gray-800 rounded hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer group relative"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 min-w-0">
+                          <h5 className="font-medium text-gray-900 dark:text-white text-sm truncate">
+                            {notification.title}
+                          </h5>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
+                            {notification.body}
+                          </p>
+                          {notification.projectName && (
+                            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                              📁 {notification.projectName}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Pour les notifications PWA, on les marque comme "vues" en les supprimant
+                              clearPWANotifications();
+                            }}
+                            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            title="Marquer comme vue"
+                          >
+                            <Check className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              clearPWANotifications();
+                            }}
+                            className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
+                            title="Supprimer"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                        <div className="text-xs text-gray-400 whitespace-nowrap ml-2">
+                          {new Date(notification.timestamp).toLocaleTimeString()}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {cloudNotifications.length === 0 && pwaNotifications.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+                <Bell className="w-6 h-6 text-gray-300 mb-2" />
+                <p className="text-sm text-gray-500 italic mb-2">Aucune notification</p>
+                <p className="text-xs text-gray-400 text-center px-4">
+                  💡 Les notifications locales (PWA) apparaissent directement dans votre navigateur 
+                  et sont maintenant listées ici avec les notifications cloud.
+                </p>
+              </div>
+            )}
           </div>
 
-          {notifications.length > 5 && (
+          {cloudNotifications.length > 5 && (
             <div className="p-4 border-t border-gray-100 dark:border-gray-800">
               <button
                 onClick={() => setShowAll(!showAll)}
                 className="w-full text-sm text-blue-600 dark:text-blue-400 hover:underline"
               >
-                {showAll ? 'Afficher moins' : `Voir toutes les notifications (${notifications.length})`}
+                {showAll ? 'Afficher moins' : `Voir toutes les notifications (${cloudNotifications.length})`}
               </button>
-            </div>
-          )}
-
-          {notifications.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-8 text-gray-500">
-              <Bell className="w-6 h-6 text-gray-300" />
-              <p className="text-sm text-gray-500 italic">Aucune notification</p>
             </div>
           )}
         </div>
       )}
     </div>
   );
-};
+}

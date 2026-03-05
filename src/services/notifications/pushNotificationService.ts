@@ -37,6 +37,15 @@ export class PushNotificationService {
   private subscription: PushSubscription | null = null;
   private notificationQueue: Map<string, PushNotificationOptions> = new Map();
   private activeNotifications: Set<string> = new Set();
+  private recentNotifications: Array<any & { 
+    id: string; 
+    title: string; 
+    body: string; 
+    timestamp: number; 
+    projectId?: string; 
+    taskId?: string;
+    projectName?: string;
+  }> = [];
 
   private constructor() {
     this.checkSupport();
@@ -193,28 +202,44 @@ export class PushNotificationService {
 
       const notification = new Notification(options.title, {
         body: options.body,
-        icon: options.icon || '/favicon.ico',
-        badge: options.badge || '/favicon.ico',
-        image: options.image,
-        tag: options.tag || notificationId,
-        requireInteraction: options.requireInteraction || false,
-        silent: options.silent || false,
+        icon: options.icon,
+        badge: options.badge,
+        tag: options.tag,
+        requireInteraction: options.requireInteraction,
         vibrate: options.vibrate,
-        sound: options.sound,
-        data: options.data || { notificationId }
+        data: options.data,
+        silent: options.silent,
+        sound: options.sound
       });
 
-      // Ajouter les actions si spécifiées
-      if (options.actions && options.actions.length > 0) {
-        // Note: Les actions ne sont pas supportées sur tous les navigateurs
-        // Elles seront gérées par le service worker
-      }
-
-      // Gérer les événements
       this.setupNotificationEvents(notification, options);
 
       // Marquer comme active
       this.activeNotifications.add(notificationId);
+
+      // Stocker dans les notifications récentes
+      const recentNotification = {
+        id: notificationId,
+        title: options.title,
+        body: options.body,
+        timestamp: Date.now(),
+        projectId: options.data?.projectId,
+        taskId: options.data?.taskId,
+        projectName: options.data?.projectName
+      };
+
+      this.recentNotifications.unshift(recentNotification);
+      
+      // Garder seulement les 50 plus récentes
+      if (this.recentNotifications.length > 50) {
+        this.recentNotifications = this.recentNotifications.slice(0, 50);
+      }
+
+      // Notifier les abonnés
+      this.onNewNotification?.(recentNotification);
+
+      console.log('🔔 Notification PWA stockée:', recentNotification);
+      console.log('Total notifications PWA récentes:', this.recentNotifications.length);
 
       // Auto-nettoyage après 10 secondes si pas d'interaction requise
       if (!options.requireInteraction) {
@@ -224,7 +249,6 @@ export class PushNotificationService {
       }
     } catch (error) {
       console.error('Erreur lors de l\'affichage de la notification:', error);
-      options.onError?.(error as Error);
     }
   }
 
@@ -260,12 +284,47 @@ export class PushNotificationService {
   }
 
   public clearAllNotifications(): void {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      Notification.getNotifications().forEach(notification => {
+    if ('Notification' in window) {
+      // Fermer toutes les notifications actives
+      const notifications = Notification.getNotifications ? Notification.getNotifications() : [];
+      notifications.forEach((notification: any) => {
         notification.close();
       });
     }
     this.activeNotifications.clear();
+    this.recentNotifications = []; // Vider aussi les notifications récentes
+  }
+
+  public getActiveNotificationCount(): number {
+    return this.activeNotifications.size;
+  }
+
+  public getRecentNotifications(): Array<any & { 
+    id: string; 
+    title: string; 
+    body: string; 
+    timestamp: number; 
+    projectId?: string; 
+    taskId?: string; 
+    projectName?: string;
+  }> {
+    return this.recentNotifications;
+  }
+
+  public clearRecentNotifications(): void {
+    this.recentNotifications = [];
+  }
+
+  public onNewNotification(callback: (notification: any & { 
+    id: string; 
+    title: string; 
+    body: string; 
+    timestamp: number; 
+    projectId?: string; 
+    taskId?: string; 
+    projectName?: string;
+  }) => void): void {
+    this.onNewNotification = callback;
   }
 
   public async unsubscribe(): Promise<boolean> {

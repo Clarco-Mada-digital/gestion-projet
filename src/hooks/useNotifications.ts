@@ -218,8 +218,11 @@ export const useNotifications = () => {
   const scheduleNotification = useCallback(async (options: PushNotificationOptions, delay: number) => {
     if (!canShowNotifications()) return;
     
-    await notificationService.scheduleNotification(options, delay);
-  }, [canShowNotifications]);
+    const unsubscribe = notificationService.subscribeToNotifications(state.cloudUser.uid, (fetched: any[]) => {
+      setCloudNotifications(fetched);
+    });
+    return () => unsubscribe;
+  }, [canShowNotifications, state.cloudUser]);
 
   const clearAllNotifications = useCallback(() => {
     notificationService.clearAllNotifications();
@@ -240,11 +243,82 @@ export const useNotifications = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Vérifier automatiquement les tâches en retard toutes les 5 minutes
+  useEffect(() => {
+    if (!state.cloudUser) return;
+
+    const checkOverdueTasks = () => {
+      const allTasks = state.projects.flatMap(p => p.tasks || []);
+      const overdueTasks = allTasks.filter(task => {
+        if (task.status === 'done' || task.status === 'non-suivi') return false;
+        if (!task.dueDate) return false;
+        
+        const dueDate = new Date(task.dueDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        return dueDate < today;
+      });
+
+      // Envoyer des notifications pour les tâches en retard
+      overdueTasks.forEach(task => {
+        const notificationId = getNotificationId('overdue', task.id, task.dueDate);
+        
+        // Vérifier si déjà notifié AUJOURD'HUI
+        const today = new Date().toDateString();
+        const lastNotificationKey = `overdue-notified-${today}`;
+        const lastNotified = localStorage.getItem(lastNotificationKey);
+        const alreadyNotifiedToday = lastNotified?.split(',').includes(task.id);
+        
+        if (!alreadyNotifiedToday) {
+          showTaskOverdue(task);
+          markNotificationAsSent(notificationId);
+          
+          // Marquer cette tâche comme notifiée aujourd'hui
+          const currentNotified = lastNotified ? `${lastNotified},${task.id}` : task.id;
+          localStorage.setItem(lastNotificationKey, currentNotified);
+        }
+      });
+    };
+
+    // Vérifier immédiatement au chargement
+    checkOverdueTasks();
+    
+    // Puis vérifier toutes les 5 minutes
+    const interval = setInterval(checkOverdueTasks, 5 * 60 * 1000);
+    
+    // Nettoyer le localStorage au changement de jour (minuit)
+    const cleanupDaily = () => {
+      const keys = Object.keys(localStorage);
+      keys.forEach(key => {
+        if (key.startsWith('overdue-notified-')) {
+          localStorage.removeItem(key);
+        }
+      });
+    };
+    
+    // Vérifier si on est passé à minuit pour nettoyer
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    const msUntilMidnight = tomorrow.getTime() - now.getTime();
+    
+    setTimeout(cleanupDaily, msUntilMidnight);
+    
+    return () => {
+      clearInterval(interval);
+      clearTimeout(cleanupDaily);
+    };
+  }, [state.projects, state.cloudUser, showTaskOverdue]);
+
   return {
     // État
     isSupported: notificationService.getSupportStatus(),
     canShowNotifications: canShowNotifications(),
     isQuietHours: isQuietHours(),
+    getActiveNotificationCount: () => notificationService.getActiveNotificationCount(),
+    getRecentNotifications: () => notificationService.getRecentNotifications(),
     
     // Actions
     showNotification,
