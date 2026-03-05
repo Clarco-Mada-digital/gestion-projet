@@ -187,7 +187,7 @@ export function AboutView() {
                 <div className={`space-y-3 ${baseTextClass}`}>
                   <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100/50">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-bold text-blue-800 dark:text-blue-200">MVola (Madagascar)</h4>
+                      <h4 className="font-bold text-blue-800 dark:text-blue-200">Mobile money (Madagascar)</h4>
                       <Zap className="w-4 h-4 text-blue-500" />
                     </div>
                     <p className="font-mono bg-white dark:bg-gray-800 p-3 rounded-xl text-center text-lg font-black text-gray-800 dark:text-gray-200 shadow-sm">

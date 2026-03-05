@@ -108,7 +108,8 @@ export const googleCalendarService = {
 
     if (!response.ok) {
       const err = await response.json();
-      throw new Error(err.error?.message || 'Failed to update event');
+      console.error('Google Calendar API Error:', err);
+      throw new Error(err.error?.message || err.error?.description || `Failed to update event (HTTP ${response.status})`);
     }
     return response.json();
   },

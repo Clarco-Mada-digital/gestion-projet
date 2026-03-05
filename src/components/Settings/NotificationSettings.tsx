@@ -14,6 +14,7 @@ interface NotificationSettings {
   weeklyDigest: boolean;
   soundEnabled: boolean;
   vibrationEnabled: boolean;
+  firebasePushEnabled: boolean;
   quietHours: {
     enabled: boolean;
     start: string;
@@ -34,6 +35,7 @@ export function NotificationSettings() {
     weeklyDigest: false,
     soundEnabled: true,
     vibrationEnabled: true,
+    firebasePushEnabled: true,
     quietHours: {
       enabled: false,
       start: '22:00',
@@ -191,6 +193,7 @@ export function NotificationSettings() {
   const sendTestNotification = async () => {
     if (!permissionGranted) return;
     
+    // Tester les notifications locales
     await notificationService.showNotification({
       title: '🔔 Notification de test',
       body: 'Ceci est une notification de test pour vérifier que tout fonctionne correctement!',
@@ -200,6 +203,17 @@ export function NotificationSettings() {
       vibrate: settings.vibrationEnabled ? [200, 100, 200] : undefined,
       data: { type: 'test' }
     });
+    
+    // Tester les notifications Firebase si activées
+    if (settings.firebasePushEnabled) {
+      try {
+        const { default: FirebaseCloudMessaging } = await import('../../services/notifications/firebaseCloudMessaging');
+        const fcm = FirebaseCloudMessaging.getInstance();
+        await fcm.sendTestNotification();
+      } catch (error) {
+        console.error('Erreur lors du test des notifications Firebase:', error);
+      }
+    }
     
     setTestNotificationSent(true);
     setTimeout(() => setTestNotificationSent(false), 3000);
@@ -341,6 +355,12 @@ export function NotificationSettings() {
               label: 'Jalons de projet', 
               description: 'Recevoir des notifications pour les jalons importants des projets',
               icon: <Monitor className="w-4 h-4" />
+            },
+            { 
+              key: 'firebasePushEnabled' as keyof NotificationSettings, 
+              label: 'Notifications Cloud (Firebase)', 
+              description: 'Recevoir des notifications même quand l\'application est fermée',
+              icon: <Smartphone className="w-4 h-4" />
             }
           ].map(({ key, label, description, icon }) => (
             <div key={key} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">

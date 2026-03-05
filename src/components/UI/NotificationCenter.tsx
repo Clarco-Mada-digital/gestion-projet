@@ -35,11 +35,98 @@ export function NotificationCenter() {
   useEffect(() => {
     if (!state.cloudUser) return;
 
+    // Initialiser Firebase Cloud Messaging
+    const initializeFCM = async () => {
+      try {
+        // Attendre que le Service Worker soit enregistré et actif
+        if ('serviceWorker' in navigator) {
+          const registration = await navigator.serviceWorker.ready;
+          console.log('Service Worker prêt pour FCM');
+
+          // Petite pause pour s'assurer que tout est stable
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+
+        const { default: FirebaseCloudMessaging } = await import('../../services/notifications/firebaseCloudMessaging');
+        const fcm = FirebaseCloudMessaging.getInstance();
+        
+        if (fcm.isSupported()) {
+          // Demander la permission et obtenir le token
+          const token = await fcm.requestPermissionAndGetToken();
+          if (token) {
+            console.log('FCM initialisé avec succès');
+            
+            // Écouter les messages en avant-plan
+            fcm.onMessage(async (payload) => {
+              console.log('Message FCM reçu en avant-plan:', payload);
+              
+              // Afficher une notification locale
+              const { useNotifications } = await import('../../hooks/useNotifications');
+              const { showCustomNotification } = useNotifications();
+              
+              showCustomNotification(
+                payload.notification?.title || 'Notification',
+                payload.notification?.body || 'Vous avez une nouvelle notification',
+                {
+                  tag: `fcm-foreground-${payload.messageId || Date.now()}`,
+                  data: payload.data
+                }
+              );
+            });
+          }
+        } else {
+          console.log('FCM non supporté sur ce navigateur');
+        }
+      } catch (error) {
+        console.error('Erreur lors de l\'initialisation de FCM:', error);
+        // Ne pas réessayer automatiquement pour éviter les boucles infinies
+      }
+    };
+
+    initializeFCM();
+
     const unsubscribe = notificationService.subscribeToNotifications(state.cloudUser.uid, (fetched: NotificationType[]) => {
+      const previousNotifications = cloudNotifications;
       setCloudNotifications(fetched);
+      
+      // Détecter les nouvelles notifications (qui n'existaient pas avant)
+      const newNotifications = fetched.filter(notification => 
+        !previousNotifications.find(prev => prev.id === notification.id)
+      );
+
+      // Envoyer des notifications push pour les nouvelles notifications non lues
+      newNotifications.forEach(async notification => {
+        if (!notification.isRead) {
+          const { useNotifications: usePushNotifications } = await import('../../hooks/useNotifications');
+          const { showCustomNotification } = usePushNotifications();
+          
+          await showCustomNotification(
+            notification.title,
+            notification.message,
+            {
+              tag: `firebase-${notification.id}`,
+              requireInteraction: false,
+              icon: '/icons/notification-bell.png',
+              badge: '/icons/badge.png',
+              data: {
+                type: 'firebase-notification',
+                notificationId: notification.id,
+                projectId: notification.projectId,
+                taskId: notification.taskId,
+                link: notification.link
+              },
+              onClick: () => {
+                if (notification.link) {
+                  window.location.href = fixPath(notification.link);
+                }
+              }
+            }
+          );
+        }
+      });
     });
     return () => unsubscribe?.();
-  }, [state.cloudUser]);
+  }, [state.cloudUser, cloudNotifications]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

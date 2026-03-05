@@ -1360,8 +1360,8 @@ export function CalendarView() {
                               summary: selectedExternalEvent.title,
                               description: selectedExternalEvent.description,
                               location: selectedExternalEvent.location,
-                              start: isAllDay ? { date: selectedExternalEvent.startDate } : { dateTime: selectedExternalEvent.startDate },
-                              end: isAllDay ? { date: selectedExternalEvent.dueDate } : { dateTime: selectedExternalEvent.dueDate }
+                              start: isAllDay ? { date: selectedExternalEvent.startDate } : { dateTime: new Date(selectedExternalEvent.startDate).toISOString() },
+                              end: isAllDay ? { date: selectedExternalEvent.dueDate } : { dateTime: new Date(selectedExternalEvent.dueDate).toISOString() }
                             };
 
                             googleCalendarService.updateEvent(state.googleAccessToken, selectedExternalEvent.calendarId, selectedExternalEvent.id, updatePayload).catch(err => {
@@ -1502,8 +1502,8 @@ export function CalendarView() {
                       const isAllDay = event.startDate.length === 10;
                       const updatePayload: any = {
                         summary: updatedEvent.title,
-                        start: isAllDay ? { date: updatedEvent.startDate } : { dateTime: updatedEvent.startDate },
-                        end: isAllDay ? { date: updatedEvent.dueDate } : { dateTime: updatedEvent.dueDate }
+                        start: isAllDay ? { date: updatedEvent.startDate } : { dateTime: new Date(updatedEvent.startDate).toISOString() },
+                        end: isAllDay ? { date: updatedEvent.dueDate } : { dateTime: new Date(updatedEvent.dueDate).toISOString() }
                       };
 
                       googleCalendarService.updateEvent(state.googleAccessToken, event.calendarId, event.id, updatePayload).catch(err => {

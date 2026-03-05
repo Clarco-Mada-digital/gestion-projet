@@ -14,7 +14,7 @@ import Chatbot from './components/Chatbot';
 import { motion, AnimatePresence } from 'framer-motion';
 
 function AppContent() {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
   const { currentView, appSettings } = state;
   const { fontSize = 'medium' } = appSettings || {};
 
@@ -27,6 +27,30 @@ function AppContent() {
         fontSize === 'large' ? '1.125rem' : '1rem'
     );
   }, [fontSize]);
+
+  // Gérer la navigation depuis les notifications push (paramètres URL)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const taskId = urlParams.get('task');
+
+    if (taskId) {
+      // Trouver le projet qui contient cette tâche
+      const allTasks = state.projects.flatMap(p => p.tasks || []);
+      const task = allTasks.find(t => t.id === taskId);
+      
+      if (task) {
+        // Navigation depuis une notification push
+        dispatch({
+          type: 'NAVIGATE_TO_TASK',
+          payload: { projectId: task.projectId, taskId: task.id }
+        });
+        
+        // Nettoyer l'URL pour éviter de naviguer à nouveau au refresh
+        const newUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, document.title, newUrl);
+      }
+    }
+  }, [dispatch, state.projects]);
 
   const [isLoading, setIsLoading] = useState(true);
 

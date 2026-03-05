@@ -302,7 +302,45 @@ self.addEventListener('push', (event) => {
 
   if (event.data) {
     try {
-      notificationData = { ...notificationData, ...event.data.json() };
+      const pushData = event.data.json();
+      
+      // Gestion spéciale pour les notifications Firebase
+      if (pushData.from === 'firebase' || pushData.notification) {
+        notificationData = {
+          title: pushData.notification?.title || pushData.title || 'Notification ProjectFlow',
+          body: pushData.notification?.body || pushData.body || 'Vous avez une nouvelle notification',
+          icon: pushData.notification?.icon || '/icons/notification-bell.png',
+          badge: '/icons/badge.png',
+          tag: pushData.tag || `firebase-${pushData.messageId || Date.now()}`,
+          requireInteraction: pushData.requireInteraction || false,
+          data: {
+            type: 'firebase-notification',
+            messageId: pushData.messageId,
+            projectId: pushData.data?.projectId,
+            taskId: pushData.data?.taskId,
+            link: pushData.data?.link,
+            projectName: pushData.data?.projectName,
+            ...pushData.data
+          },
+          actions: [
+            {
+              action: 'open',
+              title: 'Ouvrir',
+              icon: '/icons/open.png'
+            },
+            {
+              action: 'dismiss',
+              title: 'Ignorer',
+              icon: '/icons/dismiss.png'
+            }
+          ],
+          silent: false,
+          vibrate: [200, 100, 200]
+        };
+      } else {
+        // Notifications push standards
+        notificationData = { ...notificationData, ...pushData };
+      }
     } catch (e) {
       console.error('Erreur lors du parsing des données de notification:', e);
     }
@@ -337,6 +375,12 @@ self.addEventListener('notificationclick', (event) => {
   notification.close();
 
   // Gérer les actions personnalisées
+  if (action === 'dismiss') {
+    console.log('Notification ignorée');
+    return;
+  }
+
+  // Gérer les actions spécifiques aux tâches
   if (action === 'view-task') {
     event.waitUntil(
       clients.openWindow(`/projects/${data.projectId}?task=${data.taskId}`)
@@ -361,17 +405,37 @@ self.addEventListener('notificationclick', (event) => {
       })
     );
   } else {
-    // Action par défaut - ouvrir l'application
+    // Action par défaut - ouvrir l'application et naviguer vers le lien approprié
+    const targetUrl = data.link || '/';
+    
     event.waitUntil(
-      clients.matchAll().then((clientList) => {
+      clients.matchAll({ 
+        type: 'window', 
+        includeUncontrolled: true 
+      }).then((clientList) => {
+        // Vérifier si une fenêtre de l'application est déjà ouverte
         for (const client of clientList) {
-          if (client.url === '/' && 'focus' in client) {
-            return client.focus();
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            // Focus sur la fenêtre existante et naviguer
+            return client.focus()
+              .then((focusedClient) => {
+                if (targetUrl !== '/') {
+                  return focusedClient.navigate(targetUrl);
+                }
+                return focusedClient;
+              });
           }
         }
+        
+        // Si aucune fenêtre n'est ouverte, en ouvrir une nouvelle
         if (clients.openWindow) {
-          return clients.openWindow('/');
+          return clients.openWindow(targetUrl);
         }
+      })
+      .catch((error) => {
+        console.error('Erreur lors de l\'ouverture de l\'application:', error);
+        // Fallback: ouvrir simplement la page d'accueil
+        return clients.openWindow('/');
       })
     );
   }

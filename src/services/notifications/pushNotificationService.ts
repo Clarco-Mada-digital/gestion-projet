@@ -1,3 +1,5 @@
+import { fixPath } from '../../lib/pathUtils';
+
 // Service de notifications push avec meilleure expérience utilisateur
 
 export interface PushNotificationOptions {
@@ -366,12 +368,12 @@ export class PushNotificationService {
         projectName: projectName
       },
       onClick: () => {
-        // Utiliser les données directes si disponibles
+        // Construire le bon lien comme les notifications PWA
         if (task.projectId || task.project?.id) {
-          window.location.href = `/projects/${task.projectId || task.project?.id}?task=${task.id}`;
+          const taskUrl = `${fixPath(`/projects/${task.projectId || task.project?.id}`)}?task=${task.id}`;
+          window.location.href = taskUrl;
         } else {
-          // Fallback au lien si disponible
-          window.location.href = task.link || `/projects/${task.projectId || task.project?.id}?task=${task.id}`;
+          window.location.href = fixPath('/');
         }
       }
     });
@@ -394,12 +396,12 @@ export class PushNotificationService {
         projectName: projectName
       },
       onClick: () => {
-        // Utiliser les données directes si disponibles
+        // Construire le bon lien comme les notifications PWA
         if (task.projectId || task.project?.id) {
-          window.location.href = `/projects/${task.projectId || task.project?.id}?task=${task.id}`;
+          const taskUrl = `${fixPath(`/projects/${task.projectId || task.project?.id}`)}?task=${task.id}`;
+          window.location.href = taskUrl;
         } else {
-          // Fallback au lien si disponible
-          window.location.href = task.link || `/projects/${task.projectId || task.project?.id}?task=${task.id}`;
+          window.location.href = fixPath('/');
         }
       }
     });
@@ -413,7 +415,20 @@ export class PushNotificationService {
       tag: `task-completed-${task.id}`,
       silent: false,
       vibrate: [100, 50, 100],
-      data: { taskId: task.id, type: 'task-completed' }
+      data: { 
+        taskId: task.id, 
+        projectId: task.projectId || task.project?.id,
+        type: 'task-completed' 
+      },
+      onClick: () => {
+        // Construire le bon lien comme les notifications PWA
+        if (task.projectId || task.project?.id) {
+          const taskUrl = `${fixPath(`/projects/${task.projectId || task.project?.id}`)}?task=${task.id}`;
+          window.location.href = taskUrl;
+        } else {
+          window.location.href = fixPath('/');
+        }
+      }
     });
   }
 
@@ -429,7 +444,7 @@ export class PushNotificationService {
       tag: `project-milestone-${project.id}`,
       data: { projectId: project.id, type: 'project-milestone' },
       onClick: () => {
-        window.location.href = `/projects/${project.id}`;
+        window.location.href = fixPath(`/projects/${project.id}`);
       }
     });
   }
