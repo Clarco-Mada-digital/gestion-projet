@@ -52,6 +52,82 @@ function AppContent() {
     }
   }, [dispatch, state.projects]);
 
+  // Vérifier que la PWA est correctement configurée
+  useEffect(() => {
+    // Vérifier le support PWA de base
+    const hasServiceWorker = 'serviceWorker' in navigator;
+    const hasManifest = 'manifest' in document.createElement('link'); // Note: ce test n'est pas très fiable
+    const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    const isHTTPS = location.protocol === 'https:' || isLocalhost;
+
+    console.log('🔍 Diagnostic PWA:');
+    console.log('   Service Worker:', hasServiceWorker ? '✅' : '❌');
+    console.log('   HTTPS/Localhost:', isHTTPS ? '✅' : '❌');
+    console.log('   URL actuelle:', location.href);
+
+    // Vérifier si le manifest est chargé par le navigateur
+    if ('onbeforeinstallprompt' in window) {
+      console.log('   BeforeInstallPrompt supporté: ✅');
+    } else {
+      console.log('   BeforeInstallPrompt supporté: ❌');
+    }
+
+    // Tester l'accès au manifest
+    fetch('./manifest.json')
+      .then(response => {
+        console.log('   Manifest HTTP status:', response.status);
+        if (response.ok) {
+          return response.json();
+        }
+        throw new Error(`HTTP ${response.status}`);
+      })
+      .then(data => {
+        console.log('   Manifest JSON valide: ✅');
+        console.log('   Nom de l\'app:', data.name);
+        console.log('   Icônes définies:', data.icons?.length || 0);
+
+        // Vérifier si les icônes sont accessibles
+        if (data.icons && data.icons.length > 0) {
+          const iconUrl = data.icons[0].src;
+          return fetch(iconUrl).then(iconResponse => {
+            console.log('   Icône accessible:', iconResponse.ok ? '✅' : '❌');
+          });
+        }
+      })
+      .catch(error => {
+        console.log('   Erreur manifest:', error.message);
+      });
+
+    // Écouter les événements PWA
+    const handleBeforeInstallPrompt = (e: Event) => {
+      console.log('🎉 EVENT: beforeinstallprompt - PWA installable!');
+      console.log('   Pour afficher le bouton, appelez e.prompt()');
+    };
+
+    const handleAppInstalled = () => {
+      console.log('✅ EVENT: appinstalled - PWA installée!');
+    };
+
+    // Enregistrer le Service Worker pour la PWA
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(registration => {
+          console.log('✅ Service Worker enregistré pour PWA:', registration.scope);
+        })
+        .catch(error => {
+          console.log('❌ Erreur enregistrement Service Worker:', error);
+        });
+    }
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {

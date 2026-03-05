@@ -15,6 +15,20 @@ const { title } = Astro.props;
     <meta name="description" content="Application moderne de gestion de projets" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href={`${import.meta.env.BASE_URL}favicon.svg`} />
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#3b82f6" />
+    <meta name="description" content="Application de gestion de projets et tâches avec mode hors-ligne" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="GestionProjet" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href={`${import.meta.env.BASE_URL}manifest.json`} />
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href={`${import.meta.env.BASE_URL}icons/icon.svg`} />
+    
     <title>{title}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -32,6 +46,18 @@ const { title } = Astro.props;
   </head>
   <body class="min-h-screen font-sans antialiased bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-blue-900/20 dark:to-purple-900/20">
     <slot />
+    <script>
+      // Enregistrement du Service Worker pour PWA
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js')
+          .then(registration => {
+            console.log('✅ Service Worker enregistré pour PWA (Astro):', registration.scope);
+          })
+          .catch(error => {
+            console.log('❌ Erreur enregistrement Service Worker (Astro):', error);
+          });
+      }
+    </script>
     <script is:inline>
       // Le thème est maintenant géré par AppContext
       // L'initialisation se fait côté client via React
