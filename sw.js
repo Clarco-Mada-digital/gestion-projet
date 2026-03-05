@@ -5,10 +5,10 @@ const DYNAMIC_CACHE_NAME = 'gestion-projet-dynamic-v1';
 
 // Fichiers essentiels pour le mode hors-ligne
 const STATIC_ASSETS = [
-  '/index.html',
-  '/manifest.json',
-  '/favicon.ico',
-  '/icons/icon.svg'
+  './index.html',
+  './manifest.json',
+  './favicon.ico',
+  './icons/icon.svg'
 ];
 
 // Installation du service worker
