@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, BellOff, Settings, X, Check, Trash2, Wifi, WifiOff } from 'lucide-react';
+import { Bell, Settings, Check, Trash2, ExternalLink } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useNotifications } from '../../hooks/useNotifications';
 import { notificationService } from '../../services/collaboration/notificationService';
+import { fixPath } from '../../lib/pathUtils';
 import { Notification as NotificationType } from '../../types';
-import { Button } from './Button';
-import { ExternalLink } from 'lucide-react';
 
 interface Notification {
   id: string;
@@ -21,12 +20,10 @@ interface Notification {
 
 export function NotificationCenter() {
   const { state, dispatch } = useApp();
-  const { 
-    isSupported, 
-    canShowNotifications, 
+  const {
+    isSupported,
     isQuietHours,
     clearAllNotifications: clearPWANotifications,
-    getActiveNotificationCount,
     getRecentNotifications
   } = useNotifications();
   const [cloudNotifications, setCloudNotifications] = useState<Notification[]>([]);
@@ -59,14 +56,25 @@ export function NotificationCenter() {
   };
 
   const unreadCount = cloudNotifications.filter(n => !n.isRead).length;
-  const pwaNotificationCount = getActiveNotificationCount();
   const pwaNotifications = getRecentNotifications();
 
   const handleMarkAsRead = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    await notificationService.markAsRead(id);
-    // Mettre à jour l'état local pour rafraîchir l'interface
-    setCloudNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+    console.log('🔔 Tentative de marquage comme lu:', id);
+
+    try {
+      await notificationService.markAsRead(id);
+      console.log('✅ Notification marquée comme lue côté serveur');
+
+      // Mettre à jour l'état local pour rafraîchir l'interface
+      setCloudNotifications(prev => {
+        const updated = prev.map(n => n.id === id ? { ...n, isRead: true } : n);
+        console.log('🔄 État local mis à jour:', updated.find(n => n.id === id)?.isRead);
+        return updated;
+      });
+    } catch (error) {
+      console.error('❌ Erreur lors du marquage comme lu:', error);
+    }
   };
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
@@ -78,7 +86,7 @@ export function NotificationCenter() {
 
   const handleMarkAllAsRead = async () => {
     if (!state.cloudUser) return;
-    await notificationService.markAllAsRead(state.cloudUser.uid, cloudNotifications as NotificationType[]);
+    await notificationService.markAllAsRead(cloudNotifications as NotificationType[]);
     // Mettre à jour l'état local pour rafraîchir l'interface
     setCloudNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
   };
@@ -98,21 +106,12 @@ export function NotificationCenter() {
     if (n.projectId) {
       const projectExists = state.projects.some(p => p.id === n.projectId);
       if (projectExists) {
-        if (n.projectId && n.taskId) {
-          dispatch({
-            type: 'NAVIGATE_TO_TASK',
-            payload: { projectId: n.projectId, taskId: n.taskId }
-          });
-          setIsOpen(false);
-          return;
-        }
-        
-        if (n.projectId) {
-          dispatch({ type: 'SET_SELECTED_PROJECT', payload: n.projectId });
-          dispatch({ type: 'SET_VIEW', payload: 'projects' });
-          setIsOpen(false);
-          return;
-        }
+        dispatch({
+          type: 'NAVIGATE_TO_TASK',
+          payload: { projectId: n.projectId!, taskId: n.taskId! }
+        });
+        setIsOpen(false);
+        return;
       } else {
         console.warn('Projet non trouvé pour la notification:', n.projectId);
         dispatch({ type: 'SET_VIEW', payload: 'projects' });
@@ -122,8 +121,25 @@ export function NotificationCenter() {
     }
 
     if (n.link) {
-      window.location.href = n.link;
+      window.location.href = fixPath(n.link);
     }
+  };
+
+  // Gérer les clics sur les notifications PWA
+  const handlePWANotificationClick = (notification: any) => {
+    if (notification.data) {
+      const { projectId, taskId, type: _type } = notification.data;
+      if (projectId && taskId) {
+        // Construire le bon lien pour GitHub Pages
+        const taskUrl = `${fixPath(`/projects/${projectId}`)}?task=${taskId}`;
+        window.location.href = taskUrl;
+      } else if (projectId) {
+        // Lien vers le projet seulement
+        window.location.href = fixPath(`/projects/${projectId}`);
+      }
+    }
+    // Marquer comme vue après navigation
+    setTimeout(() => clearPWANotifications(), 100);
   };
 
   const totalNotifications = cloudNotifications.length + pwaNotifications.length;
@@ -148,9 +164,9 @@ export function NotificationCenter() {
         }
       >
         <Bell className="w-5 h-5" />
-        {totalNotifications > 0 && (
+        {unreadCount > 0 && (
           <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white dark:border-gray-900 animate-pulse">
-            {totalNotifications > 9 ? '9+' : totalNotifications}
+            {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
         {!isSupported && (
@@ -196,17 +212,15 @@ export function NotificationCenter() {
                   </span>
                 </div>
                 <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-                  <Button
+                  <button
                     onClick={() => {
                       clearPWANotifications();
                       setShowSettings(false);
                     }}
-                    size="sm"
-                    variant="outline"
-                    className="w-full"
+                    className="w-full px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors"
                   >
                     Effacer notifications locales
-                  </Button>
+                  </button>
                 </div>
               </div>
             </div>
@@ -287,9 +301,10 @@ export function NotificationCenter() {
                   🔔 Notifications locales ({pwaNotifications.length})
                 </h4>
                 <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {pwaNotifications.map((notification, index) => (
+                  {pwaNotifications.map((notification, _index) => (
                     <div
                       key={notification.id}
+                      onClick={() => handlePWANotificationClick(notification)}
                       className="p-2 border border border-gray-100 dark:border-gray-800 rounded hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer group relative"
                     >
                       <div className="flex justify-between items-start">
@@ -310,7 +325,10 @@ export function NotificationCenter() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              // Pour les notifications PWA, on les marque comme "vues" en les supprimant
+                              // Marquer la notification PWA spécifique comme lue (simulation)
+                              console.log('🔔 Notification PWA marquée comme lue:', notification.id);
+                              // Pour l'instant, on la supprime car l'API ne permet pas de marquer comme lue
+                              // TODO: Implémenter une vraie API pour marquer comme lue
                               clearPWANotifications();
                             }}
                             className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"

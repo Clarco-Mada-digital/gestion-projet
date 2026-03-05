@@ -35,7 +35,6 @@ export class PushNotificationService {
   private static instance: PushNotificationService;
   private isSupported: boolean = false;
   private subscription: PushSubscription | null = null;
-  private notificationQueue: Map<string, PushNotificationOptions> = new Map();
   private activeNotifications: Set<string> = new Set();
   private recentNotifications: Array<any & { 
     id: string; 
@@ -206,10 +205,8 @@ export class PushNotificationService {
         badge: options.badge,
         tag: options.tag,
         requireInteraction: options.requireInteraction,
-        vibrate: options.vibrate,
         data: options.data,
-        silent: options.silent,
-        sound: options.sound
+        silent: options.silent
       });
 
       this.setupNotificationEvents(notification, options);
@@ -236,7 +233,7 @@ export class PushNotificationService {
       }
 
       // Notifier les abonnés
-      this.onNewNotification?.(recentNotification);
+      this.newNotificationCallback?.(recentNotification);
 
       console.log('🔔 Notification PWA stockée:', recentNotification);
       console.log('Total notifications PWA récentes:', this.recentNotifications.length);
@@ -284,14 +281,9 @@ export class PushNotificationService {
   }
 
   public clearAllNotifications(): void {
-    if ('Notification' in window) {
-      // Fermer toutes les notifications actives
-      const notifications = Notification.getNotifications ? Notification.getNotifications() : [];
-      notifications.forEach((notification: any) => {
-        notification.close();
-      });
-    }
+    // Vider notre tracking interne
     this.activeNotifications.clear();
+    this.recentNotifications = [];
     this.recentNotifications = []; // Vider aussi les notifications récentes
   }
 
@@ -315,16 +307,12 @@ export class PushNotificationService {
     this.recentNotifications = [];
   }
 
-  public onNewNotification(callback: (notification: any & { 
-    id: string; 
-    title: string; 
-    body: string; 
-    timestamp: number; 
-    projectId?: string; 
-    taskId?: string; 
-    projectName?: string;
-  }) => void): void {
-    this.onNewNotification = callback;
+  // Callback pour les nouvelles notifications
+  private newNotificationCallback?: (notification: any) => void;
+
+  // Méthode pour s'abonner aux nouvelles notifications
+  public onNewNotification(callback: (notification: any) => void): void {
+    this.newNotificationCallback = callback;
   }
 
   public async unsubscribe(): Promise<boolean> {
