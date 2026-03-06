@@ -1,6 +1,9 @@
 // Service Worker pour PWA - ProjectFlow
 // Version: 3.0 - Compatible GitHub Pages /gestion-projet/
 
+const isProduction = self.location.hostname.includes('github.io');
+const basePath = isProduction ? '/gestion-projet' : '';
+
 const CACHE_VERSION = 'v3';
 const CACHE_NAME = `projectflow-${CACHE_VERSION}`;
 const DYNAMIC_CACHE_NAME = `projectflow-dynamic-${CACHE_VERSION}`;
@@ -8,12 +11,12 @@ const NOTIFICATIONS_CACHE = 'projectflow-notifications';
 
 // Fichiers essentiels à mettre en cache lors de l'installation
 const STATIC_ASSETS = [
-  './',
-  './index.html',
-  './manifest.json',
-  './favicon.svg',
-  './icons/icon-192x192.png',
-  './icons/icon-512x512.png',
+  basePath + '/',
+  basePath + '/index.html',
+  basePath + '/manifest.json',
+  basePath + '/favicon.svg',
+  basePath + '/icons/icon-192x192.png',
+  basePath + '/icons/icon-512x512.png',
 ];
 
 // ============================================================
@@ -166,8 +169,8 @@ async function networkFirstHTML(request) {
     const cached = await caches.match(request);
     if (cached) return cached;
 
-    const indexPage = await caches.match('./index.html') ||
-                      await caches.match('./') ;
+    const indexPage = await caches.match(basePath + '/index.html') ||
+                      await caches.match(basePath + '/') ;
     if (indexPage) return indexPage;
 
     throw new Error('Aucune page disponible hors-ligne');
@@ -225,8 +228,8 @@ self.addEventListener('push', (event) => {
   let notificationData = {
     title: 'ProjectFlow',
     body: 'Vous avez une nouvelle notification',
-    icon: './icons/icon-192x192.png',
-    badge: './icons/icon-96x96.png',
+    icon: basePath + '/icons/icon-192x192.png',
+    badge: basePath + '/icons/icon-96x96.png',
     tag: 'default',
     requireInteraction: false,
     data: {}
@@ -277,7 +280,7 @@ self.addEventListener('notificationclick', (event) => {
 
   if (event.action === 'dismiss') return;
 
-  const targetUrl = data.link || self.location.origin + '/gestion-projet/';
+  const targetUrl = data.link || self.location.origin + basePath + '/';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
@@ -292,7 +295,7 @@ self.addEventListener('notificationclick', (event) => {
         }
         if (clients.openWindow) return clients.openWindow(targetUrl);
       })
-      .catch(() => clients.openWindow(self.location.origin + '/gestion-projet/'))
+      .catch(() => clients.openWindow(self.location.origin + basePath + '/'))
   );
 });
 
