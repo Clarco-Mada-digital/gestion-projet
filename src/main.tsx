@@ -5,7 +5,6 @@ import { BrowserRouter as Router } from 'react-router-dom';
 import { ErrorBoundary } from './components/ErrorBoundary/ErrorBoundary';
 import { ToastProvider, useToast } from './components/UI/Toast/Toast';
 import { errorHandler } from './lib/error/errorHandler';
-import { ChatbotProvider } from './context/ChatbotContext';
 import App from './App';
 import { store } from './store/store';
 import AppInitializer from './components/AppInitializer';
@@ -15,8 +14,7 @@ import './styles/markdown.css';
 // Composant wrapper pour initialiser le gestionnaire d'erreurs
 function ErrorBoundaryWrapper({ children }: { children: React.ReactNode }) {
   const { showToast } = useToast();
-  
-  // Initialiser le gestionnaire d'erreurs avec le système de toast
+
   React.useEffect(() => {
     errorHandler.initialize(showToast);
   }, [showToast]);
@@ -34,17 +32,15 @@ function Root() {
     <StrictMode>
       <ErrorBoundary>
         <Provider store={store}>
-          <ChatbotProvider>
-            <ToastProvider>
-              <ErrorBoundaryWrapper>
-                <Router>
-                  <AppInitializer>
-                    <App />
-                  </AppInitializer>
-                </Router>
-              </ErrorBoundaryWrapper>
-            </ToastProvider>
-          </ChatbotProvider>
+          <ToastProvider>
+            <ErrorBoundaryWrapper>
+              <Router>
+                <AppInitializer>
+                  <App />
+                </AppInitializer>
+              </Router>
+            </ErrorBoundaryWrapper>
+          </ToastProvider>
         </Provider>
       </ErrorBoundary>
     </StrictMode>

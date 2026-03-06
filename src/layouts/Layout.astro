@@ -6,39 +6,52 @@ export interface Props {
 }
 
 const { title } = Astro.props;
+const base = import.meta.env.BASE_URL;
 ---
 
 <!DOCTYPE html>
 <html lang="fr" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="description" content="Application moderne de gestion de projets" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/svg+xml" href={`${import.meta.env.BASE_URL}favicon.svg`} />
-    
+    <meta name="description" content="Application de gestion de projets et tâches avec mode hors-ligne" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
+
     <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#3b82f6" />
-    <meta name="description" content="Application de gestion de projets et tâches avec mode hors-ligne" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="GestionProjet" />
-    
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ProjectFlow" />
+    <meta name="application-name" content="ProjectFlow" />
+    <meta name="msapplication-TileColor" content="#3b82f6" />
+    <meta name="msapplication-TileImage" content={`${base}icons/icon-144x144.png`} />
+
     <!-- PWA Manifest -->
-    <link rel="manifest" href="./manifest.json" />
-    
+    <link rel="manifest" href={`${base}manifest.json`} />
+
     <!-- Apple Touch Icons -->
-    <link rel="apple-touch-icon" href="./icons/icon.svg" />
-    
+    <link rel="apple-touch-icon" sizes="180x180" href={`${base}icons/icon-180x180.png`} />
+    <link rel="apple-touch-icon" sizes="152x152" href={`${base}icons/icon-152x152.png`} />
+    <link rel="apple-touch-icon" sizes="144x144" href={`${base}icons/icon-144x144.png`} />
+    <link rel="apple-touch-icon" sizes="120x120" href={`${base}icons/icon-96x96.png`} />
+
+    <!-- Favicon PNG -->
+    <link rel="icon" type="image/png" sizes="192x192" href={`${base}icons/icon-192x192.png`} />
+    <link rel="icon" type="image/png" sizes="96x96" href={`${base}icons/icon-96x96.png`} />
+
     <title>{title}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <style is:global>
       :root {
         --color-primary: 59, 130, 246;
         --color-secondary: 99, 102, 241;
       }
-      
+
       body {
         @apply bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200;
       }
@@ -46,21 +59,32 @@ const { title } = Astro.props;
   </head>
   <body class="min-h-screen font-sans antialiased bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-blue-900/20 dark:to-purple-900/20">
     <slot />
-    <script>
-      // Enregistrement du Service Worker pour PWA
+    <script is:inline define:vars={{ base }}>
+      // Enregistrement unique du Service Worker pour PWA
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js')
-          .then(registration => {
-            console.log('✅ Service Worker enregistré pour PWA (Astro):', registration.scope);
-          })
-          .catch(error => {
-            console.log('❌ Erreur enregistrement Service Worker (Astro):', error);
-          });
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register(base + 'sw.js', { scope: base })
+            .then(function(registration) {
+              console.log('✅ Service Worker enregistré:', registration.scope);
+
+              // Mettre à jour le SW si une nouvelle version est disponible
+              registration.addEventListener('updatefound', function() {
+                const newWorker = registration.installing;
+                if (newWorker) {
+                  newWorker.addEventListener('statechange', function() {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                      console.log('🔄 Nouvelle version du SW disponible');
+                      newWorker.postMessage({ type: 'SKIP_WAITING' });
+                    }
+                  });
+                }
+              });
+            })
+            .catch(function(error) {
+              console.error('❌ Erreur enregistrement Service Worker:', error);
+            });
+        });
       }
-    </script>
-    <script is:inline>
-      // Le thème est maintenant géré par AppContext
-      // L'initialisation se fait côté client via React
     </script>
   </body>
 </html>
