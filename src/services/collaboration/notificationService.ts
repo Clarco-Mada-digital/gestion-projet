@@ -2,6 +2,7 @@ import { getFirestore, collection, addDoc, query, where, onSnapshot, serverTimes
 import { initializeApp } from 'firebase/app';
 import { firebaseConfig, isFirebaseConfigured } from '../../lib/firebaseConfig';
 import { Notification } from '../../types';
+import { auth } from './firebaseService';
 
 let db: any = null;
 
@@ -22,7 +23,7 @@ export const notificationService = {
    * Envoie une notification à un utilisateur
    */
   async sendNotification(notification: Omit<Notification, 'id' | 'createdAt' | 'isRead'>): Promise<void> {
-    if (!ensureInitialized()) return;
+    if (!ensureInitialized() || !auth.currentUser) return;
 
     try {
       await addDoc(collection(db, 'notifications'), {
@@ -39,7 +40,7 @@ export const notificationService = {
    * Écoute les notifications d'un utilisateur en temps réel
    */
   subscribeToNotifications(userId: string, callback: (notifications: Notification[]) => void) {
-    if (!ensureInitialized()) return () => { };
+    if (!ensureInitialized() || !auth.currentUser) return () => { };
 
     const q = query(
       collection(db, 'notifications'),
@@ -70,7 +71,7 @@ export const notificationService = {
    * Marque une notification comme lue
    */
   async markAsRead(notificationId: string): Promise<void> {
-    if (!ensureInitialized()) return;
+    if (!ensureInitialized() || !auth.currentUser) return;
     try {
       await updateDoc(doc(db, 'notifications', notificationId), {
         isRead: true
@@ -84,7 +85,7 @@ export const notificationService = {
    * Marque toutes les notifications comme lues
    */
   async markAllAsRead(currentNotifications: Notification[]): Promise<void> {
-    if (!ensureInitialized()) return;
+    if (!ensureInitialized() || !auth.currentUser) return;
     try {
       const unread = currentNotifications.filter(n => !n.isRead);
       if (unread.length === 0) return;
@@ -103,7 +104,7 @@ export const notificationService = {
    * Supprime une notification
    */
   async deleteNotification(notificationId: string): Promise<void> {
-    if (!ensureInitialized()) return;
+    if (!ensureInitialized() || !auth.currentUser) return;
     try {
       const { deleteDoc, doc } = await import('firebase/firestore');
       await deleteDoc(doc(db, 'notifications', notificationId));
@@ -116,7 +117,7 @@ export const notificationService = {
    * Supprime toutes les notifications d'un utilisateur
    */
   async clearAllNotifications(userId: string, notifications: Notification[]): Promise<void> {
-    if (!ensureInitialized() || notifications.length === 0) return;
+    if (!ensureInitialized() || !auth.currentUser || notifications.length === 0) return;
     try {
       const { writeBatch, doc } = await import('firebase/firestore');
       const batch = writeBatch(db);

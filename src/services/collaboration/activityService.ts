@@ -2,6 +2,7 @@ import { getFirestore, collection, addDoc, query, where, onSnapshot, serverTimes
 import { initializeApp } from 'firebase/app';
 import { firebaseConfig, isFirebaseConfigured } from '../../lib/firebaseConfig';
 import { Activity } from '../../types';
+import { auth } from './firebaseService';
 
 let db: any = null;
 
@@ -22,7 +23,7 @@ export const activityService = {
    * Enregistre une nouvelle activité
    */
   async logActivity(activity: Omit<Activity, 'id' | 'createdAt'>): Promise<void> {
-    if (!ensureInitialized()) return;
+    if (!ensureInitialized() || !auth.currentUser) return;
 
     try {
       await addDoc(collection(db, 'activities'), {
@@ -38,7 +39,7 @@ export const activityService = {
    * Écoute les activités d'un projet en temps réel
    */
   subscribeToProjectActivities(projectId: string, callback: (activities: Activity[]) => void) {
-    if (!ensureInitialized()) return () => { };
+    if (!ensureInitialized() || !auth.currentUser) return () => { };
 
     const q = query(
       collection(db, 'activities'),

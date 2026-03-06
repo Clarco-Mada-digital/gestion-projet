@@ -2,6 +2,7 @@ import { getFirestore, collection, addDoc, query, where, onSnapshot, serverTimes
 import { initializeApp } from 'firebase/app';
 import { firebaseConfig, isFirebaseConfigured } from '../../lib/firebaseConfig';
 import { Comment } from '../../types';
+import { auth } from './firebaseService';
 
 let db: any = null;
 
@@ -22,7 +23,7 @@ export const commentService = {
    * Ajoute un commentaire à une tâche
    */
   async addComment(comment: Omit<Comment, 'id' | 'createdAt' | 'updatedAt'>): Promise<string | null> {
-    if (!ensureInitialized()) return null;
+    if (!ensureInitialized() || !auth.currentUser) return null;
 
     try {
       const docRef = await addDoc(collection(db, 'comments'), {
@@ -41,7 +42,7 @@ export const commentService = {
    * Écoute les commentaires d'une tâche en temps réel
    */
   subscribeToTaskComments(taskId: string, callback: (comments: Comment[]) => void) {
-    if (!ensureInitialized()) return () => { };
+    if (!ensureInitialized() || !auth.currentUser) return () => { };
 
     const q = query(
       collection(db, 'comments'),
@@ -74,7 +75,7 @@ export const commentService = {
    * Supprime un commentaire et ses réponses
    */
   async deleteComment(commentId: string): Promise<void> {
-    if (!ensureInitialized()) return;
+    if (!ensureInitialized() || !auth.currentUser) return;
     try {
       // 1. Supprimer le commentaire lui-même
       await deleteDoc(doc(db, 'comments', commentId));
@@ -100,7 +101,7 @@ export const commentService = {
    * Met à jour les réactions d'un commentaire
    */
   async updateCommentReactions(commentId: string, reactions: any[]): Promise<void> {
-    if (!ensureInitialized()) return;
+    if (!ensureInitialized() || !auth.currentUser) return;
     try {
       const { updateDoc, doc } = await import('firebase/firestore');
       const commentRef = doc(db, 'comments', commentId);
@@ -117,7 +118,7 @@ export const commentService = {
    * Met à jour le contenu d'un commentaire
    */
   async updateComment(commentId: string, content: string): Promise<void> {
-    if (!ensureInitialized()) return;
+    if (!ensureInitialized() || !auth.currentUser) return;
     try {
       const { updateDoc, doc } = await import('firebase/firestore');
       const commentRef = doc(db, 'comments', commentId);

@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage, deleteToken } from 'firebase/messaging';
 import { firebaseConfig, isFirebaseConfigured } from '../../lib/firebaseConfig';
+import { auth } from '../../services/collaboration/firebaseService';
 
 let messaging: any = null;
 let isInitialized = false;
@@ -44,6 +45,12 @@ export class FirebaseCloudMessaging {
       return null;
     }
 
+    // Vérifier si l'utilisateur est authentifié
+    if (!auth.currentUser) {
+      console.log('FCM désactivé : utilisateur non connecté');
+      return null;
+    }
+
     try {
       // Vérifier si le service worker est supporté
       if (!('serviceWorker' in navigator)) {
@@ -63,29 +70,26 @@ export class FirebaseCloudMessaging {
       }
 
       // Obtenir le token FCM
-      // const token = await getToken(messaging, {
-      //   vapidKey: 'BMz1kY8l6J4x7S9n2P5qR8tW3v6X9zA1C4D7E0F2G5H8I1J3K6L9M0N3O6P9Q2R5S8T1U4V7W0X3Z6A9B2C5E8F1G4H7I0J3K6L9M0N3O6P9Q2R5S8T1U4V7W0X3Z6',
-      //   serviceWorkerRegistration: registration
-      // });
+      const token = await getToken(messaging, {
+        vapidKey: 'BNDZS_Luenj7SMWjh7fuEOeK593aBTkk-8HZBhtimPtjnEl2Uk3Q-vaYFhxPb14y5EDeu3ZrJsd16XbQuUua07A',
+        serviceWorkerRegistration: registration
+      });
 
-      // if (token) {
-      //   this.currentToken = token;
-      //   console.log('Token FCM obtenu:', token);
-      //   
-      //   // Sauvegarder le token dans localStorage pour le debugging
-      //   localStorage.setItem('fcm_token', token);
-      //   
-      //   // Envoyer le token au serveur
-      //   await this.sendTokenToServer(token);
-      //   
-      //   return token;
-      // } else {
-      //   console.error('Impossible d\'obtenir le token FCM');
-      //   return null;
-      // }
-
-      console.log('FCM prêt (token désactivé temporairement)');
-      return 'disabled';
+      if (token) {
+        this.currentToken = token;
+        console.log('Token FCM obtenu:', token);
+        
+        // Sauvegarder le token dans localStorage pour le debugging
+        localStorage.setItem('fcm_token', token);
+        
+        // Envoyer le token au serveur
+        await this.sendTokenToServer(token);
+        
+        return token;
+      } else {
+        console.error('Impossible d\'obtenir le token FCM');
+        return null;
+      }
     } catch (error) {
       console.error('Erreur lors de l\'obtention du token FCM:', error);
       return null;
