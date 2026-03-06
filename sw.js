@@ -19,9 +19,14 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log('[sw.js] Message en arrière-plan reçu ', payload);
 
-  const notificationTitle = payload.notification?.title || 'Nouvelle notification';
+  if (!payload || !payload.notification) {
+    console.error('[sw.js] Payload invalide reçu:', payload);
+    return;
+  }
+
+  const notificationTitle = payload.notification.title || 'Nouvelle notification';
   const notificationOptions = {
-    body: payload.notification?.body || '',
+    body: payload.notification.body || '',
     icon: '/icon-192x192.png',
     badge: '/icon-192x192.png',
     tag: 'gestion-projet-notification',
