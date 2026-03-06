@@ -13,6 +13,39 @@ let auth: any = null;
 let calendarApp: any = null;
 let calendarAuth: any = null;
 
+// Fonctions utilitaires pour les paramètres utilisateur
+const syncAppSettings = async (appSettings: unknown) => {
+  if (!ensureInitialized() || !auth.currentUser) return;
+
+  try {
+    // Nettoyage des données
+    const cleanSettings = appSettings as any;
+
+    // Ajout des métadonnées de synchronisation
+    cleanSettings.lastSyncedAt = new Date().toISOString();
+
+    await setDoc(doc(db, 'userSettings', auth.currentUser.uid), cleanSettings, { merge: true });
+  } catch (error) {
+    console.error("Erreur lors de la synchronisation des paramètres utilisateur:", error);
+    throw error;
+  }
+};
+
+const getAppSettings = async () => {
+  if (!ensureInitialized() || !auth.currentUser) return null;
+
+  try {
+    const settingsDoc = await getDoc(doc(db, 'userSettings', auth.currentUser.uid));
+    if (settingsDoc.exists()) {
+      return settingsDoc.data();
+    }
+    return null;
+  } catch (error) {
+    console.error("Erreur lors de la récupération des paramètres utilisateur:", error);
+    return null;
+  }
+};
+
 // Initialisation de Firebase si la configuration est valide
 const ensureInitialized = async () => {
   if (!isFirebaseConfigured()) {
@@ -304,7 +337,7 @@ export const firebaseService = {
   /**
    * Écoute les mises à jour en temps réel d'un projet public
    */
-  onPublicProjectUpdate(projectId: string, callback: (project: Project | null) => void) {
+  onPublicProjectUpdate: (projectId: string, callback: (project: Project | null) => void) => {
     if (!isFirebaseConfigured()) return () => { };
 
     // On s'assure que db est initialisé (via ensureInitialized implicitement si on arrive ici via une action)
@@ -331,7 +364,7 @@ export const firebaseService = {
   /**
    * Supprime un projet du Cloud
    */
-  async deleteProject(projectId: string): Promise<void> {
+  deleteProject: async (projectId: string): Promise<void> => {
     if (!ensureInitialized()) throw new Error("Firebase n'est pas initialisé");
     if (!auth.currentUser) throw new Error("Vous devez être connecté pour supprimer un projet Cloud");
 
@@ -357,43 +390,10 @@ export const firebaseService = {
     }
   },
 
-  /**
-   * Synchronise les paramètres utilisateur dans le Cloud
-   */
-  async syncAppSettings(appSettings: any): Promise<void> {
-    if (!ensureInitialized() || !auth.currentUser) return;
-
-    try {
-      // Nettoyage des données
-      const cleanSettings = JSON.parse(JSON.stringify(appSettings));
-
-      // Ajout des métadonnées de synchronisation
-      cleanSettings.lastSyncedAt = new Date().toISOString();
-
-      await setDoc(doc(db, 'userSettings', auth.currentUser.uid), cleanSettings, { merge: true });
-    } catch (error) {
-      console.error("Erreur lors de la synchronisation des paramètres utilisateur:", error);
-      throw error;
-    }
-  },
-
-  /**
-   * Récupère les paramètres utilisateur depuis le Cloud
-   */
-  async getAppSettings(): Promise<any | null> {
-    if (!ensureInitialized() || !auth.currentUser) return null;
-
-    try {
-      const settingsDoc = await getDoc(doc(db, 'userSettings', auth.currentUser.uid));
-      if (settingsDoc.exists()) {
-        return settingsDoc.data();
-      }
-      return null;
-    } catch (error) {
-      console.error("Erreur lors de la récupération des paramètres utilisateur:", error);
-      return null;
-    }
-  },
+  // Fonctions pour les paramètres utilisateur
+  syncAppSettings,
+  getAppSettings
+};
 
 // Exporter les instances pour les autres services
 export { db, auth };
