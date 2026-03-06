@@ -59,7 +59,7 @@ export class FirebaseCloudMessaging {
       }
 
       // S'assurer que le service worker est enregistré
-      const registration = await navigator.serviceWorker.register('/sw.js');
+      const registration = await navigator.serviceWorker.register('/gestion-projet/sw.js');
       console.log('Service Worker enregistré pour FCM');
 
       // Demander la permission pour les notifications
