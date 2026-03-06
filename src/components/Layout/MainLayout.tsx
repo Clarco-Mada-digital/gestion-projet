@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { NotificationCenter } from '../UI/NotificationCenter';
 import { OfflineIndicator } from '../UI/OfflineIndicator';

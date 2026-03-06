@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { ModalProvider } from './context/ModalContext';
 import { ChatbotProvider } from './context/ChatbotContext';
@@ -32,6 +32,24 @@ function AppContent() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const taskId = urlParams.get('task');
+
+    // Gérer les redirections depuis GitHub Pages 404.html
+    const redirectPath = sessionStorage.getItem('_astro_redirect');
+    if (redirectPath) {
+      sessionStorage.removeItem('_astro_redirect');
+      const pathParts = redirectPath.split('/').filter(p => p);
+      // Supprimer le base path si présent
+      if (pathParts[0] === 'gestion-projet') pathParts.shift();
+      if (pathParts[0] === 'projects' && pathParts[2] === 'tasks') {
+        const projectId = pathParts[1];
+        const taskIdFromPath = pathParts[3];
+        dispatch({
+          type: 'NAVIGATE_TO_TASK',
+          payload: { projectId, taskId: taskIdFromPath }
+        });
+        return;
+      }
+    }
 
     if (taskId) {
       const allTasks = state.projects.flatMap(p => p.tasks || []);
