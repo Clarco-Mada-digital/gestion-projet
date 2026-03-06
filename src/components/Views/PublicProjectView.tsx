@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Project, Task } from '../../types';
+import { Project, Task, Attachment } from '../../types';
 import { calculateDuration, isMultiDayTask } from '../../utils/dateUtils';
+import { MediaViewer } from '../UI/MediaViewer';
+import { UploadedFile } from '../../services/collaboration/cloudinaryService';
 import { firebaseService } from '../../services/collaboration/firebaseService';
 import { Card } from '../UI/Card';
 import {
@@ -24,8 +26,11 @@ import {
   LayoutGrid,
   CalendarSearch,
   Paperclip,
-  ExternalLink,
-  FileText
+  FileText,
+  Image as ImageIcon,
+  Film,
+  Music,
+  Play
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -481,6 +486,43 @@ export const PublicProjectView = ({ projectId: propProjectId }: { projectId?: st
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
+  // MediaViewer state
+  const [mediaViewerFile, setMediaViewerFile] = useState<UploadedFile | null>(null);
+  const [mediaViewerFiles, setMediaViewerFiles] = useState<UploadedFile[]>([]);
+  const [mediaViewerIndex, setMediaViewerIndex] = useState(0);
+
+  // Convertir un Attachment en UploadedFile pour MediaViewer
+  const attachmentToUploadedFile = (att: Attachment): UploadedFile => ({
+    url: att.url,
+    name: att.name,
+    type: att.type,
+    size: att.size,
+    publicId: att.id,
+    uploadedAt: att.uploadedAt,
+    uploadedBy: att.uploadedBy || '',
+  });
+
+  const openMediaViewer = (attachments: Attachment[], index: number) => {
+    const files = attachments.map(attachmentToUploadedFile);
+    setMediaViewerFiles(files);
+    setMediaViewerIndex(index);
+    setMediaViewerFile(files[index]);
+  };
+
+  const getFileIcon = (att: Attachment) => {
+    if (att.type === 'image') return <ImageIcon className="w-5 h-5 text-indigo-600" />;
+    if (att.type === 'video') return <Film className="w-5 h-5 text-purple-600" />;
+    if (att.type === 'audio') return <Music className="w-5 h-5 text-pink-600" />;
+    return <FileText className="w-5 h-5 text-indigo-600" />;
+  };
+
+  const getFileIconBg = (att: Attachment) => {
+    if (att.type === 'image') return 'bg-indigo-50 dark:bg-indigo-900/30';
+    if (att.type === 'video') return 'bg-purple-50 dark:bg-purple-900/30';
+    if (att.type === 'audio') return 'bg-pink-50 dark:bg-pink-900/30';
+    return 'bg-gray-50 dark:bg-gray-800';
+  };
+
   useEffect(() => {
     if (!projectId) {
       const id = new URLSearchParams(window.location.search).get('id');
@@ -687,31 +729,44 @@ export const PublicProjectView = ({ projectId: propProjectId }: { projectId?: st
                   </div>
                 </div>
               </div>
-              <div className="flex-1 p-10 lg:p-16 overflow-y-auto bg-white dark:bg-[#0F172A]">
-                <div className="max-w-2xl">
-                  <div className="mb-12"><h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-indigo-500 mb-6 border-b border-indigo-100 dark:border-indigo-900 pb-2">Mission</h4><div className="prose dark:prose-invert prose-lg font-medium text-gray-500 leading-relaxed"><ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanMarkdown(selectedTask.description)}</ReactMarkdown></div></div>
+              <div className="flex-1 p-10 lg:p-16 overflow-y-auto overflow-x-hidden bg-white dark:bg-[#0F172A] min-w-0">
+                <div className="w-full min-w-0">
+                  <div className="mb-12">
+                    <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-indigo-500 mb-6 border-b border-indigo-100 dark:border-indigo-900 pb-2">Mission</h4>
+                    <div className="prose dark:prose-invert prose-sm max-w-none font-medium text-gray-500 leading-relaxed break-words overflow-hidden">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanMarkdown(selectedTask.description)}</ReactMarkdown>
+                    </div>
+                  </div>
 
                   {selectedTask.attachments && selectedTask.attachments.length > 0 && (
                     <div className="mb-12">
-                      <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-900 dark:text-white mb-6">Documents & Médias</h4>
+                      <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-900 dark:text-white mb-6">Documents &amp; Médias</h4>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {selectedTask.attachments.map((file) => (
-                          <a
-                            key={file.id}
-                            href={file.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-4 p-4 rounded-3xl bg-gray-50/50 dark:bg-white/5 border border-gray-100 dark:border-white/5 hover:bg-white dark:hover:bg-white/10 hover:shadow-xl hover:scale-[1.02] transition-all group"
+                        {selectedTask.attachments.map((att, idx) => (
+                          <button
+                            key={att.id}
+                            type="button"
+                            onClick={() => openMediaViewer(selectedTask.attachments!, idx)}
+                            className="flex items-center gap-4 p-4 rounded-3xl bg-gray-50/50 dark:bg-white/5 border border-gray-100 dark:border-white/5 hover:bg-white dark:hover:bg-white/10 hover:shadow-xl hover:scale-[1.02] transition-all group text-left w-full min-w-0"
                           >
-                            <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center shadow-inner">
-                              <FileText className="w-5 h-5 text-indigo-600" />
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner flex-shrink-0 ${getFileIconBg(att)}`}>
+                              {att.type === 'image' ? (
+                                <div className="relative w-full h-full rounded-2xl overflow-hidden">
+                                  <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Play className="w-4 h-4 text-white" />
+                                  </div>
+                                </div>
+                              ) : (
+                                getFileIcon(att)
+                              )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="text-[10px] font-black truncate text-gray-900 dark:text-white uppercase">{file.name}</div>
-                              <div className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">{file.type || 'Fichier'}</div>
+                              <div className="text-[10px] font-black truncate text-gray-900 dark:text-white uppercase">{att.name}</div>
+                              <div className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">{att.type || 'Fichier'}</div>
                             </div>
-                            <ExternalLink className="w-4 h-4 text-gray-300 group-hover:text-indigo-600 transition-colors" />
-                          </a>
+                            <Play className="w-4 h-4 text-gray-300 group-hover:text-indigo-600 transition-colors flex-shrink-0" />
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -722,9 +777,11 @@ export const PublicProjectView = ({ projectId: propProjectId }: { projectId?: st
                       <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-900 dark:text-white mb-6">Objectifs intermédiaires</h4>
                       <div className="grid grid-cols-1 gap-3">
                         {selectedTask.subTasks.map(sub => (
-                          <div key={sub.id} className="flex items-center gap-4 p-5 rounded-3xl bg-gray-50/50 dark:bg-white/5 border border-gray-100 dark:border-white/5">
-                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-lg ${sub.completed ? 'bg-green-500 text-white ring-4 ring-green-500/10' : 'bg-white dark:bg-gray-800'}`}>{sub.completed ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4 text-gray-300" />}</div>
-                            <span className={`text-sm font-bold transition-all ${sub.completed ? 'text-gray-400 line-through' : 'text-gray-700 dark:text-gray-300'}`}>{sub.title}</span>
+                          <div key={sub.id} className="flex items-center gap-4 p-5 rounded-3xl bg-gray-50/50 dark:bg-white/5 border border-gray-100 dark:border-white/5 min-w-0">
+                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0 ${sub.completed ? 'bg-green-500 text-white ring-4 ring-green-500/10' : 'bg-white dark:bg-gray-800'}`}>
+                              {sub.completed ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4 text-gray-300" />}
+                            </div>
+                            <span className={`text-sm font-bold break-words min-w-0 flex-1 ${sub.completed ? 'text-gray-400 line-through' : 'text-gray-700 dark:text-gray-300'}`}>{sub.title}</span>
                           </div>
                         ))}
                       </div>
@@ -736,6 +793,26 @@ export const PublicProjectView = ({ projectId: propProjectId }: { projectId?: st
           </div>
         )}
       </AnimatePresence>
+
+      {/* MediaViewer pour les fichiers joints */}
+      {mediaViewerFile && (
+        <MediaViewer
+          file={mediaViewerFile}
+          files={mediaViewerFiles}
+          isOpen={!!mediaViewerFile}
+          onClose={() => setMediaViewerFile(null)}
+          onNext={() => {
+            const next = Math.min(mediaViewerIndex + 1, mediaViewerFiles.length - 1);
+            setMediaViewerIndex(next);
+            setMediaViewerFile(mediaViewerFiles[next]);
+          }}
+          onPrevious={() => {
+            const prev = Math.max(mediaViewerIndex - 1, 0);
+            setMediaViewerIndex(prev);
+            setMediaViewerFile(mediaViewerFiles[prev]);
+          }}
+        />
+      )}
 
       <style>{`
         .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
