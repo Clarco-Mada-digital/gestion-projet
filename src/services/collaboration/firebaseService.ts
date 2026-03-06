@@ -358,28 +358,42 @@ export const firebaseService = {
   },
 
   /**
-   * Permet à un collaborateur de quitter un projet
+   * Synchronise les paramètres utilisateur dans le Cloud
    */
-  async leaveProject(projectId: string): Promise<void> {
+  async syncAppSettings(appSettings: any): Promise<void> {
     if (!ensureInitialized() || !auth.currentUser) return;
 
     try {
-      const projectDoc = await getDoc(doc(db, 'projects', projectId));
-      if (!projectDoc.exists()) return;
+      // Nettoyage des données
+      const cleanSettings = JSON.parse(JSON.stringify(appSettings));
 
-      const projectData = projectDoc.data();
-      const members = projectData.members || [];
-      const updatedMembers = members.filter((uid: string) => uid !== auth.currentUser.uid);
+      // Ajout des métadonnées de synchronisation
+      cleanSettings.lastSyncedAt = new Date().toISOString();
 
-      await setDoc(doc(db, 'projects', projectId), {
-        members: updatedMembers
-      }, { merge: true });
+      await setDoc(doc(db, 'userSettings', auth.currentUser.uid), cleanSettings, { merge: true });
     } catch (error) {
-      console.error("Erreur lors de la sortie du projet Cloud:", error);
+      console.error("Erreur lors de la synchronisation des paramètres utilisateur:", error);
       throw error;
     }
-  }
-};
+  },
+
+  /**
+   * Récupère les paramètres utilisateur depuis le Cloud
+   */
+  async getAppSettings(): Promise<any | null> {
+    if (!ensureInitialized() || !auth.currentUser) return null;
+
+    try {
+      const settingsDoc = await getDoc(doc(db, 'userSettings', auth.currentUser.uid));
+      if (settingsDoc.exists()) {
+        return settingsDoc.data();
+      }
+      return null;
+    } catch (error) {
+      console.error("Erreur lors de la récupération des paramètres utilisateur:", error);
+      return null;
+    }
+  },
 
 // Exporter les instances pour les autres services
 export { db, auth };

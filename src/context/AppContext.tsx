@@ -591,6 +591,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           const sharedProjects = await firebaseService.getSharedProjects();
           dispatch({ type: 'SYNC_PROJECTS', payload: sharedProjects });
+
+          // Charger les paramètres utilisateur depuis Firebase
+          const cloudAppSettings = await firebaseService.getAppSettings();
+          if (cloudAppSettings) {
+            // Fusionner avec les paramètres locaux (priorité aux paramètres locaux si conflit)
+            const mergedSettings = { ...cloudAppSettings, ...state.appSettings };
+            dispatch({ type: 'UPDATE_APP_SETTINGS', payload: mergedSettings });
+          }
         } catch (error) {
           console.error("Erreur lors de la synchronisation:", error);
         }
@@ -646,43 +654,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => clearInterval(interval);
   }, [state.currentView, state.cloudUser]);
 
-  // Synchronisation automatique des modifications VERS Firebase (Live Update)
+  // Synchronisation automatique des paramètres utilisateur VERS Firebase
   useEffect(() => {
-    if (!state.cloudUser) return;
+    if (!state.cloudUser || state.isLoading) return;
 
-    // On debouche pour éviter d'envoyer trop de requêtes (ex: pendant un drag & drop)
+    // Debounce pour éviter trop de requêtes
     const timeoutId = setTimeout(async () => {
-      const projectsToSync = state.projects.filter(p => {
-        // Uniquement les projets cloud dont nous sommes propriétaires ou admins
-        const isCloud = p.source === 'firebase';
-        const hasRights = p.ownerId === state.cloudUser?.uid || p.memberRoles?.[state.cloudUser?.uid || ''] === 'admin' || p.memberRoles?.[state.cloudUser?.uid || ''] === 'member';
-
-        if (!isCloud || !hasRights) return false;
-
-        // Si updatedAt est plus récent que lastSyncedAt, on doit synchroniser
-        if (!p.lastSyncedAt) return true; // Premier sync
-        return new Date(p.updatedAt) > new Date(p.lastSyncedAt);
-      });
-
-      for (const project of projectsToSync) {
-        try {
-          console.log(`[Sync-Live] Synchronisation automatique du projet: ${project.name}`);
-          await firebaseService.syncProject(project);
-
-          // On met à jour localement lastSyncedAt pour marquer comme synchronisé
-          // Note: On ne déclenche pas UPDATE_PROJECT car ça relancerait l'effet,
-          // on peut potentiellement ignorer ce dispatch et laisser refreshData s'en charger 
-          // ou faire un dispatch silencieux si on avait un type dédié.
-          // Pour l'instant on laisse comme ça car syncProject met à jour Firebase 
-          // et au prochain polling/refresh localement, updatedAt égalera lastSyncedAt sur Firebase.
-        } catch (error) {
-          console.error(`[Sync-Live] Erreur lors de la synchronisation de ${project.name}: `, error);
-        }
+      try {
+        console.log('[Sync-AppSettings] Synchronisation automatique des paramètres utilisateur');
+        await firebaseService.syncAppSettings(state.appSettings);
+      } catch (error) {
+        console.error('[Sync-AppSettings] Erreur lors de la synchronisation des paramètres utilisateur:', error);
       }
-    }, 2000); // 2 secondes de délai après la dernière modification
+    }, 1000); // 1 seconde de délai après la dernière modification
 
     return () => clearTimeout(timeoutId);
-  }, [state.projects, state.cloudUser]);
+  }, [state.appSettings, state.cloudUser, state.isLoading]);
 
   // Effet pour charger les données initiales au démarrage
   useEffect(() => {
