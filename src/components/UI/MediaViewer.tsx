@@ -334,7 +334,7 @@ export function MediaViewer({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black">
       <div ref={containerRef} className="relative w-screen h-screen flex flex-col">
         <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/80 to-transparent p-3">
           <div className="flex items-center justify-between">

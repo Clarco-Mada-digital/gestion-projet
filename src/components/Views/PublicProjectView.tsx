@@ -63,12 +63,13 @@ const isTaskActiveOnDay = (task: Task, date: Date) => {
 
 // --- Sub-components ---
 
-const DashboardView = ({ project, stats, tasks, attachments, onSelectView }: {
+const DashboardView = ({ project, stats, tasks, attachments, onSelectView, onOpenMediaViewer }: {
   project: Project,
   stats: { total: number, done: number, progress: number, inProgress: number },
   tasks: Task[],
   attachments: any[],
-  onSelectView: (v: ViewMode) => void
+  onSelectView: (v: ViewMode) => void,
+  onOpenMediaViewer: (attachments: Attachment[], index: number) => void
 }) => {
   const projectColor = project.color || '#4f46e5';
 
@@ -200,18 +201,16 @@ const DashboardView = ({ project, stats, tasks, attachments, onSelectView }: {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {attachments.slice(0, 6).map((file, i) => (
-                <a
+                <button
                   key={file.id || i}
-                  href={file.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  onClick={() => onOpenMediaViewer(allAttachments, i)}
                   className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100/50 dark:border-gray-800 hover:border-indigo-300 dark:hover:border-indigo-700 transition-all group"
                 >
                   <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center shrink-0">
                     <FileText className="w-3 h-3 text-indigo-500" />
                   </div>
                   <span className="text-[9px] font-bold truncate text-gray-600 dark:text-gray-400 group-hover:text-indigo-600 transition-colors">{file.name}</span>
-                </a>
+                </button>
               ))}
               {attachments.length > 6 && (
                 <div className="flex items-center justify-center p-2 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
@@ -637,7 +636,7 @@ export const PublicProjectView = ({ projectId: propProjectId }: { projectId?: st
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 lg:px-10 pb-8 overflow-hidden relative">
         <AnimatePresence mode="wait">
-          {viewMode === 'dashboard' && <motion.div key="db" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full"><DashboardView project={project} stats={stats} tasks={tasks} attachments={allAttachments} onSelectView={setViewMode} /></motion.div>}
+          {viewMode === 'dashboard' && <motion.div key="db" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full"><DashboardView project={project} stats={stats} tasks={tasks} attachments={allAttachments} onSelectView={setViewMode} onOpenMediaViewer={openMediaViewer} /></motion.div>}
 
           {viewMode === 'board' && (
             <motion.div key="board" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="h-full flex gap-6 overflow-x-auto pb-4 custom-scroll">
