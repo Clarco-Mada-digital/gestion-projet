@@ -1,6 +1,6 @@
 {
-  "name": "GestionProjets",
-  "short_name": "MyGP",
+  "name": "GestionProjet",
+  "short_name": "GestionProjet",
   "description": "Application de gestion de projets et tâches avec mode hors-ligne",
   "start_url": "/gestion-projet/",
   "scope": "/gestion-projet/",
