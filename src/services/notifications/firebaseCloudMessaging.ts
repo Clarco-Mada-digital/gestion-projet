@@ -23,7 +23,7 @@ export class FirebaseCloudMessaging {
   private static instance: FirebaseCloudMessaging;
   private currentToken: string | null = null;
   private unsubscribeHandlers: (() => void)[] = [];
-
+  private registration: ServiceWorkerRegistration | null = null;
   private constructor() {
     ensureInitialized();
   }
@@ -63,26 +63,29 @@ export class FirebaseCloudMessaging {
       }
 
       // Obtenir le token FCM
-      const token = await getToken(messaging, {
-        vapidKey: 'BMz1kY8l6J4x7S9n2P5qR8tW3v6X9zA1C4D7E0F2G5H8I1J3K6L9M0N3O6P9Q2R5S8T1U4V7W0X3Z6A9B2C5E8F1G4H7I0J3K6L9M0N3O6P9Q2R5S8T1U4V7W0X3Z6',
-        serviceWorkerRegistration: registration
-      });
+      // const token = await getToken(messaging, {
+      //   vapidKey: 'BMz1kY8l6J4x7S9n2P5qR8tW3v6X9zA1C4D7E0F2G5H8I1J3K6L9M0N3O6P9Q2R5S8T1U4V7W0X3Z6A9B2C5E8F1G4H7I0J3K6L9M0N3O6P9Q2R5S8T1U4V7W0X3Z6',
+      //   serviceWorkerRegistration: registration
+      // });
 
-      if (token) {
-        this.currentToken = token;
-        console.log('Token FCM obtenu:', token);
-        
-        // Sauvegarder le token dans localStorage pour le debugging
-        localStorage.setItem('fcm_token', token);
-        
-        // Envoyer le token au serveur
-        await this.sendTokenToServer(token);
-        
-        return token;
-      } else {
-        console.error('Impossible d\'obtenir le token FCM');
-        return null;
-      }
+      // if (token) {
+      //   this.currentToken = token;
+      //   console.log('Token FCM obtenu:', token);
+      //   
+      //   // Sauvegarder le token dans localStorage pour le debugging
+      //   localStorage.setItem('fcm_token', token);
+      //   
+      //   // Envoyer le token au serveur
+      //   await this.sendTokenToServer(token);
+      //   
+      //   return token;
+      // } else {
+      //   console.error('Impossible d\'obtenir le token FCM');
+      //   return null;
+      // }
+
+      console.log('FCM prêt (token désactivé temporairement)');
+      return 'disabled';
     } catch (error) {
       console.error('Erreur lors de l\'obtention du token FCM:', error);
       return null;
@@ -195,6 +198,12 @@ export class FirebaseCloudMessaging {
       this.currentToken = null;
       localStorage.removeItem('fcm_token');
       
+      if (this.registration) {
+        await this.registration.unregister();
+        this.registration = null;
+        console.log('Service Worker désenregistré');
+      }
+      
       // Notifier le serveur de la suppression du token
       await fetch('/api/fcm/token', {
         method: 'DELETE',
@@ -232,6 +241,11 @@ export class FirebaseCloudMessaging {
   public cleanup(): void {
     this.unsubscribeHandlers.forEach(unsubscribe => unsubscribe());
     this.unsubscribeHandlers = [];
+    
+    if (this.registration) {
+      this.registration.unregister();
+      this.registration = null;
+    }
   }
 
   /**

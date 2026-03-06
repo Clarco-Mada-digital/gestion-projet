@@ -203,7 +203,7 @@ const DashboardView = ({ project, stats, tasks, attachments, onSelectView, onOpe
               {attachments.slice(0, 6).map((file, i) => (
                 <button
                   key={file.id || i}
-                  onClick={() => onOpenMediaViewer(allAttachments, i)}
+                  onClick={() => onOpenMediaViewer(attachments, i)}
                   className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100/50 dark:border-gray-800 hover:border-indigo-300 dark:hover:border-indigo-700 transition-all group"
                 >
                   <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center shrink-0">
