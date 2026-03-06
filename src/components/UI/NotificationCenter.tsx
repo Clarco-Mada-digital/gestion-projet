@@ -130,8 +130,10 @@ export function NotificationCenter() {
   }, [state.cloudUser, cloudNotifications]);
 
   useEffect(() => {
-    initializeFCM();
-  }, []);
+    if (state.cloudUser) {
+      initializeFCM();
+    }
+  }, [state.cloudUser]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
