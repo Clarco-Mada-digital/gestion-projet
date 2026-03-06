@@ -80,7 +80,7 @@ export function TodayView() {
         return false;
       }
       // Exclure les projets non suivis
-      if (project.isFollowed === false) {
+      if (!(state.appSettings.followedProjects?.includes(project.id) ?? true)) {
         return false;
       }
       return project.status === 'active';
@@ -103,7 +103,7 @@ export function TodayView() {
         return false;
       }
       // Exclure les projets non suivis
-      if (project.isFollowed === false) {
+      if (!(state.appSettings.followedProjects?.includes(project.id) ?? true)) {
         return false;
       }
       return project.status === 'active';

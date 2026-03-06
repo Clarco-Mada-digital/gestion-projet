@@ -305,20 +305,22 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowMenu(false);
-                    const updatedProject = {
-                      ...project,
-                      isFollowed: project.isFollowed !== false ? false : true
-                    };
-                    dispatch({ type: 'UPDATE_PROJECT', payload: updatedProject });
+                    const isCurrentlyFollowed = state.appSettings.followedProjects?.includes(project.id) ?? true;
+                    const updatedFollowedProjects = isCurrentlyFollowed
+                      ? (state.appSettings.followedProjects || []).filter(id => id !== project.id)
+                      : [...(state.appSettings.followedProjects || []), project.id];
 
-                    // Sauvegarder dans Firebase si c'est un projet cloud
-                    if (project.source === 'firebase') {
-                      firebaseService.syncProject(updatedProject);
-                    }
+                    dispatch({
+                      type: 'UPDATE_APP_SETTINGS',
+                      payload: {
+                        ...state.appSettings,
+                        followedProjects: updatedFollowedProjects
+                      }
+                    });
                   }}
                   className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
-                  {project.isFollowed !== false ? (
+                  {(state.appSettings.followedProjects?.includes(project.id) ?? true) ? (
                     <>
                       <Eye className="w-4 h-4 mr-3" />
                       Ne plus suivre

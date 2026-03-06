@@ -182,7 +182,7 @@ export function ReportView() {
         start: report.startDate.toISOString(),
         end: report.endDate.toISOString()
       },
-      projectIds: selectedProjectIds.length > 0 ? selectedProjectIds : state.projects.filter(p => p.status === 'active' && p.isFollowed !== false).map(p => p.id),
+      projectIds: selectedProjectIds.length > 0 ? selectedProjectIds : state.projects.filter(p => p.status === 'active' && (state.appSettings.followedProjects?.includes(p.id) ?? true)).map(p => p.id),
       type: (aiReport ? 'ai' : 'standard') as 'ai' | 'standard',
       metadata: {
         emailSent: false,
@@ -347,7 +347,7 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
               start: report.startDate.toISOString(),
               end: report.endDate.toISOString()
             },
-            projectIds: selectedProjectIds.length > 0 ? selectedProjectIds : state.projects.filter(p => p.status === 'active' && p.isFollowed !== false).map(p => p.id),
+            projectIds: selectedProjectIds.length > 0 ? selectedProjectIds : state.projects.filter(p => p.status === 'active' && (state.appSettings.followedProjects?.includes(p.id) ?? true)).map(p => p.id),
             type: (aiReport ? 'ai' : 'standard') as 'ai' | 'standard',
             metadata: {
               emailSent: true,
@@ -419,7 +419,7 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
       .filter(project => {
         const isSelected = selectedProjectIds.length === 0 || selectedProjectIds.includes(project.id);
         const isActive = project.status === 'active';
-        const isFollowed = project.isFollowed !== false;
+        const isFollowed = (state.appSettings.followedProjects?.includes(project.id) ?? true);
         return isSelected && isActive && isFollowed;
       })
       .map(project => {
@@ -895,7 +895,7 @@ RÈGLES :
                       Tous les projets
                     </button>
                     <div className="h-px bg-gray-100 dark:bg-gray-700 my-1" />
-                    {state.projects.filter(p => p.status === 'active' && p.isFollowed !== false).map(project => (
+                    {state.projects.filter(p => p.status === 'active' && (state.appSettings.followedProjects?.includes(p.id) ?? true)).map(project => (
                       <label key={project.id} className="flex items-center px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors">
                         <input
                           type="checkbox"

@@ -93,7 +93,7 @@ export function CalendarView() {
     .filter((project) => {
       if (project.status !== 'active') return false;
       if (selectedProjectIds.length > 0 && !selectedProjectIds.includes(project.id)) return false;
-      if (!showUnfollowedProjects && project.isFollowed === false) return false;
+      if (!showUnfollowedProjects && !(state.appSettings.followedProjects?.includes(project.id) ?? true)) return false;
       return true;
     })
     .flatMap((p) => p.tasks)

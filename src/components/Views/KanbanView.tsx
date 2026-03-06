@@ -223,7 +223,7 @@ export function KanbanView() {
       tasksToDisplay = state.projects
         .filter(project => {
           const isActive = project.status === 'active';
-          const isFollowed = showUnfollowedProjects || project.isFollowed !== false;
+          const isFollowed = showUnfollowedProjects || (state.appSettings.followedProjects?.includes(project.id) ?? true);
           return isActive && isFollowed;
         })
         .flatMap(p => p.tasks);
@@ -232,7 +232,7 @@ export function KanbanView() {
         .filter(p => {
           const isSelected = selectedProjectIds.includes(p.id);
           const isActive = p.status === 'active';
-          const isFollowed = showUnfollowedProjects || p.isFollowed !== false;
+          const isFollowed = showUnfollowedProjects || (state.appSettings.followedProjects?.includes(p.id) ?? true);
           return isSelected && isActive && isFollowed;
         })
         .flatMap(p => p.tasks);

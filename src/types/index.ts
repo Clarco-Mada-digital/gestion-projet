@@ -263,6 +263,7 @@ export interface AppSettings {
   enableErrorReporting: boolean;
   aiSettings: AISettings;
   contacts: Contact[];
+  followedProjects?: string[]; // Liste des IDs des projets suivis par l'utilisateur
   kanbanSettings?: {
     columnOrder: string[];
     taskOrder?: Record<string, string[]>;
