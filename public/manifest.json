@@ -1,6 +1,6 @@
 {
-  "name": "ProjectFlow - Gestion de Projets",
-  "short_name": "ProjectFlow",
+  "name": "GestionProjets",
+  "short_name": "MyGP",
   "description": "Application de gestion de projets et tâches avec mode hors-ligne",
   "start_url": "/gestion-projet/",
   "scope": "/gestion-projet/",
@@ -16,26 +16,26 @@
   ],
   "icons": [
     {
-      "src": "./icons/icon-72x72.png",
-      "sizes": "72x72",
+      "src": "./icons/icon-16x16.png",
+      "sizes": "16x16",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./icons/icon-96x96.png",
-      "sizes": "96x96",
+      "src": "./icons/icon-32x32.png",
+      "sizes": "32x32",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./icons/icon-128x128.png",
-      "sizes": "128x128",
+      "src": "./icons/icon-192x192.png",
+      "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./icons/icon-144x144.png",
-      "sizes": "144x144",
+      "src": "./icons/icon-512x512.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
@@ -44,30 +44,6 @@
       "sizes": "152x152",
       "type": "image/png",
       "purpose": "any"
-    },
-    {
-      "src": "./icons/icon-180x180.png",
-      "sizes": "180x180",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "./icons/icon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "./icons/icon-384x384.png",
-      "sizes": "384x384",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "./icons/icon-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
     }
   ],
   "screenshots": [],
