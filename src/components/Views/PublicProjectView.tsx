@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Project, Task } from '../../types';
+import { calculateDuration, isMultiDayTask } from '../../utils/dateUtils';
 import { firebaseService } from '../../services/collaboration/firebaseService';
 import { Card } from '../UI/Card';
 import {
@@ -668,7 +669,22 @@ export const PublicProjectView = ({ projectId: propProjectId }: { projectId?: st
                 <div className="space-y-6 pt-10 mt-10 border-t border-gray-100 dark:border-gray-800">
                   <div className="flex justify-between items-center"><span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Début</span><span className="text-xs font-black">{new Date(selectedTask.startDate).toLocaleDateString()}</span></div>
                   <div className="flex justify-between items-center"><span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Échéance</span><span className="text-xs font-black text-red-500">{selectedTask.dueDate ? new Date(selectedTask.dueDate).toLocaleDateString() : 'Non définie'}</span></div>
-                  <div className="flex justify-between items-center"><span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Charge</span><span className="text-xs font-black text-indigo-500">{selectedTask.estimatedHours || 0}h</span></div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">
+                      {isMultiDayTask(selectedTask.startDate, selectedTask.dueDate || selectedTask.endDate || selectedTask.startDate)
+                        ? 'Durée totale'
+                        : 'Charge estimée'
+                      }
+                    </span>
+                    <span className="text-xs font-black text-indigo-500">
+                      {isMultiDayTask(selectedTask.startDate, selectedTask.dueDate || selectedTask.endDate || selectedTask.startDate)
+                        ? calculateDuration(selectedTask.startDate, selectedTask.dueDate || selectedTask.endDate || selectedTask.startDate)
+                        : selectedTask.estimatedHours && selectedTask.estimatedHours > 0
+                          ? `${selectedTask.estimatedHours}h`
+                          : 'Non spécifié'
+                      }
+                    </span>
+                  </div>
                 </div>
               </div>
               <div className="flex-1 p-10 lg:p-16 overflow-y-auto bg-white dark:bg-[#0F172A]">
