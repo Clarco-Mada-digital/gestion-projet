@@ -397,7 +397,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
 
 
   return (
-    <div className="max-w-4xl mx-auto p-4 sm:p-6">
+    <div className="max-w-4xl mx-auto py-2 px-0 md:p-6">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
         <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-medium text-gray-900 dark:text-white">
@@ -408,7 +408,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
           </p>
         </div>
 
-        <div className="p-6">
+        <div className="py-4">
           <Form
             form={form}
             onFinish={handleSave}
@@ -579,7 +579,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
             )}
 
             {/* Boutons d'action */}
-            <div className="flex flex-wrap justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex flex-wrap justify-between md:justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
               <button
                 type="button"
                 onClick={handleTestConnection}
@@ -622,7 +622,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                     </svg>
-                    Enregistrer les paramètres
+                    Enregistrer
                   </>
                 )}
               </button>

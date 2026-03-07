@@ -55,7 +55,7 @@ export function NotificationSettings() {
   const checkPermissionStatus = async () => {
     const status = await notificationService.getPermissionStatus();
     setPermissionGranted(status.granted);
-    
+
     // Mettre à jour le contexte avec l'état réel des permissions
     dispatch({
       type: 'UPDATE_USER_SETTINGS',
@@ -71,7 +71,7 @@ export function NotificationSettings() {
     if (savedSettings) {
       const parsed = JSON.parse(savedSettings);
       setSettings(parsed);
-      
+
       // Synchroniser avec l'état global
       dispatch({
         type: 'UPDATE_USER_SETTINGS',
@@ -86,9 +86,9 @@ export function NotificationSettings() {
   const saveSettings = (newSettings: NotificationSettings) => {
     setSettings(newSettings);
     localStorage.setItem('notificationSettings', JSON.stringify(newSettings));
-    
+
     const isAnyNotificationEnabled = newSettings.taskReminders || newSettings.taskOverdue || newSettings.taskCompleted || newSettings.projectMilestones;
-    
+
     // Mettre à jour les paramètres utilisateur dans le contexte
     dispatch({
       type: 'UPDATE_USER_SETTINGS',
@@ -97,7 +97,7 @@ export function NotificationSettings() {
         pushNotifications: isAnyNotificationEnabled
       }
     });
-    
+
     // Mettre à jour aussi appSettings pour le NotificationCenter
     dispatch({
       type: 'UPDATE_APP_SETTINGS',
@@ -111,7 +111,7 @@ export function NotificationSettings() {
   const requestPermission = async () => {
     const granted = await notificationService.requestPermission();
     setPermissionGranted(granted);
-    
+
     if (granted) {
       // Activer les types de notifications par défaut
       const enabledSettings = {
@@ -121,10 +121,10 @@ export function NotificationSettings() {
         taskCompleted: true,
         projectMilestones: true
       };
-      
+
       // Sauvegarder dans localStorage
       saveSettings(enabledSettings);
-      
+
       // Mettre à jour les deux états
       dispatch({
         type: 'UPDATE_USER_SETTINGS',
@@ -133,7 +133,7 @@ export function NotificationSettings() {
           pushNotifications: true
         }
       });
-      
+
       dispatch({
         type: 'UPDATE_APP_SETTINGS',
         payload: {
@@ -141,7 +141,7 @@ export function NotificationSettings() {
           pushNotifications: true
         }
       });
-      
+
       // Afficher une notification de test
       await notificationService.showNotification({
         title: '🎉 Notifications activées!',
@@ -158,7 +158,7 @@ export function NotificationSettings() {
     const success = await notificationService.unsubscribe();
     if (success) {
       setPermissionGranted(false);
-      
+
       // Désactiver tous les types de notifications
       const disabledSettings = {
         ...settings,
@@ -167,10 +167,10 @@ export function NotificationSettings() {
         taskCompleted: false,
         projectMilestones: false
       };
-      
+
       // Sauvegarder dans localStorage
       saveSettings(disabledSettings);
-      
+
       // Mettre à jour les deux états
       dispatch({
         type: 'UPDATE_USER_SETTINGS',
@@ -179,7 +179,7 @@ export function NotificationSettings() {
           pushNotifications: false
         }
       });
-      
+
       dispatch({
         type: 'UPDATE_APP_SETTINGS',
         payload: {
@@ -192,7 +192,7 @@ export function NotificationSettings() {
 
   const sendTestNotification = async () => {
     if (!permissionGranted) return;
-    
+
     // Tester les notifications locales
     await notificationService.showNotification({
       title: '🔔 Notification de test',
@@ -203,7 +203,7 @@ export function NotificationSettings() {
       vibrate: settings.vibrationEnabled ? [200, 100, 200] : undefined,
       data: { type: 'test' }
     });
-    
+
     // Tester les notifications Firebase si activées
     if (settings.firebasePushEnabled) {
       try {
@@ -214,7 +214,7 @@ export function NotificationSettings() {
         console.error('Erreur lors du test des notifications Firebase:', error);
       }
     }
-    
+
     setTestNotificationSent(true);
     setTimeout(() => setTestNotificationSent(false), 3000);
   };
@@ -257,7 +257,7 @@ export function NotificationSettings() {
     <div className="space-y-6">
       {/* Statut des notifications */}
       <Card className="p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between flex-wrap mb-4">
           <div className="flex items-center gap-3">
             <div className={`p-2 rounded-full ${areNotificationsActive ? 'bg-green-100 dark:bg-green-900/30' : 'bg-gray-100 dark:bg-gray-800'}`}>
               {areNotificationsActive ? (
@@ -275,7 +275,7 @@ export function NotificationSettings() {
               </p>
             </div>
           </div>
-          
+
           {!permissionGranted ? (
             <Button onClick={requestPermission}>
               Activer les notifications
@@ -295,16 +295,16 @@ export function NotificationSettings() {
               Activer les notifications
             </Button>
           ) : (
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
+            <div className="flex justify-between pt-4 md:pt-0 md:justify-end w-full md:w-auto items-center gap-2">
+              <Button
+                variant="outline"
                 onClick={sendTestNotification}
                 disabled={testNotificationSent}
               >
                 {testNotificationSent ? 'Envoyée!' : 'Tester'}
               </Button>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 onClick={handleDisableNotifications}
               >
                 Désactiver
@@ -316,7 +316,7 @@ export function NotificationSettings() {
         {permissionGranted && (
           <div className="text-sm text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
             <p>
-              💡 Les notifications vous aideront à ne jamais oublier une tâche importante. 
+              💡 Les notifications vous aideront à ne jamais oublier une tâche importante.
               Vous recevrez des rappels pour les tâches dues aujourd'hui et les tâches en retard.
             </p>
           </div>
@@ -329,36 +329,36 @@ export function NotificationSettings() {
           <Settings className="w-5 h-5" />
           Types de notifications
         </h3>
-        
+
         <div className="space-y-3">
           {[
-            { 
-              key: 'taskReminders' as keyof NotificationSettings, 
-              label: 'Rappels de tâches', 
+            {
+              key: 'taskReminders' as keyof NotificationSettings,
+              label: 'Rappels de tâches',
               description: 'Recevoir un rappel lorsque une tâche est due aujourd\'hui',
               icon: <Clock className="w-4 h-4" />
             },
-            { 
-              key: 'taskOverdue' as keyof NotificationSettings, 
-              label: 'Tâches en retard', 
+            {
+              key: 'taskOverdue' as keyof NotificationSettings,
+              label: 'Tâches en retard',
               description: 'Être notifié lorsqu\'une tâche est en retard',
               icon: <Bell className="w-4 h-4" />
             },
-            { 
-              key: 'taskCompleted' as keyof NotificationSettings, 
-              label: 'Tâches terminées', 
+            {
+              key: 'taskCompleted' as keyof NotificationSettings,
+              label: 'Tâches terminées',
               description: 'Être notifié lorsqu\'une tâche est marquée comme terminée',
               icon: <Bell className="w-4 h-4" />
             },
-            { 
-              key: 'projectMilestones' as keyof NotificationSettings, 
-              label: 'Jalons de projet', 
+            {
+              key: 'projectMilestones' as keyof NotificationSettings,
+              label: 'Jalons de projet',
               description: 'Recevoir des notifications pour les jalons importants des projets',
               icon: <Monitor className="w-4 h-4" />
             },
-            { 
-              key: 'firebasePushEnabled' as keyof NotificationSettings, 
-              label: 'Notifications Cloud (Firebase)', 
+            {
+              key: 'firebasePushEnabled' as keyof NotificationSettings,
+              label: 'Notifications Cloud (Firebase)',
               description: 'Recevoir des notifications même quand l\'application est fermée',
               icon: <Smartphone className="w-4 h-4" />
             }
@@ -393,7 +393,7 @@ export function NotificationSettings() {
           <Smartphone className="w-5 h-5" />
           Préférences de notification
         </h3>
-        
+
         <div className="space-y-4">
           {/* Son */}
           <div className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
@@ -451,7 +451,7 @@ export function NotificationSettings() {
           <Clock className="w-5 h-5" />
           Heures de silence
         </h3>
-        
+
         <div className="space-y-4">
           <div className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
             <div>
