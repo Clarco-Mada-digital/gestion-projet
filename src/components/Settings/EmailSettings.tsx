@@ -324,7 +324,7 @@ export function EmailSettings() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               {/* Service ID */}
               <div className="col-span-2">
                 <label htmlFor="serviceId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -346,7 +346,7 @@ export function EmailSettings() {
               </div>
 
               {/* Template ID */}
-              <div>
+              <div className="col-span-2">
                 <label htmlFor="templateId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   ID du modèle <span className="text-red-500">*</span>
                 </label>
@@ -366,7 +366,7 @@ export function EmailSettings() {
               </div>
 
               {/* User ID */}
-              <div>
+              <div className="col-span-2">
                 <label htmlFor="userId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Clé publique (User ID) <span className="text-red-500">*</span>
                 </label>
@@ -433,7 +433,7 @@ export function EmailSettings() {
               </div>
 
               {/* Expéditeur */}
-              <div>
+              <div className="col-span-2">
                 <label htmlFor="fromName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Nom de l'expéditeur
                 </label>
@@ -448,7 +448,7 @@ export function EmailSettings() {
                 />
               </div>
 
-              <div>
+              <div className="col-span-2">
                 <label htmlFor="fromEmail" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Email de l'expéditeur <span className="text-red-500">*</span>
                 </label>
@@ -484,7 +484,7 @@ export function EmailSettings() {
               </div>
 
               {/* Activer/désactiver */}
-              <div className="flex items-start">
+              <div className="flex items-start col-span-2">
                 <div className="flex items-center h-5">
                   <input
                     id="isEnabled"

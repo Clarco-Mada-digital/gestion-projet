@@ -684,41 +684,6 @@ export function SettingsView() {
                     )}
                   </div>
                 </div>
-
-                <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Préférences de notification</h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="emailNotifications"
-                        name="emailNotifications"
-                        checked={!!formData.emailNotifications}
-                        onChange={handleInputChange}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600"
-                        disabled={isLoading}
-                      />
-                      <label htmlFor="emailNotifications" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                        Recevoir les notifications par email
-                      </label>
-                    </div>
-
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="pushNotifications"
-                        name="pushNotifications"
-                        checked={!!formData.pushNotifications}
-                        onChange={handleInputChange}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600"
-                        disabled={isLoading}
-                      />
-                      <label htmlFor="pushNotifications" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                        Activer les notifications push
-                      </label>
-                    </div>
-                  </div>
-                </div>
               </form>
             ) : (
               <div className="space-y-6">
@@ -916,7 +881,7 @@ export function SettingsView() {
 
         {/* Content Area */}
         <div className="flex-1 min-w-0 w-full space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-          <Card className="p-8 h-full min-h-[600px] border-none shadow-xl bg-white/60 dark:bg-gray-800/60 transition-all duration-300">
+          <Card className="p-2 h-full min-h-[600px] border-none shadow-xl bg-white/60 dark:bg-gray-800/60 transition-all duration-300">
             {renderTabContent()}
           </Card>
         </div>

@@ -428,30 +428,30 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
         const completedMainTasks = allTasks
           .filter(task => task.status !== 'non-suivi')
           .filter((task): task is Task & { completedAt: string } => {
-          if (task.status !== 'done' || !task.completedAt) return false;
-          const taskCompletedDate = new Date(task.completedAt);
-          return isDateInRange(taskCompletedDate, start, end);
-        });
+            if (task.status !== 'done' || !task.completedAt) return false;
+            const taskCompletedDate = new Date(task.completedAt);
+            return isDateInRange(taskCompletedDate, start, end);
+          });
 
         const allCompletedSubTasks = allTasks
           .filter(task => task.status !== 'non-suivi')
           .flatMap(task => {
-          const subTasks = task.subTasks || [];
-          return subTasks
-            .filter((subTask): subTask is SubTask & { completedAt: string } => {
-              return !!subTask.completed && !!subTask.completedAt;
-            })
-            .map(subTask => {
-              const subTaskCompletedDate = new Date(subTask.completedAt);
-              const inRange = isDateInRange(subTaskCompletedDate, start, end);
-              return {
-                ...subTask,
-                parentTaskId: task.id,
-                parentTaskTitle: task.title,
-                _inRange: inRange
-              };
-            });
-        }).filter(subTask => subTask._inRange);
+            const subTasks = task.subTasks || [];
+            return subTasks
+              .filter((subTask): subTask is SubTask & { completedAt: string } => {
+                return !!subTask.completed && !!subTask.completedAt;
+              })
+              .map(subTask => {
+                const subTaskCompletedDate = new Date(subTask.completedAt);
+                const inRange = isDateInRange(subTaskCompletedDate, start, end);
+                return {
+                  ...subTask,
+                  parentTaskId: task.id,
+                  parentTaskTitle: task.title,
+                  _inRange: inRange
+                };
+              });
+          }).filter(subTask => subTask._inRange);
 
         const tasksWithCompletedSubTasks = includeSubTasks
           ? allTasks
@@ -841,7 +841,7 @@ RÈGLES :
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-2">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Rapports & Delivery</h1>
@@ -1078,9 +1078,9 @@ RÈGLES :
 
           {(aiReport || isEditing) && (
             <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between flex-wrap mb-4">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Résumé du Rapport d'Activité</h2>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {!isEditing ? (
                     <>
                       <Button variant="outline" size="sm" onClick={handleEditReport} disabled={isSendingEmail}><Edit className="w-4 h-4 mr-2" />Modifier</Button>

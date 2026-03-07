@@ -1366,7 +1366,7 @@ export function ProjectsView() {
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Projets</h1>
+        <h1 className="text-xl md:text-2xl xl:text-3xl font-bold text-gray-900 dark:text-white">Projets</h1>
         <div className="flex gap-3">
           <Button
             icon={Upload}
@@ -1374,7 +1374,7 @@ export function ProjectsView() {
             variant="outline"
             size="lg"
           >
-            Importer Trello
+            <span className="hidden md:block"> Importer Trello </span>
           </Button>
           <Button
             icon={Plus}
@@ -1399,7 +1399,7 @@ export function ProjectsView() {
             variant="gradient"
             size="lg"
           >
-            Nouveau Projet
+            <span className="hidden md:block"> Nouveau Projet </span>
           </Button>
         </div>
       </div>
@@ -1444,7 +1444,7 @@ export function ProjectsView() {
       {/* Projets actifs */}
       <div className="mt-12">
         <div className="flex items-center justify-between mb-6">
-          <h2 className={`font-bold text-gray-800 dark:text-white ${state.appSettings?.fontSize === 'small' ? 'text-lg' :
+          <h2 className={`hidden md:block font-bold text-gray-800 dark:text-white ${state.appSettings?.fontSize === 'small' ? 'text-lg' :
             state.appSettings?.fontSize === 'large' ? 'text-2xl' : 'text-xl'
             }`}>
             Projets actifs
@@ -2282,186 +2282,186 @@ export function ProjectsView() {
                     return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
                   })
                   .map((task) => (
-                  <div
-                    key={task.id}
-                    className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 cursor-pointer transition-all hover:shadow-md"
-                    onClick={() => openTaskModal(task)}
-                  >
-                    <div className="p-4">
-                      {/* En-tête de la tâche */}
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-start gap-3 flex-1">
-                          {/* Raccourci pour marquer comme terminé */}
-                          {canManageTasks && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleTaskStatus(task.id);
-                              }}
-                              className={`mt-1 w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${task.status === 'done'
-                                ? 'bg-green-500 border-green-500 text-white'
-                                : 'border-gray-300 dark:border-gray-500 hover:border-blue-500 dark:hover:border-blue-400'
-                                }`}
-                            >
-                              {task.status === 'done' && <Check className="w-3 h-3" />}
-                            </button>
-                          )}
+                    <div
+                      key={task.id}
+                      className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 cursor-pointer transition-all hover:shadow-md"
+                      onClick={() => openTaskModal(task)}
+                    >
+                      <div className="p-4">
+                        {/* En-tête de la tâche */}
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-start gap-3 flex-1">
+                            {/* Raccourci pour marquer comme terminé */}
+                            {canManageTasks && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleTaskStatus(task.id);
+                                }}
+                                className={`mt-1 w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${task.status === 'done'
+                                  ? 'bg-green-500 border-green-500 text-white'
+                                  : 'border-gray-300 dark:border-gray-500 hover:border-blue-500 dark:hover:border-blue-400'
+                                  }`}
+                              >
+                                {task.status === 'done' && <Check className="w-3 h-3" />}
+                              </button>
+                            )}
 
-                          <div className="flex-1">
-                            <h4 className={`font-medium transition-colors line-clamp-2 ${task.status === 'done' ? 'text-gray-500 line-through' : 'text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400'}`}>
-                              {task.title}
-                            </h4>
-                            <div className="flex items-center gap-2 mt-1">
-                              {/* Statut */}
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${task.status === 'done' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' :
-                                task.status === 'in-progress' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200' :
-                                  task.status === 'non-suivi' ? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200' :
-                                    'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                                }`}>
-                                {task.status === 'done' ? 'Terminé' :
-                                  task.status === 'in-progress' ? 'En cours' :
-                                    task.status === 'non-suivi' ? 'Non suivi' : 'À faire'}
-                              </span>
+                            <div className="flex-1">
+                              <h4 className={`font-medium transition-colors line-clamp-2 ${task.status === 'done' ? 'text-gray-500 line-through' : 'text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400'}`}>
+                                {task.title}
+                              </h4>
+                              <div className="flex items-center gap-2 mt-1">
+                                {/* Statut */}
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${task.status === 'done' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' :
+                                  task.status === 'in-progress' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200' :
+                                    task.status === 'non-suivi' ? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200' :
+                                      'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                                  }`}>
+                                  {task.status === 'done' ? 'Terminé' :
+                                    task.status === 'in-progress' ? 'En cours' :
+                                      task.status === 'non-suivi' ? 'Non suivi' : 'À faire'}
+                                </span>
 
-                              {/* Priorité */}
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${task.priority === 'high' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200' :
-                                task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' :
-                                  'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200'
-                                }`}>
-                                {task.priority === 'high' ? 'Haute' :
-                                  task.priority === 'medium' ? 'Moyenne' : 'Faible'}
-                              </span>
+                                {/* Priorité */}
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${task.priority === 'high' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200' :
+                                  task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' :
+                                    'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200'
+                                  }`}>
+                                  {task.priority === 'high' ? 'Haute' :
+                                    task.priority === 'medium' ? 'Moyenne' : 'Faible'}
+                                </span>
+                              </div>
                             </div>
                           </div>
+
+                          {/* Actions */}
+                          {canManageTasks && (
+                            <div className="flex items-center gap-1 ml-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openTaskModal(task);
+                                }}
+                                className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                title="Modifier la tâche"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeTask(task.id, true);
+                                }}
+                                className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                title="Supprimer la tâche"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
                         </div>
 
-                        {/* Actions */}
-                        {canManageTasks && (
-                          <div className="flex items-center gap-1 ml-2">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openTaskModal(task);
-                              }}
-                              className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                              title="Modifier la tâche"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeTask(task.id, true);
-                              }}
-                              className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                              title="Supprimer la tâche"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                        {/* Description (tronquée) */}
+                        {task.description && (
+                          <div className="mb-3">
+                            <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 leading-relaxed markdown-body">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                  strong: ({ children }) => <strong style={{ fontWeight: 'bold', color: 'inherit' }}>{children}</strong>,
+                                  em: ({ children }) => <em style={{ fontStyle: 'italic', color: 'inherit' }}>{children}</em>,
+                                  code: ({ className, children }) => {
+                                    const isInline = !className?.includes('language-');
+                                    return isInline
+                                      ? <code style={{ backgroundColor: '#f3f4f6', padding: '0.1em 0.2em', borderRadius: '2px', fontSize: '0.8em', fontFamily: 'monospace' }}>{children}</code>
+                                      : <code style={{ backgroundColor: '#f3f4f6', padding: '0.5em', borderRadius: '4px', display: 'block', overflowX: 'auto', fontFamily: 'monospace', fontSize: '0.8em' }}>{children}</code>;
+                                  },
+                                  p: ({ children }) => <p style={{ margin: '0' }}>{children}</p>,
+                                  ul: ({ children }) => <ul style={{ margin: '0', paddingLeft: '1em' }}>{children}</ul>,
+                                  ol: ({ children }) => <ol style={{ margin: '0', paddingLeft: '1em' }}>{children}</ol>,
+                                  li: ({ children }) => <li style={{ marginBottom: '0' }}>{children}</li>,
+                                  h1: ({ children }) => <h1 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h1>,
+                                  h2: ({ children }) => <h2 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h2>,
+                                  h3: ({ children }) => <h3 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h3>
+                                }}
+                              >
+                                {cleanMarkdown(task.description)}
+                              </ReactMarkdown>
+                            </div>
                           </div>
                         )}
-                      </div>
 
-                      {/* Description (tronquée) */}
-                      {task.description && (
-                        <div className="mb-3">
-                          <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 leading-relaxed markdown-body">
-                            <ReactMarkdown
-                              remarkPlugins={[remarkGfm]}
-                              components={{
-                                strong: ({ children }) => <strong style={{ fontWeight: 'bold', color: 'inherit' }}>{children}</strong>,
-                                em: ({ children }) => <em style={{ fontStyle: 'italic', color: 'inherit' }}>{children}</em>,
-                                code: ({ className, children }) => {
-                                  const isInline = !className?.includes('language-');
-                                  return isInline
-                                    ? <code style={{ backgroundColor: '#f3f4f6', padding: '0.1em 0.2em', borderRadius: '2px', fontSize: '0.8em', fontFamily: 'monospace' }}>{children}</code>
-                                    : <code style={{ backgroundColor: '#f3f4f6', padding: '0.5em', borderRadius: '4px', display: 'block', overflowX: 'auto', fontFamily: 'monospace', fontSize: '0.8em' }}>{children}</code>;
-                                },
-                                p: ({ children }) => <p style={{ margin: '0' }}>{children}</p>,
-                                ul: ({ children }) => <ul style={{ margin: '0', paddingLeft: '1em' }}>{children}</ul>,
-                                ol: ({ children }) => <ol style={{ margin: '0', paddingLeft: '1em' }}>{children}</ol>,
-                                li: ({ children }) => <li style={{ marginBottom: '0' }}>{children}</li>,
-                                h1: ({ children }) => <h1 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h1>,
-                                h2: ({ children }) => <h2 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h2>,
-                                h3: ({ children }) => <h3 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h3>
-                              }}
-                            >
-                              {cleanMarkdown(task.description)}
-                            </ReactMarkdown>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Métadonnées */}
-                      <div className="space-y-2">
-                        {/* Dates et heures */}
-                        <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            <span>
-                              {task.dueDate ? new Date(task.dueDate).toLocaleDateString('fr-FR', {
-                                day: '2-digit',
-                                month: 'short'
-                              }) : 'Pas de date'}
-                            </span>
-                          </div>
-                          {(() => {
-                            const isMultiDay = isMultiDayTask(task.startDate, task.dueDate);
-
-                            if (isMultiDay) {
-                              // Tâche multi-jours : afficher la durée calculée
-                              const duration = calculateDuration(task.startDate, task.dueDate);
-                              return (
-                                <span className="flex items-center gap-1">
-                                  <Clock className="w-3 h-3" />
-                                  {duration}
-                                </span>
-                              );
-                            } else if (task.estimatedHours && task.estimatedHours > 0) {
-                              // Tâche d'un jour : afficher les heures estimées
-                              return (
-                                <span className="flex items-center gap-1">
-                                  <Clock className="w-3 h-3" />
-                                  {task.estimatedHours}h
-                                </span>
-                              );
-                            }
-                            return null;
-                          })()}
-                        </div>
-
-                        {/* Tags et assignés */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex flex-wrap gap-1">
-                            {task.tags?.slice(0, 2).map((tag) => (
-                              <span
-                                key={tag}
-                                className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200"
-                              >
-                                {tag}
+                        {/* Métadonnées */}
+                        <div className="space-y-2">
+                          {/* Dates et heures */}
+                          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              <span>
+                                {task.dueDate ? new Date(task.dueDate).toLocaleDateString('fr-FR', {
+                                  day: '2-digit',
+                                  month: 'short'
+                                }) : 'Pas de date'}
                               </span>
-                            ))}
-                            {task.tags?.length > 2 && (
-                              <span className="text-xs text-gray-500 dark:text-gray-400">
-                                +{task.tags.length - 2}
-                              </span>
+                            </div>
+                            {(() => {
+                              const isMultiDay = isMultiDayTask(task.startDate, task.dueDate);
+
+                              if (isMultiDay) {
+                                // Tâche multi-jours : afficher la durée calculée
+                                const duration = calculateDuration(task.startDate, task.dueDate);
+                                return (
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    {duration}
+                                  </span>
+                                );
+                              } else if (task.estimatedHours && task.estimatedHours > 0) {
+                                // Tâche d'un jour : afficher les heures estimées
+                                return (
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    {task.estimatedHours}h
+                                  </span>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </div>
+
+                          {/* Tags et assignés */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex flex-wrap gap-1">
+                              {task.tags?.slice(0, 2).map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                              {task.tags?.length > 2 && (
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                  +{task.tags.length - 2}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Sous-tâches */}
+                            {task.subTasks && task.subTasks.length > 0 && (
+                              <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                                <span>
+                                  {task.subTasks.filter(st => st.completed).length}/{task.subTasks.length}
+                                </span>
+                                <span>sous-tâches</span>
+                              </div>
                             )}
                           </div>
-
-                          {/* Sous-tâches */}
-                          {task.subTasks && task.subTasks.length > 0 && (
-                            <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                              <span>
-                                {task.subTasks.filter(st => st.completed).length}/{task.subTasks.length}
-                              </span>
-                              <span>sous-tâches</span>
-                            </div>
-                          )}
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             ) : (
               <div className="text-center py-12 text-gray-500 dark:text-gray-400">

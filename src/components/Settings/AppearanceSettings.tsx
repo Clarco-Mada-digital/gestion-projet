@@ -70,7 +70,7 @@ export function AppearanceSettings() {
               <Laptop className="w-5 h-5" />
               <h3 className="font-semibold uppercase tracking-wider text-sm">Thème de l'application</h3>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-2 md:gap-4">
               <button
                 onClick={() => {
                   dispatch({ type: 'SET_THEME', payload: 'light' });

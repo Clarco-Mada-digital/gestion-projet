@@ -29,7 +29,7 @@ export function ContactManagement({ contacts, onUpdateContacts }: ContactManagem
 
   const handleAddContact = () => {
     if (!formData.name || !formData.email) return;
-    
+
     const newContact: Contact = {
       id: Date.now().toString(),
       name: formData.name,
@@ -49,14 +49,14 @@ export function ContactManagement({ contacts, onUpdateContacts }: ContactManagem
 
   const handleUpdateContact = () => {
     if (!editingId || !formData.name || !formData.email) return;
-    
-    const updatedContacts = contacts.map(contact => 
-      contact.id === editingId 
-        ? { 
-            ...contact, 
-            ...formData,
-            updatedAt: new Date().toISOString()
-          } 
+
+    const updatedContacts = contacts.map(contact =>
+      contact.id === editingId
+        ? {
+          ...contact,
+          ...formData,
+          updatedAt: new Date().toISOString()
+        }
         : contact
     );
 
@@ -94,7 +94,7 @@ export function ContactManagement({ contacts, onUpdateContacts }: ContactManagem
         {!isAdding && !editingId && (
           <Button onClick={() => setIsAdding(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            Ajouter un contact
+            <span className="hidden md:inline">Ajouter un contact</span>
           </Button>
         )}
       </div>
@@ -104,7 +104,7 @@ export function ContactManagement({ contacts, onUpdateContacts }: ContactManagem
           <h3 className="text-lg font-medium mb-4">
             {editingId ? 'Modifier le contact' : 'Nouveau contact'}
           </h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
               className="dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -144,7 +144,7 @@ export function ContactManagement({ contacts, onUpdateContacts }: ContactManagem
               placeholder="Informatique"
             />
           </div>
-          
+
           <div className="mt-4">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Notes
@@ -158,12 +158,12 @@ export function ContactManagement({ contacts, onUpdateContacts }: ContactManagem
               placeholder="Informations complémentaires..."
             />
           </div>
-          
+
           <div className="flex justify-end space-x-3 mt-4">
             <Button variant="outline" onClick={handleCancel}>
               Annuler
             </Button>
-            <Button 
+            <Button
               onClick={editingId ? handleUpdateContact : handleAddContact}
               disabled={!formData.name || !formData.email}
             >
