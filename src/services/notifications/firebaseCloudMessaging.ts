@@ -1,7 +1,8 @@
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage, deleteToken } from 'firebase/messaging';
 import { firebaseConfig, isFirebaseConfigured } from '../../lib/firebaseConfig';
-import { auth } from '../../services/collaboration/firebaseService';
+import { auth, db } from '../../services/collaboration/firebaseService';
+import { doc, updateDoc } from 'firebase/firestore';
 
 let messaging: any = null;
 let isInitialized = false;
@@ -59,8 +60,11 @@ export class FirebaseCloudMessaging {
       }
 
       // S'assurer que le service worker est enregistré
-      const registration = await navigator.serviceWorker.register('/gestion-projet/sw.js');
-      console.log('Service Worker enregistré pour FCM');
+      const { fixPath } = await import('../../lib/pathUtils');
+      const registration = await navigator.serviceWorker.register(fixPath('/sw.js'), {
+        scope: fixPath('/')
+      });
+      console.log('Service Worker enregistré pour FCM avec scope:', registration.scope);
 
       // Demander la permission pour les notifications
       const permission = await Notification.requestPermission();
@@ -101,21 +105,16 @@ export class FirebaseCloudMessaging {
    */
   private async sendTokenToServer(token: string): Promise<void> {
     try {
-      const response = await fetch('/api/fcm/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ token })
+      if (!auth.currentUser) return;
+
+      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+        fcmToken: token,
+        updatedAt: new Date().toISOString()
       });
 
-      if (!response.ok) {
-        throw new Error('Erreur lors de l\'envoi du token au serveur');
-      }
-
-      console.log('Token FCM envoyé au serveur avec succès');
+      console.log('Token FCM sauvegardé dans Firestore');
     } catch (error) {
-      console.error('Erreur lors de l\'envoi du token:', error);
+      console.error('Erreur lors de la sauvegarde du token FCM:', error);
     }
   }
 
@@ -149,8 +148,8 @@ export class FirebaseCloudMessaging {
     const notificationTitle = payload.notification?.title || 'Notification';
     const notificationOptions = {
       body: payload.notification?.body || '',
-      icon: payload.notification?.icon || '/icons/notification-bell.png',
-      badge: '/icons/badge.png',
+      icon: payload.notification?.icon || '/icons/icon-192x192.png',
+      badge: '/icons/favicon-32x32.png',
       tag: payload.tag || `foreground-${Date.now()}`,
       requireInteraction: false,
       data: payload.data || {},
@@ -208,14 +207,13 @@ export class FirebaseCloudMessaging {
         console.log('Service Worker désenregistré');
       }
       
-      // Notifier le serveur de la suppression du token
-      await fetch('/api/fcm/token', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ token: this.currentToken })
-      });
+      // Notifier Firestore de la suppression du token
+      if (auth.currentUser) {
+        await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+          fcmToken: null,
+          updatedAt: new Date().toISOString()
+        });
+      }
       
       console.log('Token FCM supprimé avec succès');
       return true;

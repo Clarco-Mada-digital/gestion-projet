@@ -13,39 +13,6 @@ let auth: any = null;
 let calendarApp: any = null;
 let calendarAuth: any = null;
 
-// Fonctions utilitaires pour les paramètres utilisateur
-const syncAppSettings = async (appSettings: unknown) => {
-  if (!ensureInitialized() || !auth.currentUser) return;
-
-  try {
-    // Nettoyage des données
-    const cleanSettings = appSettings as any;
-
-    // Ajout des métadonnées de synchronisation
-    cleanSettings.lastSyncedAt = new Date().toISOString();
-
-    await setDoc(doc(db, 'userSettings', auth.currentUser.uid), cleanSettings, { merge: true });
-  } catch (error) {
-    console.error("Erreur lors de la synchronisation des paramètres utilisateur:", error);
-    throw error;
-  }
-};
-
-const getAppSettings = async () => {
-  if (!ensureInitialized() || !auth.currentUser) return null;
-
-  try {
-    const settingsDoc = await getDoc(doc(db, 'userSettings', auth.currentUser.uid));
-    if (settingsDoc.exists()) {
-      return settingsDoc.data();
-    }
-    return null;
-  } catch (error) {
-    console.error("Erreur lors de la récupération des paramètres utilisateur:", error);
-    return null;
-  }
-};
-
 // Initialisation de Firebase si la configuration est valide
 const ensureInitialized = async () => {
   if (!isFirebaseConfigured()) {
@@ -389,10 +356,6 @@ export const firebaseService = {
       throw error;
     }
   },
-
-  // Fonctions pour les paramètres utilisateur
-  syncAppSettings,
-  getAppSettings
 };
 
 // Exporter les instances pour les autres services

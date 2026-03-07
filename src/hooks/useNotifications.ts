@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import PushNotificationService, { PushNotificationOptions } from '../services/notifications/pushNotificationService';
-import { Task, Project, TaskStatus } from '../types';
+import { Task, Project } from '../types';
+import { fixPath } from '../lib/pathUtils';
 
 export const useNotifications = () => {
   const { state } = useApp();
@@ -132,17 +133,17 @@ export const useNotifications = () => {
     
     // 2. Sauvegarder dans Firebase pour le NotificationCenter
     try {
-      const { default: notificationService } = await import('../services/collaboration/notificationService');
+      const { notificationService: cloudNotify } = await import('../services/collaboration/notificationService');
       if (state.cloudUser) {
         // Trouver le projet qui contient cette tâche
         const project = state.projects.find(p => p.tasks?.some(t => t.id === task.id));
         const projectId = project?.id || task.projectId;
-        await notificationService.sendNotification({
+        await cloudNotify.sendNotification({
           userId: state.cloudUser.uid,
           title: '⚠️ Tâche en retard',
           message: `La tâche "${task.title}" du projet "${project?.name || 'Projet inconnu'}" est en retard de plusieurs jours!`,
           type: 'deadline_approaching',
-          link: `/projects/${projectId}?task=${task.id}`,
+          link: fixPath(`/?task=${task.id}`),
           projectId: projectId,
           taskId: task.id,
           projectName: project?.name || 'Projet inconnu'
@@ -173,19 +174,19 @@ export const useNotifications = () => {
     
     // 2. Sauvegarder dans Firebase pour le créateur du projet uniquement
     try {
-      const { default: notificationService } = await import('../services/collaboration/notificationService');
+      const { notificationService: cloudNotify } = await import('../services/collaboration/notificationService');
       // Trouver le projet qui contient cette tâche
       const project = state.projects.find(p => p.tasks?.some(t => t.id === task.id));
       
       if (project && state.cloudUser) {
         // Notifier seulement le créateur du projet, et seulement si ce n'est pas lui qui a terminé la tâche
         if (project.ownerId && project.ownerId !== state.cloudUser.uid) {
-          await notificationService.sendNotification({
+          await cloudNotify.sendNotification({
             userId: project.ownerId,
             title: '🎉 Tâche terminée!',
             message: `La tâche "${task.title}" du projet "${project.name}" a été terminée par ${state.cloudUser.displayName || 'un membre'}.`,
             type: 'task_completed',
-            link: `/projects/${project.id}/tasks/${task.id}`,
+            link: fixPath(`/?task=${task.id}`),
             projectId: project.id,
             taskId: task.id,
             projectName: project.name || 'Projet inconnu'
@@ -231,11 +232,10 @@ export const useNotifications = () => {
   const scheduleNotification = useCallback(async (options: PushNotificationOptions, delay: number) => {
     if (!canShowNotifications()) return;
     
-    const unsubscribe = notificationService.subscribeToNotifications(state.cloudUser.uid, (fetched: any[]) => {
-      setCloudNotifications(fetched);
-    });
-    return () => unsubscribe;
-  }, [canShowNotifications, state.cloudUser]);
+    setTimeout(() => {
+      notificationService.showNotification(options);
+    }, delay);
+  }, [canShowNotifications]);
 
   const clearAllNotifications = useCallback(() => {
     notificationService.clearAllNotifications();
@@ -317,11 +317,11 @@ export const useNotifications = () => {
     tomorrow.setHours(0, 0, 0, 0);
     const msUntilMidnight = tomorrow.getTime() - now.getTime();
     
-    setTimeout(cleanupDaily, msUntilMidnight);
+    const cleanupTimeout = setTimeout(cleanupDaily, msUntilMidnight);
     
     return () => {
       clearInterval(interval);
-      clearTimeout(cleanupDaily);
+      clearTimeout(cleanupTimeout);
     };
   }, [state.projects, state.cloudUser, showTaskOverdue]);
 

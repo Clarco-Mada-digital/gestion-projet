@@ -24,7 +24,8 @@ export function NotificationCenter() {
     isSupported,
     isQuietHours,
     clearAllNotifications: clearPWANotifications,
-    getRecentNotifications
+    getRecentNotifications,
+    showCustomNotification
   } = useNotifications();
   const [cloudNotifications, setCloudNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -98,17 +99,14 @@ export function NotificationCenter() {
       // Envoyer des notifications push pour les nouvelles notifications non lues
       newNotifications.forEach(async notification => {
         if (!notification.isRead) {
-          const { useNotifications: usePushNotifications } = await import('../../hooks/useNotifications');
-          const { showCustomNotification } = usePushNotifications();
-          
           await showCustomNotification(
             notification.title,
             notification.message,
             {
               tag: `firebase-${notification.id}`,
               requireInteraction: false,
-              icon: '/icons/notification-bell.png',
-              badge: '/icons/badge.png',
+              icon: fixPath('/icons/icon-192x192.png'),
+              badge: fixPath('/icons/favicon-32x32.png'),
               data: {
                 type: 'firebase-notification',
                 notificationId: notification.id,
@@ -131,9 +129,15 @@ export function NotificationCenter() {
 
   useEffect(() => {
     if (state.cloudUser) {
-      initializeFCM();
+      // Ne lancer les initialisations externes que si nécessaire
+      const hasFirebaseProjects = state.projects.some(p => p.source === 'firebase');
+      if (hasFirebaseProjects) {
+        initializeFCM();
+      } else {
+        console.log('Pas de projet Partagé, FCM non activé (economie de ressources)');
+      }
     }
-  }, [state.cloudUser]);
+  }, [state.cloudUser, state.projects]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -224,12 +228,12 @@ export function NotificationCenter() {
     if (notification.data) {
       const { projectId, taskId, type: _type } = notification.data;
       if (projectId && taskId) {
-        // Construire le bon lien pour GitHub Pages
-        const taskUrl = `${fixPath(`/projects/${projectId}`)}?task=${taskId}`;
+        // Naviguer via paramètre URL pour éviter le 404 sur Astro
+        const taskUrl = `${fixPath('/')}?task=${taskId}`;
         window.location.href = taskUrl;
       } else if (projectId) {
-        // Lien vers le projet seulement
-        window.location.href = fixPath(`/projects/${projectId}`);
+        // Lien vers le projet (si on veut supporter ?project=ID plus tard)
+        window.location.href = fixPath('/');
       }
     }
     // Marquer comme vue après navigation

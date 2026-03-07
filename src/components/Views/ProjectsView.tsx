@@ -810,6 +810,16 @@ export function ProjectsView() {
   const [showPending, setShowPending] = useState(false); // État pour gérer l'affichage des projets en attente (masqué par défaut)
   const [showCompletedProjects, setShowCompletedProjects] = useState(false);
   const [showArchivedProjects, setShowArchivedProjects] = useState(false);
+  const [showUnfollowed, setShowUnfollowed] = useState(() => {
+    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('projects_showUnfollowed') : null;
+    return saved !== null ? JSON.parse(saved) : false;
+  });
+
+  useEffect(() => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('projects_showUnfollowed', JSON.stringify(showUnfollowed));
+    }
+  }, [showUnfollowed]);
   const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
   const [isEditingProjectModal, setIsEditingProjectModal] = useState(false);
 
@@ -1439,29 +1449,50 @@ export function ProjectsView() {
             }`}>
             Projets actifs
           </h2>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowActive(!showActive)}
-            className="flex items-center gap-2"
-          >
-            {showActive ? 'Masquer' : 'Afficher'} les projets actifs
-            <svg
-              className={`w-4 h-4 transition-transform ${showActive ? 'rotate-180' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
+          <div className="flex items-center gap-4">
+            <label className="flex items-center cursor-pointer group">
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  className="sr-only"
+                  checked={showUnfollowed}
+                  onChange={() => setShowUnfollowed(!showUnfollowed)}
+                />
+                <div className={`w-10 h-5 rounded-full transition-colors ${showUnfollowed ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-700'}`}></div>
+                <div className={`absolute left-1 top-1 w-3 h-3 bg-white rounded-full transition-transform ${showUnfollowed ? 'translate-x-5' : ''}`}></div>
+              </div>
+              <span className="ml-2 text-sm text-gray-600 dark:text-gray-400 font-medium group-hover:text-blue-500 underline decoration-dotted transition-colors">
+                Afficher les projets non suivis
+              </span>
+            </label>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowActive(!showActive)}
+              className="flex items-center gap-2"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </Button>
+              {showActive ? 'Masquer' : 'Afficher'} les projets actifs
+              <svg
+                className={`w-4 h-4 transition-transform ${showActive ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </Button>
+          </div>
         </div>
 
         {showActive && state.projects.some(p => p.status === 'active') ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {state.projects
-              .filter(project => project.status === 'active')
+              .filter(project => {
+                const isActive = project.status === 'active';
+                const isFollowed = state.appSettings.followedProjects?.includes(project.id) ?? true;
+                return isActive && (showUnfollowed || isFollowed);
+              })
               .map(project => (
                 <ProjectCard
                   key={project.id}
@@ -2244,7 +2275,13 @@ export function ProjectsView() {
 
             {editingProject?.tasks?.length ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {editingProject.tasks.map((task) => (
+                {[...(editingProject.tasks || [])]
+                  .sort((a, b) => {
+                    if (!a.dueDate) return 1;
+                    if (!b.dueDate) return -1;
+                    return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+                  })
+                  .map((task) => (
                   <div
                     key={task.id}
                     className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 cursor-pointer transition-all hover:shadow-md"

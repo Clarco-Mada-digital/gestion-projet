@@ -102,7 +102,16 @@ const defaultUser: User = {
 };
 
 // Données d'exemple (Vides au début)
-
+const initialEmailSettings: EmailSettings = {
+  serviceId: '',
+  templateId: 'template_default',
+  userId: '',
+  accessToken: '',
+  fromEmail: '',
+  fromName: 'Gestion de Projet',
+  isEnabled: true,
+  defaultSubject: 'Delivery du %dd au %df'
+};
 
 // Paramètres par défaut de l'application
 const initialAppSettings: AppSettings & { aiSettings: AISettings } = {
@@ -151,16 +160,7 @@ const initialState: AppState = {
   calendarEmail: undefined,
   theme: 'light',
   currentView: 'today',
-  emailSettings: {
-    serviceId: '',
-    templateId: 'template_default',
-    userId: '',
-    accessToken: '',
-    fromEmail: '',
-    fromName: 'Gestion de Projet',
-    isEnabled: true,
-    defaultSubject: 'Delivery du %dd au %df'
-  },
+  emailSettings: initialEmailSettings,
   appSettings: initialAppSettings,
   notifications: [],
   isLoading: true,
@@ -227,38 +227,22 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
     }
     case 'UPDATE_TASK': {
       const updatedProjects = state.projects.map(project => {
-        if (!project.tasks) return project;
-        const taskExists = project.tasks.some(t => t.id === action.payload.id);
-        if (!taskExists) return project;
-
-        return {
-          ...project,
-          updatedAt: new Date().toISOString(),
-          tasks: project.tasks.map(task => {
-            if (task.id === action.payload.id) {
-              // Si la tâche passe à l'état 'done', on met à jour completedAt
-              const completedAt = action.payload.status === 'done' && task.status !== 'done'
-                ? new Date().toISOString()
-                : action.payload.completedAt || task.completedAt;
-
-              return {
-                ...action.payload,
-                completedAt: action.payload.completedAt || completedAt
-              };
-            }
-            return task;
-          })
-        };
+        if (project.id === action.payload.projectId) {
+          const updatedTasks = project.tasks.map(task =>
+            task.id === action.payload.id ? action.payload : task
+          );
+          return {
+            ...project,
+            tasks: updatedTasks,
+            updatedAt: new Date().toISOString()
+          };
+        }
+        return project;
       });
-
-      const updatedTasks = state.tasks.map(task =>
-        task.id === action.payload.id ? action.payload : task
-      );
-
       return {
         ...state,
         projects: updatedProjects,
-        tasks: updatedTasks
+        tasks: extractAllTasks(updatedProjects)
       };
     }
     case 'DELETE_TASK': {
@@ -591,14 +575,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           const sharedProjects = await firebaseService.getSharedProjects();
           dispatch({ type: 'SYNC_PROJECTS', payload: sharedProjects });
-
-          // Charger les paramètres utilisateur depuis Firebase
-          const cloudAppSettings = await firebaseService.getAppSettings();
-          if (cloudAppSettings) {
-            // Fusionner avec les paramètres locaux (priorité aux paramètres locaux si conflit)
-            const mergedSettings = { ...cloudAppSettings, ...state.appSettings };
-            dispatch({ type: 'UPDATE_APP_SETTINGS', payload: mergedSettings });
-          }
         } catch (error) {
           console.error("Erreur lors de la synchronisation:", error);
         }
@@ -630,9 +606,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const currentData = currentFirebaseProjects.map(p => ({ id: p.id, updated: p.updatedAt })).sort((a, b) => a.id.localeCompare(b.id));
           const incomingData = sharedProjects.map(p => ({ id: p.id, updated: p.updatedAt })).sort((a, b) => a.id.localeCompare(b.id));
 
-          const hasChanged =
-            sharedProjects.length !== currentFirebaseProjects.length ||
-            JSON.stringify(currentData) !== JSON.stringify(incomingData);
+          const hasChanged = sharedProjects.length !== currentFirebaseProjects.length || JSON.stringify(currentData) !== JSON.stringify(incomingData);
 
           if (hasChanged) {
             console.log("[Sync] Données modifiées détectées sur Firebase, synchronisation...");
@@ -654,26 +628,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => clearInterval(interval);
   }, [state.currentView, state.cloudUser]);
 
-  // Synchronisation automatique des paramètres utilisateur VERS Firebase
   useEffect(() => {
-    if (!state.cloudUser || state.isLoading) return;
-
-    // Debounce pour éviter trop de requêtes
-    const timeoutId = setTimeout(async () => {
-      try {
-        console.log('[Sync-AppSettings] Synchronisation automatique des paramètres utilisateur');
-        await firebaseService.syncAppSettings(state.appSettings);
-      } catch (error) {
-        console.error('[Sync-AppSettings] Erreur lors de la synchronisation des paramètres utilisateur:', error);
-      }
-    }, 1000); // 1 seconde de délai après la dernière modification
-
-    return () => clearTimeout(timeoutId);
-  }, [state.appSettings, state.cloudUser, state.isLoading]);
-
-  // Effet pour charger les données initiales au démarrage
-  useEffect(() => {
-    const loadInitialData = async () => {
+    const loadInitialData = () => {
       try {
         console.log('[Persistence] Chargement des données initiales...');
 
@@ -688,7 +644,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const savedCalendarEmail = localStorage.getItem('astroProjectManagerCalendarEmail');
 
         // 2. Préparer les valeurs par défaut
-        let emailSettings = { ...initialState.emailSettings };
+        let emailSettings = { ...initialEmailSettings };
         let appSettings = { ...initialAppSettings };
         let mainData = { projects: [] as Project[], users: [defaultUser], reports: [] as ReportEntry[] };
 
@@ -747,6 +703,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const validViews: ViewMode[] = ['today', 'projects', 'kanban', 'calendar', 'settings'];
         const currentView = (mainData as any).currentView || 'today';
 
+        const googleTokenTimestamp = savedGoogleTokenTimestamp ? parseInt(savedGoogleTokenTimestamp) : undefined;
+
+        try {
         dispatch({
           type: 'INIT_STATE',
           payload: {
@@ -756,24 +715,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             appSettings,
             emailSettings,
             googleAccessToken: savedGoogleToken || undefined,
-            googleTokenTimestamp: savedGoogleTokenTimestamp ? parseInt(savedGoogleTokenTimestamp) : undefined,
-            calendarEmail: savedCalendarEmail || undefined
+            googleTokenTimestamp,
+            calendarEmail: savedCalendarEmail || undefined,
+            isLoading: false // Crucial pour arrêter l'écran de chargement
           }
         });
 
-      } catch (error) {
+        } catch (error) {
         console.error('[Persistence] Erreur critique lors du chargement:', error);
         dispatch({
           type: 'INIT_STATE',
           payload: initialState
         });
-      } finally {
+        }
+      } catch (error) {
+        console.error('[Persistence] Erreur globale lors du chargement des données:', error);
+        // On s'assure de sortir du chargement même en cas d'erreur
         dispatch({ type: 'SET_LOADING', payload: false });
       }
     };
 
-    loadInitialData();
-  }, []);
+    const timer = setTimeout(loadInitialData, 10);
+    return () => clearTimeout(timer);
+  }, [dispatch]);
 
   // Effet pour sauvegarder les données principales (sans emailSettings et appSettings)
   useEffect(() => {
@@ -789,10 +753,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         notifications: []
       }));
       console.log('[Persistence] Données principales sauvegardées');
+
+      // SYNCHRONISATION CLOUD : Si l'utilisateur est connecté, on synchronise les projets Firebase
+      if (cloudUser) {
+        state.projects
+          .filter(p => p.source === 'firebase')
+          .forEach(project => {
+            // On utilise setTimeout(0) pour ne pas bloquer le thread principal de rendu
+            setTimeout(() => {
+              firebaseService.syncProject(project)
+                .catch(err => console.error('[Cloud Sync] Erreur lors de la synchro auto:', err));
+            }, 0);
+          });
+      }
     } catch (error) {
       console.error('Erreur lors de la sauvegarde des données principales:', error);
     }
-  }, [state.projects, state.users, state.theme, state.currentView, state.selectedProject, state.reports, state.isLoading]);
+  }, [state.projects, state.users, state.theme, state.currentView, state.selectedProject, state.reports, state.isLoading, state.cloudUser]);
 
   // Effet séparé pour sauvegarder les paramètres email (sécurisé)
   useEffect(() => {
@@ -806,21 +783,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [state.emailSettings, state.isLoading]);
 
-
-
-  // Effet séparé pour sauvegarder les paramètres d'apparence
+  // Effet séparé pour sauvegarder les paramètres de l'application (apparence, etc.)
   useEffect(() => {
     if (state.isLoading) return; // Ne pas sauvegarder pendant le chargement initial
 
     try {
       localStorage.setItem('astroProjectManagerAppSettings', JSON.stringify(state.appSettings));
-      console.log('[Persistence] Paramètres apparence sauvegardés');
+      console.log('[Persistence] Paramètres application sauvegardés');
     } catch (error) {
-      console.error('Erreur lors de la sauvegarde des paramètres d\'apparence:', error);
+      console.error('Erreur lors de la sauvegarde des paramètres app:', error);
     }
   }, [state.appSettings, state.isLoading]);
 
-  // Effet pour sauvegarder le thème immédiatement
+
+
+  // Effet pour charger les données initiales au démarrage
   useEffect(() => {
     if (state.isLoading) return; // Ne pas sauvegarder pendant le chargement initial
 
@@ -853,7 +830,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (error) {
       console.error('Erreur lors de la sauvegarde de la session Google:', error);
     }
-  }, [state.googleAccessToken, state.googleTokenTimestamp, state.calendarEmail, state.isLoading]);
+  }, [
+    state.googleAccessToken,
+    state.googleTokenTimestamp,
+    state.calendarEmail,
+    state.isLoading
+  ]);
 
   // Appliquer le thème
   useEffect(() => {

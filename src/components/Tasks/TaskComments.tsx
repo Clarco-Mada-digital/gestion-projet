@@ -326,22 +326,24 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
       if (project.source === 'firebase' && project.members && project.members.length > 0) {
         try {
           const { firebaseService } = await import('../../services/collaboration/firebaseService');
-          const membersData: User[] = [];
-          for (const uid of project.members) {
-            const profile = await firebaseService.getUserProfile(uid);
-            if (profile) {
-              membersData.push({
-                id: profile.uid,
-                name: profile.displayName || 'Utilisateur',
-                email: profile.email || '',
-                avatar: profile.photoURL || '',
-                role: 'member',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-              });
-            }
-          }
-          setProjectMembers(membersData);
+          const membersData = await Promise.all(
+            project.members.map(async (uid) => {
+              const profile = await firebaseService.getUserProfile(uid);
+              if (profile) {
+                return {
+                  id: profile.uid,
+                  name: profile.displayName || 'Utilisateur',
+                  email: profile.email || '',
+                  avatar: profile.photoURL || '',
+                  role: 'member' as const,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString()
+                } as User;
+              }
+              return null;
+            })
+          );
+          setProjectMembers(membersData.filter((u): u is User => u !== null));
         } catch (e) {
           console.error("Erreur chargement membres pour mentions:", e);
         }

@@ -1,4 +1,5 @@
-import { AppState } from '../store';
+import { AppState } from '../context/AppContext';
+import { Project, Task } from '../types';
 
 export interface AppDataSummary {
   user: {
@@ -43,7 +44,7 @@ export interface AppDataSummary {
  */
 export function getAppDataSummary(state: AppState): AppDataSummary {
   const now = new Date();
-  const allTasks = state.projects.flatMap(p => p.tasks || []);
+  const allTasks = state.projects.flatMap((p: Project) => p.tasks || []);
 
   // Informations utilisateur (premier utilisateur du tableau)
   const primaryUser = state.users?.[0];
@@ -54,18 +55,23 @@ export function getAppDataSummary(state: AppState): AppDataSummary {
     department: primaryUser?.department
   };
 
-  // Détails de tous les projets (limité aux 20 derniers pour éviter de saturer le context)
+  // Détails de tous les projets suivis (limité aux 20 derniers)
   const sortedProjects = [...state.projects]
+    .filter(p => {
+      // Priorité aux projets suivis ou si aucun filtre n'est défini
+      const isFollowed = state.appSettings.followedProjects?.includes(p.id) ?? true;
+      return isFollowed;
+    })
     .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())
     .slice(0, 20);
 
-  const projects = sortedProjects.map(p => ({
+  const projects = sortedProjects.map((p: Project) => ({
     id: p.id,
     name: p.name,
     description: p.description,
     status: p.status,
     taskCount: (p.tasks || []).length,
-    completedTasks: (p.tasks || []).filter(t => t.status === 'done').length,
+    completedTasks: (p.tasks || []).filter((t: Task) => t.status === 'done').length,
     isShared: !!p.isShared,
     source: p.source || 'local'
   }));
@@ -75,7 +81,7 @@ export function getAppDataSummary(state: AppState): AppDataSummary {
     totalProjects: state.projects.length,
     totalTasks: allTasks.length,
     completedTasks: allTasks.filter(t => t.status === 'done').length,
-    overdueTasks: allTasks.filter(t =>
+    overdueTasks: allTasks.filter((t: Task) =>
       t.dueDate && new Date(t.dueDate) < now && t.status !== 'done'
     ).length,
   };
@@ -85,15 +91,15 @@ export function getAppDataSummary(state: AppState): AppDataSummary {
   nextWeek.setDate(now.getDate() + 7);
 
   const upcomingTasks = allTasks
-    .filter(t => {
+    .filter((t: Task) => {
       if (!t.dueDate) return false;
       const dueDate = new Date(t.dueDate);
       return dueDate > now && dueDate <= nextWeek && t.status !== 'done';
     })
-    .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
+    .sort((a: Task, b: Task) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
     .slice(0, 15)
-    .map(t => {
-      const project = state.projects.find(p => (p.tasks || []).some(task => task.id === t.id));
+    .map((t: Task) => {
+      const project = state.projects.find((p: Project) => (p.tasks || []).some((task: Task) => task.id === t.id));
       return {
         id: t.id,
         title: t.title,
@@ -105,10 +111,10 @@ export function getAppDataSummary(state: AppState): AppDataSummary {
 
   // Historique des tâches terminées (pour l'estimation prédictive)
   const completedTasksHistory = allTasks
-    .filter(t => t.status === 'done' && t.completedAt)
-    .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())
+    .filter((t: Task) => t.status === 'done' && t.completedAt)
+    .sort((a: Task, b: Task) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())
     .slice(0, 15)
-    .map(t => ({
+    .map((t: Task) => ({
       title: t.title,
       description: t.description,
       estimatedHours: t.estimatedHours || 0,

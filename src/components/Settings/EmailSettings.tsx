@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { EmailService } from '../../services/emailService';
 
 // Interface pour les paramètres EmailJS
 export interface EmailJsSettings {
@@ -196,9 +197,6 @@ export function EmailSettings() {
       };
 
       setTestStatus(prev => ({ ...prev, message: 'Chargement du service EmailJS...' }));
-
-      // Importer dynamiquement le service email
-      const { EmailService } = await import('../../services/emailService');
 
       setTestStatus(prev => ({ ...prev, message: 'Envoi de l\'email de test...' }));
 

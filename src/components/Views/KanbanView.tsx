@@ -109,10 +109,10 @@ export function KanbanView() {
           return isActive && isFollowed;
         })
       : state.projects.filter(p => {
-          const isSelected = selectedProjectIds.includes(p.id);
-          const isFollowed = showUnfollowedProjects || p.isFollowed !== false;
-          return isSelected && isFollowed;
-        });
+        const isSelected = selectedProjectIds.includes(p.id);
+        const isFollowed = state.appSettings.followedProjects?.includes(p.id) ?? true;
+        return isSelected && (showUnfollowedProjects || isFollowed);
+      });
 
     // 2. Agréger toutes les colonnes personnalisées uniques par SLUG
     const aggregatedColsMap = new Map<string, any>();

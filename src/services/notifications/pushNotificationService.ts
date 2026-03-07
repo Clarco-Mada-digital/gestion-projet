@@ -64,7 +64,7 @@ export class PushNotificationService {
     
     if (this.isSupported) {
       // Vérifier si le service worker est déjà enregistré
-      navigator.serviceWorker.ready.then(registration => {
+      navigator.serviceWorker.ready.then(() => {
         console.log('Service Worker prêt pour les notifications');
       }).catch(error => {
         console.error('Service Worker non disponible:', error);
@@ -117,7 +117,7 @@ export class PushNotificationService {
 
   private async registerServiceWorker(): Promise<void> {
     try {
-      const registration = await navigator.serviceWorker.register('/sw.js');
+      const registration = await navigator.serviceWorker.register(fixPath('/sw.js'));
       console.log('Service Worker enregistré:', registration);
       
       // S'abonner aux push notifications
@@ -262,7 +262,7 @@ export class PushNotificationService {
       options.onClose?.();
     };
 
-    notification.onerror = (event) => {
+    notification.onerror = () => {
       const error = new Error('Erreur de notification');
       options.onError?.(error);
     };
@@ -346,19 +346,19 @@ export class PushNotificationService {
     await this.showNotification({
       title: '📅 Rappel de tâche',
       body: `La tâche "${task.title}" du projet "${projectName}" est due aujourd'hui!`,
-      icon: '/icons/task-reminder.png',
+      icon: '/icons/icon-192x192.png',
       tag: `task-reminder-${task.id}`,
       requireInteraction: false,
       actions: [
         {
           action: 'view-task',
           title: 'Voir la tâche',
-          icon: '/icons/view.png'
+          icon: '/icons/icon-192x192.png'
         },
         {
           action: 'complete-task',
           title: 'Marquer comme terminée',
-          icon: '/icons/complete.png'
+          icon: '/icons/icon-192x192.png'
         }
       ],
       data: { 
@@ -368,10 +368,9 @@ export class PushNotificationService {
         projectName: projectName
       },
       onClick: () => {
-        // Construire le bon lien comme les notifications PWA
+        // Naviguer via paramètre URL pour éviter le 404 sur Astro
         if (task.projectId || task.project?.id) {
-          const taskUrl = `${fixPath(`/projects/${task.projectId || task.project?.id}`)}?task=${task.id}`;
-          window.location.href = taskUrl;
+          window.location.href = fixPath(`/?task=${task.id}`);
         } else {
           window.location.href = fixPath('/');
         }
@@ -385,7 +384,7 @@ export class PushNotificationService {
     await this.showNotification({
       title: '⚠️ Tâche en retard',
       body: `La tâche "${task.title}" du projet "${projectName}" est en retard de ${this.getDaysOverdue(task.dueDate)} jours!`,
-      icon: '/icons/overdue.png',
+      icon: '/icons/icon-192x192.png',
       tag: `task-overdue-${task.id}`,
       requireInteraction: true,
       vibrate: [200, 100, 200],
@@ -396,10 +395,9 @@ export class PushNotificationService {
         projectName: projectName
       },
       onClick: () => {
-        // Construire le bon lien comme les notifications PWA
+        // Naviguer via paramètre URL pour éviter le 404 sur Astro
         if (task.projectId || task.project?.id) {
-          const taskUrl = `${fixPath(`/projects/${task.projectId || task.project?.id}`)}?task=${task.id}`;
-          window.location.href = taskUrl;
+          window.location.href = fixPath(`/?task=${task.id}`);
         } else {
           window.location.href = fixPath('/');
         }
@@ -411,7 +409,7 @@ export class PushNotificationService {
     await this.showNotification({
       title: '🎉 Tâche terminée!',
       body: `Félicitations! La tâche "${task.title}" a été terminée.`,
-      icon: '/icons/complete.png',
+      icon: '/icons/icon-192x192.png',
       tag: `task-completed-${task.id}`,
       silent: false,
       vibrate: [100, 50, 100],
@@ -421,10 +419,9 @@ export class PushNotificationService {
         type: 'task-completed' 
       },
       onClick: () => {
-        // Construire le bon lien comme les notifications PWA
+        // Naviguer via paramètre URL pour éviter le 404 sur Astro
         if (task.projectId || task.project?.id) {
-          const taskUrl = `${fixPath(`/projects/${task.projectId || task.project?.id}`)}?task=${task.id}`;
-          window.location.href = taskUrl;
+          window.location.href = fixPath(`/?task=${task.id}`);
         } else {
           window.location.href = fixPath('/');
         }
@@ -440,11 +437,11 @@ export class PushNotificationService {
     await this.showNotification({
       title: `📊 Jalon du projet "${project.name}"`,
       body: `${completedTasks}/${totalTasks} tâches terminées (${percentage}%)`,
-      icon: '/icons/milestone.png',
+      icon: '/icons/icon-192x192.png',
       tag: `project-milestone-${project.id}`,
       data: { projectId: project.id, type: 'project-milestone' },
       onClick: () => {
-        window.location.href = fixPath(`/projects/${project.id}`);
+        window.location.href = fixPath('/');
       }
     });
   }

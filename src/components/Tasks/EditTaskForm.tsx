@@ -87,6 +87,16 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
     });
   });
 
+  // Mettre à jour l'état local si la tâche parente change (ex: synchro cloud)
+  useEffect(() => {
+    setEditedTask(validateTaskData({
+      ...task,
+      tags: [...(task.tags || [])],
+      assignees: [...(task.assignees || [])],
+      subTasks: [...(task.subTasks || [])]
+    }));
+  }, [task.id, task.updatedAt]); // Re-synchro sur changement ID ou date de modif
+
   // Gérer les changements des sous-tâches
   const handleSubTasksChange = useCallback((newSubTasks: SubTask[]) => {
     // Mise à jour de l'état local
@@ -210,7 +220,7 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
           : validatedTask.completedAt ?? undefined
       };
 
-      // Mettre à jour la tâche
+      // Mettre à jour la tâche dans le store global
       dispatch({
         type: 'UPDATE_TASK',
         payload: updatedTask
@@ -233,51 +243,37 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
       if (project.source === 'firebase' && project.members && project.members.length > 0) {
         try {
           const { firebaseService } = await import('../../services/collaboration/firebaseService');
-          const membersData: User[] = [];
-
-          for (const uid of project.members) {
-            // Pour l'utilisateur connecté, on peut peut-être prendre ses données "locales" si disponibles
-            // Sinon on fetch
-            const profile = await firebaseService.getUserProfile(uid);
-            if (profile) {
-              // Conversion en objet User complet pour l'UI
-              membersData.push({
-                id: profile.uid,
-                name: profile.displayName || 'Utilisateur',
-                email: profile.email || '',
-                avatar: profile.photoURL || '',
-                role: 'member',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-                // Autres champs optionnels laissés vides
-              });
-            } else if (uid === state.cloudUser?.uid && state.cloudUser) {
-              // Fallback pour l'utilisateur courant s'il n'est pas trouvé (peu probable)
-              membersData.push({
-                id: uid,
-                name: state.cloudUser.displayName || 'Moi',
-                email: state.cloudUser.email || '',
-                avatar: state.cloudUser.photoURL || '',
-                role: 'admin',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-              });
-            }
-          }
-          setAssignableUsers(membersData);
-        } catch (e) {
-          console.error("Erreur chargement membres:", e);
-          // Fallback sur tous les users si erreur
-          // Ou ne rien faire
+          
+          const membersData = await Promise.all(
+            project.members.map(async (uid) => {
+              const profile = await firebaseService.getUserProfile(uid);
+              if (profile) {
+                return {
+                  id: profile.uid,
+                  name: profile.displayName || 'Utilisateur',
+                  email: profile.email || '',
+                  avatar: profile.photoURL || '',
+                  role: 'member' as const,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString()
+                } as User;
+              }
+              return null;
+            })
+          );
+          
+          setAssignableUsers(membersData.filter((u): u is User => u !== null));
+        } catch (error) {
+          console.error('Erreur chargement membres:', error);
+          setAssignableUsers(state.users);
         }
       } else {
-        // Projet local : on utilise tous les utilisateurs locaux
         setAssignableUsers(state.users);
       }
     };
 
     loadProjectMembers();
-  }, [project, state.users, state.cloudUser]);
+  }, [project.id, project.members, state.users]);
   // Filtrer les utilisateurs disponibles pour l'assignation (variable for future use if needed, commenting out to clear lint)
   // const availableUsers = state.users.filter(
   //   (user: User) => !editedTask.assignees.includes(user.id)
@@ -1115,7 +1111,7 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
             </div>
           </div>
         </form>
-      </div >
-    </div >
+      </div>
+    </div>
   );
 }
