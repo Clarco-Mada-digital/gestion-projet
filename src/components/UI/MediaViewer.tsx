@@ -336,22 +336,40 @@ export function MediaViewer({
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black">
       <div ref={containerRef} className="relative w-screen h-screen flex flex-col">
-        <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/80 to-transparent p-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3 flex-1 min-w-0">
-              <h2 className="text-white font-medium truncate text-sm">{file.name}</h2>
-              <span className="text-gray-300 text-xs flex-shrink-0">{category}</span>
+        <div className="absolute top-0 left-0 right-0 z-50 bg-gradient-to-b from-black/90 via-black/60 to-transparent p-4 lg:p-6">
+          <div className="max-w-full flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="w-8 h-8 lg:w-10 lg:h-10 bg-white/10 backdrop-blur-md rounded-lg flex items-center justify-center shrink-0">
+                <FileText className="w-4 h-4 lg:w-5 lg:h-5 text-white" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-white font-bold truncate text-xs lg:text-sm leading-tight">{file.name}</h2>
+                <p className="text-white/40 text-[8px] lg:text-[10px] font-black uppercase tracking-widest">{category}</p>
+              </div>
             </div>
-            <div className="flex items-center space-x-1 flex-shrink-0">
+            
+            <div className="flex items-center gap-1.5 lg:gap-3 shrink-0">
               {hasMultipleFiles && (
-                <>
-                  <button onClick={onPrevious} disabled={currentIndex === 0} className="p-1.5 text-white hover:bg-white/20 rounded-full transition-colors disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
-                  <span className="text-white text-xs min-w-[3rem] text-center">{currentIndex + 1} / {files.length}</span>
-                  <button onClick={onNext} disabled={currentIndex === files.length - 1} className="p-1.5 text-white hover:bg-white/20 rounded-full transition-colors disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
-                </>
+                <div className="flex items-center bg-white/10 backdrop-blur-md rounded-xl p-1 lg:p-1.5 mr-2">
+                  <button onClick={onPrevious} disabled={currentIndex === 0} className="p-1 text-white hover:bg-white/20 rounded-lg transition-colors disabled:opacity-30"><ChevronLeft className="w-4 h-4" /></button>
+                  <span className="text-white text-[9px] lg:text-[10px] font-black min-w-[3rem] text-center uppercase tracking-tighter">{currentIndex + 1} <span className="text-white/30 mx-0.5">/</span> {files.length}</span>
+                  <button onClick={onNext} disabled={currentIndex === files.length - 1} className="p-1 text-white hover:bg-white/20 rounded-lg transition-colors disabled:opacity-30"><ChevronRight className="w-4 h-4" /></button>
+                </div>
               )}
-              <button onClick={handleDownload} className="p-1.5 text-white hover:bg-white/20 rounded-full transition-colors" title="Télécharger"><Download className="w-4 h-4" /></button>
-              <button onClick={onClose} className="p-1.5 text-white hover:bg-white/20 rounded-full transition-colors" title="Fermer"><X className="w-4 h-4" /></button>
+              <button 
+                onClick={handleDownload} 
+                className="w-9 h-9 lg:w-11 lg:h-11 bg-white/10 backdrop-blur-md text-white hover:bg-white/20 rounded-xl flex items-center justify-center transition-all shadow-lg active:scale-90" 
+                title="Télécharger"
+              >
+                <Download className="w-4 h-4 lg:w-5 lg:h-5" />
+              </button>
+              <button 
+                onClick={onClose} 
+                className="w-9 h-9 lg:w-11 lg:h-11 bg-red-500 text-white hover:bg-red-600 rounded-xl flex items-center justify-center transition-all shadow-lg shadow-red-500/20 active:scale-90" 
+                title="Fermer"
+              >
+                <X className="w-5 h-5 lg:w-6 lg:h-6" />
+              </button>
             </div>
           </div>
         </div>
