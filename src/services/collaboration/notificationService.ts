@@ -1,20 +1,9 @@
-import { getFirestore, collection, addDoc, query, where, onSnapshot, serverTimestamp, Timestamp, doc, updateDoc, writeBatch } from 'firebase/firestore';
-import { initializeApp } from 'firebase/app';
-import { firebaseConfig, isFirebaseConfigured } from '../../lib/firebaseConfig';
+import { collection, addDoc, query, where, onSnapshot, serverTimestamp, Timestamp, doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { isFirebaseConfigured } from '../../lib/firebaseConfig';
 import { Notification } from '../../types';
-import { auth } from './firebaseService';
-
-let db: any = null;
+import { db, auth } from './firebaseService';
 
 const ensureInitialized = () => {
-  if (!db && isFirebaseConfigured()) {
-    try {
-      const app = initializeApp(firebaseConfig);
-      db = getFirestore(app);
-    } catch (error) {
-      console.error("Erreur lors de l'initialisation de Firestore pour les notifications:", error);
-    }
-  }
   return !!db;
 };
 
@@ -40,34 +29,72 @@ export const notificationService = {
    * Écoute les notifications d'un utilisateur en temps réel
    */
   subscribeToNotifications(userId: string, callback: (notifications: Notification[]) => void) {
-    if (!ensureInitialized() || !auth.currentUser) {
-      console.warn("[NotificationService] Tentative d'écoute sans utilisateur authentifié");
-      return () => { };
-    }
+    let unsubscribe: (() => void) | null = null;
+    let retryTimeout: any = null;
+    let attempts = 0;
+    const maxAttempts = 5;
 
-    const q = query(
-      collection(db, 'notifications'),
-      where('userId', '==', userId)
-    );
+    const startListening = () => {
+      // Nettoyage préalable
+      if (unsubscribe) {
+        unsubscribe();
+        unsubscribe = null;
+      }
 
-    return onSnapshot(q, (snapshot) => {
-      const notifications: Notification[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        notifications.push({
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt ? (data.createdAt as Timestamp).toDate().toISOString() : new Date().toISOString()
-        } as Notification);
+      if (!ensureInitialized() || !auth.currentUser) {
+        console.warn("[NotificationService] En attente d'authentification pour l'écoute...");
+        // Réessayer dans 1.5s si on n'a pas encore l'utilisateur
+        if (attempts < maxAttempts) {
+          attempts++;
+          retryTimeout = setTimeout(startListening, 1500);
+        }
+        return;
+      }
+
+      const currentAuthUid = auth.currentUser?.uid;
+      console.log(`[NotificationService] Démarrage de l'écoute pour ${userId} (Tentative ${attempts + 1}). Auth CurrentUser: ${currentAuthUid}`);
+      
+      if (currentAuthUid !== userId) {
+        console.warn(`[NotificationService] Attention: L'UID de la requête (${userId}) est différent de l'UID Firebase Auth (${currentAuthUid})`);
+      }
+
+      const q = query(
+        collection(db, 'notifications'),
+        where('userId', '==', userId)
+      );
+
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        attempts = 0; // Reset on success
+        const notifications: Notification[] = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          notifications.push({
+            id: doc.id,
+            ...data,
+            createdAt: data.createdAt ? (data.createdAt as Timestamp).toDate().toISOString() : new Date().toISOString()
+          } as Notification);
+        });
+
+        notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        callback(notifications);
+      }, (error) => {
+        console.error("Erreur lors de l'écoute des notifications:", error);
+        
+        // Si c'est une erreur de permission, on réessaie car request.auth peut être null temporairement dans les règles
+        if (error.code === 'permission-denied' && attempts < maxAttempts) {
+          attempts++;
+          console.warn(`[NotificationService] Erreur de permission, nouvelle tentative dans 3s... (${attempts}/${maxAttempts})`);
+          retryTimeout = setTimeout(startListening, 3000);
+        }
       });
+    };
 
-      // Tri côté client pour éviter de demander une création d'index composite dans Firebase
-      notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    startListening();
 
-      callback(notifications);
-    }, (error) => {
-      console.error("Erreur lors de l'écoute des notifications:", error);
-    });
+    return () => {
+      if (unsubscribe) unsubscribe();
+      if (retryTimeout) clearTimeout(retryTimeout);
+    };
   },
 
   /**

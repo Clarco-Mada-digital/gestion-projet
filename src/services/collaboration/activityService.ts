@@ -1,20 +1,8 @@
-import { getFirestore, collection, addDoc, query, where, onSnapshot, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { initializeApp } from 'firebase/app';
-import { firebaseConfig, isFirebaseConfigured } from '../../lib/firebaseConfig';
+import { collection, addDoc, query, where, onSnapshot, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { Activity } from '../../types';
-import { auth } from './firebaseService';
-
-let db: any = null;
+import { db, auth } from './firebaseService';
 
 const ensureInitialized = () => {
-  if (!db && isFirebaseConfigured()) {
-    try {
-      const app = initializeApp(firebaseConfig);
-      db = getFirestore(app);
-    } catch (error) {
-      console.error("Erreur lors de l'initialisation de Firestore pour les activités:", error);
-    }
-  }
   return !!db;
 };
 

@@ -10,6 +10,19 @@ let app: any = null;
 let db: any = null;
 let auth: any = null;
 
+// Initialisation immédiate si possible
+if (isFirebaseConfigured()) {
+  try {
+    app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    auth = getAuth(app);
+    // Note: setPersistence est asynchrone, on le laisse dans ensureInitialized ou on l'appelle sans attendre
+    setPersistence(auth, browserLocalPersistence).catch(console.error);
+  } catch (error) {
+    console.error("Erreur d'initialisation immédiate Firebase:", error);
+  }
+}
+
 // Instance séparée pour l'agenda pour éviter de déconnecter l'utilisateur principal
 let calendarApp: any = null;
 let calendarAuth: any = null;
@@ -21,19 +34,19 @@ const ensureInitialized = async () => {
     return false;
   }
 
+  if (app && db && auth && calendarApp && calendarAuth) return true;
+
   try {
     if (!app) {
       app = initializeApp(firebaseConfig);
       db = getFirestore(app);
       auth = getAuth(app);
-      // Activer la persistance de session pour l'auth principale
       await setPersistence(auth, browserLocalPersistence);
     }
     if (!calendarApp) {
       // On initialise une deuxième instance avec un nom différent
       calendarApp = initializeApp(firebaseConfig, "calendar");
       calendarAuth = getAuth(calendarApp);
-      // Activer la persistance de session pour l'agenda
       await setPersistence(calendarAuth, browserLocalPersistence);
     }
   } catch (error) {
@@ -465,4 +478,4 @@ export const firebaseService = {
 };
 
 // Exporter les instances pour les autres services
-export { db, auth };
+export { db, auth, app };

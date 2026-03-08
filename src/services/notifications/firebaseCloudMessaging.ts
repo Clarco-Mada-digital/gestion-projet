@@ -1,7 +1,6 @@
-import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage, deleteToken } from 'firebase/messaging';
 import { firebaseConfig, isFirebaseConfigured } from '../../lib/firebaseConfig';
-import { auth, db } from '../../services/collaboration/firebaseService';
+import { auth, db, app } from '../../services/collaboration/firebaseService';
 import { doc, updateDoc } from 'firebase/firestore';
 
 let messaging: any = null;
@@ -10,10 +9,11 @@ let isInitialized = false;
 const ensureInitialized = () => {
   if (!isInitialized && isFirebaseConfigured()) {
     try {
-      const app = initializeApp(firebaseConfig);
-      messaging = getMessaging(app);
-      isInitialized = true;
-      console.log('Firebase Messaging initialisé');
+      if (app) {
+        messaging = getMessaging(app);
+        isInitialized = true;
+        console.log('Firebase Messaging initialisé via app centralisée');
+      }
     } catch (error) {
       console.error("Erreur lors de l'initialisation de Firebase Messaging:", error);
     }

@@ -1,18 +1,7 @@
-import { getFirestore, collection, query, where, onSnapshot, serverTimestamp, Timestamp, doc, updateDoc, writeBatch, getDocs, getDoc, addDoc } from 'firebase/firestore';
-import { initializeApp } from 'firebase/app';
-import { firebaseConfig, isFirebaseConfigured } from '../../lib/firebaseConfig';
-
-let db: any = null;
+import { collection, query, where, serverTimestamp, Timestamp, doc, writeBatch, getDocs, getDoc, addDoc } from 'firebase/firestore';
+import { db, auth } from '../collaboration/firebaseService';
 
 const ensureInitialized = () => {
-  if (!db && isFirebaseConfigured()) {
-    try {
-      const app = initializeApp(firebaseConfig);
-      db = getFirestore(app);
-    } catch (error) {
-      console.error("Erreur lors de l'initialisation de Firestore pour les notifications:", error);
-    }
-  }
   return !!db;
 };
 
@@ -77,14 +66,19 @@ class BackgroundNotificationService {
    */
   private async checkOverdueTasks(): Promise<void> {
     try {
-      if (!ensureInitialized()) return;
+      if (!ensureInitialized() || !auth.currentUser) return;
+      console.log(`[BackgroundNotificationService] Vérification des tâches pour ${auth.currentUser.uid}`);
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const todayString = today.toDateString();
 
-      // Récupérer tous les projets et tâches
-      const projectsSnapshot = await getDocs(collection(db, 'projects'));
+      // Récupérer uniquement les projets dont l'utilisateur est membre
+      const q = query(
+        collection(db, 'projects'),
+        where('members', 'array-contains', auth.currentUser.uid)
+      );
+      const projectsSnapshot = await getDocs(q);
       const projects = projectsSnapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
 
       let allTasks: any[] = [];
@@ -115,7 +109,7 @@ class BackgroundNotificationService {
       console.log(`📋 ${overdueTasks.length} tâches en retard trouvées`);
 
       // Grouper par projet pour éviter les doublons
-      const tasksByProject = overdueTasks.reduce((acc, task) => {
+      const tasksByProject = overdueTasks.reduce((acc: Record<string, any[]>, task: any) => {
         if (!acc[task.projectId]) {
           acc[task.projectId] = [];
         }

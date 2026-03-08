@@ -84,11 +84,19 @@ export function NotificationCenter() {
     }
   };
 
+  // Ref pour suivre les notifications précédentes sans provoquer de re-render
+  const previousNotificationsRef = useRef<NotificationType[]>([]);
+
   useEffect(() => {
     if (!state.cloudUser) return;
 
+    console.log(`[NotificationCenter] Démarrage de l'écoute pour ${state.cloudUser.uid}`);
+
     const unsubscribe = notificationService.subscribeToNotifications(state.cloudUser.uid, (fetched: NotificationType[]) => {
-      const previousNotifications = cloudNotifications;
+      const previousNotifications = previousNotificationsRef.current;
+      
+      // Mettre à jour la ref AVANT le setState
+      previousNotificationsRef.current = fetched;
       setCloudNotifications(fetched);
       
       // Détecter les nouvelles notifications (qui n'existaient pas avant)
@@ -124,8 +132,11 @@ export function NotificationCenter() {
         }
       });
     });
-    return () => unsubscribe?.();
-  }, [state.cloudUser, cloudNotifications]);
+    return () => {
+      console.log('[NotificationCenter] Arrêt de l\'écoute des notifications');
+      unsubscribe?.();
+    };
+  }, [state.cloudUser?.uid]); // IMPORTANT: seulement l'UID, pas cloudNotifications!
 
   useEffect(() => {
     if (state.cloudUser) {

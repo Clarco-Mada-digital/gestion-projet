@@ -22,7 +22,7 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.js',
       registerType: 'autoUpdate',
-      injectRegister: 'inline',
+      injectRegister: null,
       includeAssets: ['favicon.svg', 'icons/*.png', 'images/*.png'],
       manifest: {
         name: 'GestionProjet',
@@ -66,8 +66,7 @@ export default defineConfig({
       },
       devOptions: {
         enabled: true,
-        type: 'classic',
-        navigateFallback: '/',
+        type: 'module',
       }
     })
   ],
@@ -77,6 +76,10 @@ export default defineConfig({
   },
   vite: {
     base: base,
+    server: {
+      host: 'localhost',
+      port: 4321,
+    },
     ssr: {
       noExternal: [
         '@uiw/react-md-editor',

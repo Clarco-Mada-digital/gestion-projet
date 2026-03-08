@@ -31,7 +31,7 @@ const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
     <meta name="msapplication-TileColor" content="#3b82f6" />
     <meta name="msapplication-TileImage" content={`${base}icons/icon-144x144.png`} />
 
-    { pwaInfo && <Fragment set:html={pwaInfo.webManifest.linkTag} /> }
+    { pwaInfo?.webManifest?.linkTag && <Fragment set:html={pwaInfo.webManifest.linkTag} /> }
 
     <title>{title}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
