@@ -40,7 +40,10 @@ export const notificationService = {
    * Écoute les notifications d'un utilisateur en temps réel
    */
   subscribeToNotifications(userId: string, callback: (notifications: Notification[]) => void) {
-    if (!ensureInitialized() || !auth.currentUser) return () => { };
+    if (!ensureInitialized() || !auth.currentUser) {
+      console.warn("[NotificationService] Tentative d'écoute sans utilisateur authentifié");
+      return () => { };
+    }
 
     const q = query(
       collection(db, 'notifications'),
