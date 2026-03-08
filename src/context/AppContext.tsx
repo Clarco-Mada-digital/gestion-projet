@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { Project, Task, ReportEntry, User, UserSettings, ViewMode, Theme, EmailSettings, AppSettings, DEFAULT_AI_SETTINGS, FontSize, AISettings } from '../types';
 import { firebaseService } from '../services/collaboration/firebaseService';
+import { EncryptionService } from '../services/security/encryptionService';
 import { User as FirebaseUser } from 'firebase/auth';
 
 export interface AppState {
@@ -563,70 +564,61 @@ const AppContext = createContext<{
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
-  // Effet pour synchroniser avec Firebase (ÉCOUTE)
+  // Effet pour synchroniser avec Firebase (ÉCOUTE EN TEMPS RÉEL)
   useEffect(() => {
-    const unsubscribe = firebaseService.onAuthStateChange(async (user) => {
+    let unsubscribeProjects: (() => void) | null = null;
+
+    const unsubscribeAuth = firebaseService.onAuthStateChange(async (user) => {
       dispatch({ type: 'SET_CLOUD_USER', payload: user });
+
+      // Nettoyer l'écouteur précédent si l'utilisateur change ou se déconnecte
+      if (unsubscribeProjects) {
+        unsubscribeProjects();
+        unsubscribeProjects = null;
+      }
 
       if (user) {
         try {
           // S'assurer que le profil est à jour pour la recherche par email
           await firebaseService.saveUserProfile(user);
 
-          const sharedProjects = await firebaseService.getSharedProjects();
-          dispatch({ type: 'SYNC_PROJECTS', payload: sharedProjects });
+          // Écouteur en temps réel pour tous les projets où l'utilisateur est membre
+          unsubscribeProjects = firebaseService.onSharedProjectsUpdate(user.uid, async (sharedProjects) => {
+            console.log(`[Cloud Sync] ${sharedProjects.length} projets partagés reçus du Cloud`);
+            
+            // Déchiffrement des projets si nécessaire
+            const decryptedProjects = await Promise.all(sharedProjects.map(async (p) => {
+              const localKey = EncryptionService.getProjectKey(p.id);
+              if (p.isEncryptionEnabled && localKey) {
+                return await firebaseService.decryptProject(p, localKey);
+              }
+              return p;
+            }));
+
+            dispatch({ type: 'SYNC_PROJECTS', payload: decryptedProjects });
+          });
         } catch (error) {
-          console.error("Erreur lors de la synchronisation:", error);
+          console.error("Erreur lors de la synchronisation initiale:", error);
         }
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeProjects) unsubscribeProjects();
+    };
   }, []);
 
-  // Rafraîchir les données périodiquement ou quand on change de vue (Projects ou Kanban)
+  // Effet pour naviguer vers une tâche si demandée (ex: via notification)
   useEffect(() => {
-    if (!state.cloudUser) return;
-
-    const refreshData = async () => {
-      // Détection chirurgicale : on ne bloque que si une modale est réellement visible
-      const isModalVisible = !!document.querySelector('.fixed.inset-0.z-50') ||
-        !!document.querySelector('.ant-modal');
-      const isSettings = state.currentView === 'settings';
-
-      if (isModalVisible || isSettings) {
-        return;
-      }
-
-      try {
-        const sharedProjects = await firebaseService.getSharedProjects();
-        if (sharedProjects.length > 0) {
-          const currentFirebaseProjects = state.projects.filter(p => p.source === 'firebase');
-
-          const currentData = currentFirebaseProjects.map(p => ({ id: p.id, updated: p.updatedAt })).sort((a, b) => a.id.localeCompare(b.id));
-          const incomingData = sharedProjects.map(p => ({ id: p.id, updated: p.updatedAt })).sort((a, b) => a.id.localeCompare(b.id));
-
-          const hasChanged = sharedProjects.length !== currentFirebaseProjects.length || JSON.stringify(currentData) !== JSON.stringify(incomingData);
-
-          if (hasChanged) {
-            console.log("[Sync] Données modifiées détectées sur Firebase, synchronisation...");
-            dispatch({ type: 'SYNC_PROJECTS', payload: sharedProjects });
-          }
-        }
-      } catch (error) {
-        console.error("[Sync] Erreur rafraîchissement:", error);
+    if (!state.isLoading && state.targetProjectId && state.targetTaskId) {
+      // Déjà géré par NAVIGATE_TO_TASK qui change currentView
+      // Mais on s'assure que selectedProject est bon
+      if (state.selectedProject !== state.targetProjectId) {
+        dispatch({ type: 'SET_SELECTED_PROJECT', payload: state.targetProjectId });
       }
     }
-
-    // Rafraîchir au changement de vue ou de connexion
-    if (state.currentView === 'projects' || state.currentView === 'kanban') {
-      refreshData();
-    }
-
-    // Polling toutes les 60 secondes
-    const interval = setInterval(refreshData, 60000);
-    return () => clearInterval(interval);
-  }, [state.currentView, state.cloudUser]);
+  }, [state.targetProjectId, state.targetTaskId, state.isLoading]);
 
   useEffect(() => {
     const loadInitialData = () => {
@@ -754,16 +746,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }));
       console.log('[Persistence] Données principales sauvegardées');
 
-      // SYNCHRONISATION CLOUD : Si l'utilisateur est connecté, on synchronise les projets Firebase
+      // SYNCHRONISATION CLOUD : Uniquement si nécessaire (changements locaux non synchronisés)
       if (cloudUser) {
         state.projects
           .filter(p => p.source === 'firebase')
           .forEach(project => {
-            // On utilise setTimeout(0) pour ne pas bloquer le thread principal de rendu
-            setTimeout(() => {
-              firebaseService.syncProject(project)
-                .catch(err => console.error('[Cloud Sync] Erreur lors de la synchro auto:', err));
-            }, 0);
+            // On vérifie si le projet a été modifié localement depuis la dernière synchro
+            const needsSync = !project.lastSyncedAt || 
+                             new Date(project.updatedAt).getTime() > new Date(project.lastSyncedAt).getTime() + 1000; // Marge de 1s
+
+            if (needsSync) {
+              // On utilise setTimeout pour ne pas bloquer le thread principal et dédoubler les appels
+              setTimeout(() => {
+                firebaseService.syncProject(project)
+                  .then(() => console.log(`[Cloud Sync] Synchro auto réussie pour: ${project.name}`))
+                  .catch(err => console.error('[Cloud Sync] Erreur lors de la synchro auto:', err));
+              }, 1000); // Délai de 1s pour laisser le temps au state de se stabiliser
+            }
           });
       }
     } catch (error) {

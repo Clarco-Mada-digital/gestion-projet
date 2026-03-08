@@ -1,12 +1,14 @@
 ---
 import '../styles/global.css';
+import { pwaInfo } from 'virtual:pwa-info';
 
 export interface Props {
   title: string;
 }
 
 const { title } = Astro.props;
-const base = import.meta.env.BASE_URL;
+const rawBase = import.meta.env.BASE_URL || '/';
+const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
 ---
 
 <!DOCTYPE html>
@@ -29,23 +31,13 @@ const base = import.meta.env.BASE_URL;
     <meta name="msapplication-TileColor" content="#3b82f6" />
     <meta name="msapplication-TileImage" content={`${base}icons/icon-144x144.png`} />
 
-    <!-- PWA Manifest -->
-    <link rel="manifest" href={`${base}manifest.json`} />
-
-    <!-- Apple Touch Icons -->
-    <link rel="apple-touch-icon" sizes="180x180" href={`${base}icons/icon-180x180.png`} />
-    <link rel="apple-touch-icon" sizes="152x152" href={`${base}icons/icon-152x152.png`} />
-    <link rel="apple-touch-icon" sizes="144x144" href={`${base}icons/icon-144x144.png`} />
-    <link rel="apple-touch-icon" sizes="120x120" href={`${base}icons/icon-96x96.png`} />
-
-    <!-- Favicon PNG -->
-    <link rel="icon" type="image/png" sizes="192x192" href={`${base}icons/icon-192x192.png`} />
-    <link rel="icon" type="image/png" sizes="96x96" href={`${base}icons/icon-96x96.png`} />
+    { pwaInfo && <Fragment set:html={pwaInfo.webManifest.linkTag} /> }
 
     <title>{title}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    
     <style is:global>
       :root {
         --color-primary: 59, 130, 246;
@@ -59,32 +51,5 @@ const base = import.meta.env.BASE_URL;
   </head>
   <body class="min-h-screen font-sans antialiased bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-blue-900/20 dark:to-purple-900/20">
     <slot />
-    <script is:inline define:vars={{ base }}>
-      // Enregistrement unique du Service Worker pour PWA
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-          navigator.serviceWorker.register(base + 'sw.js', { scope: base })
-            .then(function(registration) {
-              console.log('✅ Service Worker enregistré:', registration.scope);
-
-              // Mettre à jour le SW si une nouvelle version est disponible
-              registration.addEventListener('updatefound', function() {
-                const newWorker = registration.installing;
-                if (newWorker) {
-                  newWorker.addEventListener('statechange', function() {
-                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                      console.log('🔄 Nouvelle version du SW disponible');
-                      newWorker.postMessage({ type: 'SKIP_WAITING' });
-                    }
-                  });
-                }
-              });
-            })
-            .catch(function(error) {
-              console.error('❌ Erreur enregistrement Service Worker:', error);
-            });
-        });
-      }
-    </script>
   </body>
 </html>

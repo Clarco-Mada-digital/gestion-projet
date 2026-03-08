@@ -117,13 +117,14 @@ export class PushNotificationService {
 
   private async registerServiceWorker(): Promise<void> {
     try {
-      const registration = await navigator.serviceWorker.register(fixPath('/sw.js'));
-      console.log('Service Worker enregistré:', registration);
+      // Attendre que le service worker (déjà enregistré par la PWA ou manuellement) soit prêt
+      const registration = await navigator.serviceWorker.ready;
+      console.log('Service Worker prêt pour les notifications push:', registration);
       
-      // S'abonner aux push notifications
+      // S'abonner aux push notifications avec cette session
       await this.subscribeToPush(registration);
     } catch (error) {
-      console.error('Erreur lors de l\'enregistrement du service worker:', error);
+      console.error('Erreur lors de l\'attente du service worker:', error);
     }
   }
 

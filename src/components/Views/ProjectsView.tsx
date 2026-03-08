@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Archive, AlertTriangle, Calendar, Cpu, ChevronDown, Loader2, LogOut, Clock, Eye, Edit2, Check, Upload } from 'lucide-react';
+import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Archive, AlertTriangle, Calendar, Cpu, ChevronDown, Loader2, LogOut, Clock, Eye, Edit2, Check, Upload, Shield, Copy, AlertCircle } from 'lucide-react';
+import { EncryptionService } from '../../services/security/encryptionService';
 import { useApp } from '../../context/AppContext';
 import { firebaseService } from '../../services/collaboration/firebaseService';
 import { Card } from '../UI/Card';
@@ -18,6 +19,7 @@ import { TrelloImportModal } from '../UI/TrelloImportModal';
 
 import { ActivityFeed } from './ActivityFeed';
 import { AIService } from '../../services/aiService';
+import { getBasePath } from '../../lib/pathUtils';
 
 // Fonction pour nettoyer le markdown mal formé
 const cleanMarkdown = (text: string): string => {
@@ -174,6 +176,12 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                 {project.isPublic && (
                   <span className="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-green-50 text-green-600 border border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800 uppercase tracking-wider">
                     Public
+                  </span>
+                )}
+                {project.isEncryptionEnabled && (
+                  <span className="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 uppercase tracking-wider gap-1">
+                    <Shield className="w-2.5 h-2.5" />
+                    Sécurisé
                   </span>
                 )}
               </div>
@@ -1267,7 +1275,60 @@ export function ProjectsView() {
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [showTrelloImportModal, setShowTrelloImportModal] = useState(false);
 
-  const handleEditProject = (project: Project) => {
+  const handleEditProject = async (project: Project) => {
+    // Si le projet est chiffré et qu'on n'a pas la clé localement
+    if (project.isEncryptionEnabled && !EncryptionService.getProjectKey(project.id)) {
+      const { Modal, Input } = await import('antd');
+      let enteredKey = '';
+      
+      Modal.confirm({
+        title: 'Projet Sécurisé',
+        icon: <Shield className="text-emerald-500 mr-2" />,
+        content: (
+          <div className="py-4">
+            <p className="text-sm text-gray-600 mb-4">Ce projet utilise le chiffrement de bout en bout. Veuillez saisir la clé de sécurité pour y accéder :</p>
+            <Input.Password 
+              placeholder="Clé de sécurité (AES)" 
+              onChange={(e) => enteredKey = e.target.value}
+            />
+          </div>
+        ),
+        okText: 'Déverrouiller',
+        cancelText: 'Annuler',
+        onOk: async () => {
+          if (!enteredKey) {
+            message.error("La clé est obligatoire");
+            return Promise.reject();
+          }
+          
+          try {
+            // On tente de déchiffrer le nom pour valider la clé
+            const decryptedName = await EncryptionService.decrypt(project.name, enteredKey);
+            
+            // Si le nom déchiffré ressemble à de l'hexadécimal (ou est identique), la clé est probablement mauvaise
+            // Note: C'est une heuristique simple
+            if (decryptedName === project.name || decryptedName.match(/^[0-9a-f]+$/i) && project.name.length > 20) {
+              message.error("Clé invalide ou erreur de déchiffrement");
+              return Promise.reject();
+            }
+
+            // Sauvegarder la clé et rafraîchir le projet
+            EncryptionService.saveProjectKey(project.id, enteredKey);
+            const decryptedProject = await firebaseService.decryptProject(project, enteredKey);
+            
+            dispatch({ type: 'UPDATE_PROJECT', payload: decryptedProject });
+            setEditingProject(decryptedProject);
+            setShowProjectModal(true);
+            message.success("Projet déverrouillé !");
+          } catch (err) {
+            message.error("Clé invalide");
+            return Promise.reject();
+          }
+        }
+      });
+      return;
+    }
+
     setEditingProject({ ...project, tasks: project.tasks || [] });
     if (project.aiSettings) {
       setAISettings({
@@ -1339,6 +1400,14 @@ export function ProjectsView() {
         } as any
       };
       dispatch({ type: 'ADD_PROJECT', payload: project });
+      
+      // Sauvegarder la clé localement si E2EE est activé
+      if (project.isEncryptionEnabled && project.encryptionKey) {
+        import('../../services/security/encryptionService').then(({ EncryptionService }) => {
+          EncryptionService.saveProjectKey(project.id, project.encryptionKey!);
+        });
+      }
+      
       message.success('Projet créé avec succès');
     }
 
@@ -1947,6 +2016,85 @@ export function ProjectsView() {
               </div>
             )}
           </CustomTabPane>
+          <CustomTabPane
+            tab={
+              <span>
+                <Shield size={16} style={{ marginRight: 8 }} />
+                Sécurité
+              </span>
+            }
+            key="security"
+          >
+            <div className="space-y-6 py-4">
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
+                <div className="flex gap-3">
+                  <Shield className="w-5 h-5 text-blue-600 shrink-0" />
+                  <div>
+                    <h4 className="text-sm font-bold text-blue-900 dark:text-blue-100">Chiffrement de bout en bout (E2EE)</h4>
+                    <p className="text-xs text-blue-800 dark:text-blue-200 mt-1">
+                      Une fois activé, vos données (titres, descriptions, tâches) sont chiffrées localement avant d'être envoyées sur le Cloud. 
+                      Personne, pas même nous, ne peut lire vos données.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700">
+                <div>
+                  <h4 className="text-sm font-bold">Activer le chiffrement</h4>
+                  <p className="text-[10px] text-gray-500">Sécurisez vos données avec AES-256 GCM.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const enabled = !newProject.isEncryptionEnabled;
+                    let key = newProject.encryptionKey;
+                    if (enabled && !key) {
+                      const { EncryptionService } = await import('../../services/security/encryptionService');
+                      key = await EncryptionService.generateProjectKey();
+                    }
+                    setNewProject({ ...newProject, isEncryptionEnabled: enabled, encryptionKey: key });
+                  }}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${newProject.isEncryptionEnabled ? 'bg-green-600' : 'bg-gray-300 dark:bg-gray-700'}`}
+                >
+                  <span className={`${newProject.isEncryptionEnabled ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`} />
+                </button>
+              </div>
+
+              {newProject.isEncryptionEnabled && (
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Clé de sécurité (À partager avec vos membres)</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="password"
+                        readOnly
+                        value={newProject.encryptionKey || ''}
+                        className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          if (newProject.encryptionKey) {
+                            navigator.clipboard.writeText(newProject.encryptionKey);
+                            message.success("Clé copiée ! Transmettez-la de manière sécurisée.");
+                          }
+                        }}
+                      >
+                        <Copy size={14} />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 rounded-lg">
+                    <p className="text-[10px] text-amber-800 dark:text-amber-200 flex items-center gap-2">
+                      <AlertCircle className="w-3 h-3 shrink-0" />
+                      Attention : Ne perdez pas cette clé. Sans elle, vos données seront illisibles à jamais.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CustomTabPane>
         </Tabs>
         <div className="flex gap-4 pt-6 mt-6 border-t border-gray-100 dark:border-gray-800">
           <Button
@@ -2223,13 +2371,13 @@ export function ProjectsView() {
                       <input
                         type="text"
                         readOnly
-                        value={`${window.location.origin}${import.meta.env.BASE_URL}v?id=${editingProject.id}`}
+                        value={`${window.location.origin}${getBasePath()}/v?id=${editingProject.id}`}
                         className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono text-gray-600 dark:text-gray-400"
                       />
                       <Button
                         size="sm"
                         onClick={() => {
-                          const url = `${window.location.origin}${import.meta.env.BASE_URL}v?id=${editingProject.id}`;
+                          const url = `${window.location.origin}${getBasePath()}/v?id=${editingProject.id}`;
                           navigator.clipboard.writeText(url);
                           message.success("Lien copié !");
                         }}
@@ -2242,6 +2390,95 @@ export function ProjectsView() {
                     </p>
                   </div>
                 )}
+              </div>
+            )}
+          </div>
+
+          {/* Section Sécurité & Chiffrement (E2EE) */}
+          <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/10 dark:to-emerald-900/10 p-6 rounded-2xl border border-green-100 dark:border-green-800/30">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-600 rounded-lg text-white">
+                  <Shield className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Sécurité & Chiffrement</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Chiffrement de bout en bout (E2EE) avec AES-256.</p>
+                </div>
+              </div>
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {editingProject?.isEncryptionEnabled ? 'Activé' : 'Désactivé'}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={!isOwner || !isEditingProjectModal}
+                    onClick={async () => {
+                      if (!isOwner || !editingProject) return;
+                      const enabled = !editingProject.isEncryptionEnabled;
+                      const { EncryptionService } = await import('../../services/security/encryptionService');
+                      let key = editingProject.encryptionKey || EncryptionService.getProjectKey(editingProject.id);
+                      
+                      if (enabled && !key) {
+                        key = await EncryptionService.generateProjectKey();
+                        EncryptionService.saveProjectKey(editingProject.id, key);
+                      }
+                      
+                      setEditingProject({ 
+                        ...editingProject, 
+                        isEncryptionEnabled: enabled, 
+                        encryptionKey: key || undefined 
+                      });
+                    }}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${editingProject?.isEncryptionEnabled ? 'bg-green-600' : 'bg-gray-300 dark:bg-gray-700'
+                      } ${(!isOwner || !isEditingProjectModal) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <span
+                      className={`${editingProject?.isEncryptionEnabled ? 'translate-x-6' : 'translate-x-1'
+                        } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+                    />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {editingProject?.isEncryptionEnabled && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Clé de chiffrement locale</label>
+                    <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold">PRIVÉ</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="password"
+                      readOnly
+                      value={editingProject.encryptionKey || ''}
+                      className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono text-gray-600 dark:text-gray-400"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        const { EncryptionService } = await import('../../services/security/encryptionService');
+                        const key = editingProject.encryptionKey || EncryptionService.getProjectKey(editingProject.id);
+                        if (key) {
+                          navigator.clipboard.writeText(key);
+                          message.success("Clé copiée !");
+                        }
+                      }}
+                    >
+                      Copier
+                    </Button>
+                  </div>
+                </div>
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg">
+                  <p className="text-[10px] text-blue-800 dark:text-blue-200 leading-relaxed">
+                    <AlertCircle className="w-3 h-3 inline mr-1" />
+                    <strong>Note :</strong> Cette clé assure que vos données sont illisibles par quiconque n'a pas la clé. 
+                    Partagez-la <u>uniquement</u> avec les membres de confiance de ce projet par un canal sécurisé.
+                  </p>
+                </div>
               </div>
             )}
           </div>

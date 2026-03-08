@@ -38,5 +38,28 @@ service cloud.firestore {
       // Suppression : seul le propriétaire peut supprimer le projet
       allow delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
     }
+
+    // Règles pour la collection 'notifications'
+    match /notifications/{notificationId} {
+      // Lecture : seul l'utilisateur à qui est destinée la notification peut la lire
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Création : tout utilisateur authentifié peut envoyer une notification
+      allow create: if isAuthenticated();
+      
+      // Mise à jour : l'utilisateur peut marquer sa notification comme lue
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Suppression : l'utilisateur peut supprimer ses propres notifications
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // Règles pour les activités (historique)
+    match /activities/{activityId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      // Empêcher la modification ou suppression directe de l'historique
+      allow update, delete: if false;
+    }
   }
 }

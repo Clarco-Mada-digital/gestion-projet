@@ -2,7 +2,8 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, User as FirebaseUser, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { firebaseConfig, isFirebaseConfigured } from '../../lib/firebaseConfig';
-import { Project } from '../../types';
+import { Project, Task } from '../../types';
+import { EncryptionService } from '../security/encryptionService';
 
 // Variables globales pour l'instance Firebase
 let app: any = null;
@@ -223,32 +224,88 @@ export const firebaseService = {
   },
 
   /**
-   * Sauvegarde ou met à jour un projet dans le Cloud
+   * Sauvegarde ou met à jour un projet dans le Cloud (avec E2EE si activé)
    */
   async syncProject(project: Project): Promise<void> {
     if (!ensureInitialized() || !auth.currentUser) return;
 
     try {
-      // Nettoyage des données (Firestore n'aime pas les undefined)
-      const cleanProject = JSON.parse(JSON.stringify(project));
+      let projectToSync = JSON.parse(JSON.stringify(project));
+      const key = project.encryptionKey;
+
+      // Si le chiffrement est activé et qu'on a la clé, on chiffre les données sensibles
+      if (project.isEncryptionEnabled && key) {
+        console.log(`[E2EE] Chiffrement du projet "${project.name}" avant synchronisation...`);
+        
+        projectToSync.name = await EncryptionService.encrypt(project.name, key);
+        projectToSync.description = await EncryptionService.encrypt(project.description, key);
+        
+        if (projectToSync.tasks) {
+          projectToSync.tasks = await Promise.all(projectToSync.tasks.map(async (task: Task) => ({
+            ...task,
+            title: await EncryptionService.encrypt(task.title, key),
+            description: await EncryptionService.encrypt(task.description, key),
+            notes: task.notes ? await EncryptionService.encrypt(task.notes, key) : task.notes,
+            subTasks: task.subTasks ? await Promise.all(task.subTasks.map(async st => ({
+              ...st,
+              title: await EncryptionService.encrypt(st.title, key)
+            }))) : task.subTasks
+          })));
+        }
+      }
+
+      // SÉCURITÉ CRITIQUE : Ne JAMAIS envoyer la clé de chiffrement sur Firebase
+      delete projectToSync.encryptionKey;
 
       // Ajout des métadonnées de synchronisation
-      cleanProject.lastSyncedAt = new Date().toISOString();
-      cleanProject.source = 'firebase';
+      projectToSync.lastSyncedAt = new Date().toISOString();
+      projectToSync.source = 'firebase';
 
-      // Si c'est le premier sync, on s'assure que l'utilisateur courant est propriétaire/membre
-      if (!cleanProject.ownerId) {
-        cleanProject.ownerId = auth.currentUser.uid;
+      if (!projectToSync.ownerId) {
+        projectToSync.ownerId = auth.currentUser.uid;
       }
 
-      if (!cleanProject.members || !cleanProject.members.includes(auth.currentUser.uid)) {
-        cleanProject.members = [...(cleanProject.members || []), auth.currentUser.uid];
+      if (!projectToSync.members || !projectToSync.members.includes(auth.currentUser.uid)) {
+        projectToSync.members = [...(projectToSync.members || []), auth.currentUser.uid];
       }
 
-      await setDoc(doc(db, 'projects', project.id), cleanProject, { merge: true });
+      await setDoc(doc(db, 'projects', project.id), projectToSync, { merge: true });
     } catch (error) {
       console.error("Erreur lors de la synchronisation du projet:", error);
       throw error;
+    }
+  },
+
+  /**
+   * Déchiffre un projet venant de Firebase
+   */
+  async decryptProject(project: Project, localKey?: string): Promise<Project> {
+    const key = localKey || project.encryptionKey;
+    if (!project.isEncryptionEnabled || !key) return project;
+
+    try {
+      const decrypted = { ...project };
+      decrypted.name = await EncryptionService.decrypt(project.name, key);
+      decrypted.description = await EncryptionService.decrypt(project.description, key);
+      decrypted.encryptionKey = key; // On s'assure de garder la clé pour le prochain sync
+
+      if (decrypted.tasks) {
+        decrypted.tasks = await Promise.all(decrypted.tasks.map(async (task: Task) => ({
+          ...task,
+          title: await EncryptionService.decrypt(task.title, key),
+          description: await EncryptionService.decrypt(task.description, key),
+          notes: task.notes ? await EncryptionService.decrypt(task.notes, key) : task.notes,
+          subTasks: task.subTasks ? await Promise.all(task.subTasks.map(async st => ({
+            ...st,
+            title: await EncryptionService.decrypt(st.title, key)
+          }))) : task.subTasks
+        })));
+      }
+
+      return decrypted;
+    } catch (error) {
+      console.error("[E2EE] Erreur lors du déchiffrement du projet:", error);
+      return project;
     }
   },
 
@@ -273,6 +330,28 @@ export const firebaseService = {
       console.error("Erreur lors de la récupération des projets partagés:", error);
       return [];
     }
+  },
+
+  /**
+   * Écoute les mises à jour en temps réel de tous les projets partagés avec l'utilisateur
+   */
+  onSharedProjectsUpdate(uid: string, callback: (projects: Project[]) => void) {
+    if (!ensureInitialized()) return () => { };
+
+    const q = query(
+      collection(db, 'projects'),
+      where('members', 'array-contains', uid)
+    );
+
+    return onSnapshot(q, (snapshot) => {
+      const projects = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        source: 'firebase'
+      } as Project));
+      callback(projects);
+    }, (error) => {
+      console.error("Erreur lors de l'écoute des projets partagés:", error);
+    });
   },
 
   /**
@@ -353,6 +432,33 @@ export const firebaseService = {
       }
     } catch (error) {
       console.error("Erreur lors de la suppression du projet Cloud:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Quitte un projet partagé (se retire de la liste des membres)
+   */
+  leaveProject: async (projectId: string): Promise<void> => {
+    if (!ensureInitialized()) throw new Error("Firebase n'est pas initialisé");
+    if (!auth.currentUser) throw new Error("Vous devez être connecté");
+
+    try {
+      const projectDoc = await getDoc(doc(db, 'projects', projectId));
+      if (!projectDoc.exists()) return;
+
+      const projectData = projectDoc.data() as Project;
+      const updatedMembers = (projectData.members || []).filter(uid => uid !== auth.currentUser.uid);
+      const updatedRoles = { ...(projectData.memberRoles || {}) };
+      delete updatedRoles[auth.currentUser.uid];
+
+      await setDoc(doc(db, 'projects', projectId), {
+        members: updatedMembers,
+        memberRoles: updatedRoles,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (error) {
+      console.error("Erreur lors de l'abandon du projet:", error);
       throw error;
     }
   },

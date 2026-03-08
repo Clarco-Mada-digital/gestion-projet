@@ -59,12 +59,9 @@ export class FirebaseCloudMessaging {
         return null;
       }
 
-      // S'assurer que le service worker est enregistré
-      const { fixPath } = await import('../../lib/pathUtils');
-      const registration = await navigator.serviceWorker.register(fixPath('/sw.js'), {
-        scope: fixPath('/')
-      });
-      console.log('Service Worker enregistré pour FCM avec scope:', registration.scope);
+      // S'assurer que le service worker est prêt (déjà géré par la PWA ou le navigateur)
+      const registration = await navigator.serviceWorker.ready;
+      console.log('Service Worker prêt pour FCM:', registration.scope);
 
       // Demander la permission pour les notifications
       const permission = await Notification.requestPermission();

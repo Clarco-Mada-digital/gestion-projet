@@ -325,44 +325,39 @@ const SendButton = styled(Button)`
   }
 `;
 
-const ChatButton = styled(Button) <{ $isDark: boolean }>`
-  &.hidden {
-    opacity: 0;
-    pointer-events: none;
-  }
+const ChatButtonBase = styled.div<{ $isDark: boolean }>`
   position: fixed;
   bottom: 30px;
   right: 30px;
-  width: 60px;
-  height: 60px;
-  min-width: 60px !important;
-  padding: 0;
-  border-radius: 50% !important;
-  background: radial-gradient(ellipse at center, #1890ff 0%, #1890ff 99%, #096dd9 100%);
-  color: white;
-  font-size: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  backdrop-filter: blur(5px) brightness(0.7);
-  border: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  opacity: 1;
-  pointer-events: auto;
+  z-index: 1000;
   
-  &:hover {
-    transform: scale(1.1);
-    box-shadow: 0 6px 16px rgba(24, 144, 255, 0.4);
-    backdrop-filter: blur(10px) brightness(0.8);
-  }
-  
-  .anticon {
+  .ant-btn {
+    width: 60px;
+    height: 60px;
+    min-width: 60px !important;
+    padding: 0;
+    border-radius: 50% !important;
+    background: radial-gradient(ellipse at center, #1890ff 0%, #1890ff 99%, #096dd9 100%);
+    color: white;
     font-size: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(5px) brightness(0.7);
+    border: none;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 16px rgba(24, 144, 255, 0.4);
+      backdrop-filter: blur(10px) brightness(0.8);
+    }
+  }
+
+  &.hidden {
+    opacity: 0;
+    pointer-events: none;
   }
 `;
 
@@ -944,22 +939,22 @@ const Chatbot: React.FC = () => {
       </AnimatePresence>
 
       <Tooltip title={isOpen ? 'Fermer le chat' : 'Ouvrir le chat'}>
-        <ChatButton
+        <ChatButtonBase
           $isDark={isDark}
-          type="primary"
-          shape="circle"
-          onClick={toggleChat}
           className={isOpen ? 'hidden' : ''}
           style={{
             transform: isOpen ? 'rotate(180deg) scale(0)' : 'none',
             transition: 'all 0.3s ease-in-out',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
           }}
         >
-          {isOpen ? <CloseOutlined /> : <MessageOutlined />}
-        </ChatButton>
+          <Button
+            type="primary"
+            shape="circle"
+            onClick={toggleChat}
+          >
+            {isOpen ? <CloseOutlined /> : <MessageOutlined />}
+          </Button>
+        </ChatButtonBase>
       </Tooltip>
 
     </div>

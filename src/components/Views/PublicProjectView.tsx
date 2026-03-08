@@ -35,6 +35,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getBasePath } from '../../lib/pathUtils';
 
 // --- Utilities ---
 const cleanMarkdown = (text: string): string => {
@@ -561,7 +562,7 @@ export const PublicProjectView = ({ projectId: propProjectId }: { projectId?: st
         <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-6" />
         <h2 className="text-2xl font-black mb-2 tracking-tighter">Accès Restreint</h2>
         <p className="text-xs text-gray-500 dark:text-gray-400 mb-8 font-medium">{error}</p>
-        <a href="/" className="inline-flex px-8 py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-950 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg">Retour Accueil</a>
+        <a href={getBasePath() || '/'} className="inline-flex px-8 py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-950 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg">Retour Accueil</a>
       </Card>
     </div>
   );

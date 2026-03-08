@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+const base = import.meta.env.BASE_URL;
 ---
 
 <Layout title="404 - Page Introuvable">
@@ -22,7 +23,7 @@ import Layout from '../layouts/Layout.astro';
       </p>
       
       <a 
-        href="/"
+        href={base}
         class="inline-flex items-center justify-center px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl shadow-lg shadow-blue-500/25 transition-all duration-200 transform hover:scale-105 active:scale-95"
       >
         <span>Retourner au Tableau de Bord</span>
@@ -30,7 +31,7 @@ import Layout from '../layouts/Layout.astro';
       
       <div class="mt-12 pt-8 border-t border-gray-100 dark:border-gray-800">
         <p class="text-sm text-gray-500">
-          Besoin d'aide ? <a href="/about" class="text-blue-500 hover:underline">Consultez notre guide</a>
+          Besoin d'aide ? <a href={`${base}about`} class="text-blue-500 hover:underline">Consultez notre guide</a>
         </p>
       </div>
     </div>

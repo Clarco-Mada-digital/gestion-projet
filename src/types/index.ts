@@ -115,6 +115,8 @@ export interface Project {
     }[];
   };
   accentColor?: string;
+  encryptionKey?: string;
+  isEncryptionEnabled?: boolean;
 }
 
 export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';

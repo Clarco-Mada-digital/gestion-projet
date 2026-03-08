@@ -261,10 +261,11 @@ export function useOffline() {
     };
   }, [syncData]);
 
-  // Charger les données initiales
+  // Charger les données initiales au montage
   useEffect(() => {
     loadOfflineData();
-  }, [loadOfflineData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); 
 
   // Mise à jour périodique des statistiques
   useEffect(() => {
