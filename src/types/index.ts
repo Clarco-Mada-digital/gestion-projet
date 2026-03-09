@@ -286,6 +286,15 @@ export interface AppSettings {
     sidebarTheme: 'light' | 'dark' | 'glass';
   };
   pushNotifications?: boolean; // Ajouté pour les notifications push
+  keyboardShortcuts?: {
+    toggleEditMode: string; // Default: 'ctrl+e'
+    navigateToday: string; // Default: 'ctrl+1'
+    navigateProjects: string; // Default: 'ctrl+2'
+    navigateKanban: string; // Default: 'ctrl+3'
+    navigateCalendar: string; // Default: 'ctrl+4'
+    navigateReports: string; // Default: 'ctrl+5'
+    navigateSettings: string; // Default: 'ctrl+6'
+  };
 }
 
 export type Theme = 'light' | 'dark';

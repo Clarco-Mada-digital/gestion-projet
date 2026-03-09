@@ -12,6 +12,7 @@ import { ReportView } from './components/Views/ReportView';
 import { AboutView } from './components/Views/AboutView';
 import Chatbot from './components/Chatbot';
 import { motion, AnimatePresence } from 'framer-motion';
+import { matchesShortcut } from './utils/keyboardUtils';
 
 function AppContent() {
   const { state, dispatch } = useApp();
@@ -75,6 +76,41 @@ function AppContent() {
     }, 500);
     return () => clearTimeout(timer);
   }, []);
+
+  // Gestion des raccourcis clavier de navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const shortcuts = appSettings?.keyboardShortcuts;
+
+      if (!shortcuts) return;
+
+      // Navigation shortcuts
+      if (matchesShortcut(shortcuts.navigateToday || 'ctrl+1', e)) {
+        e.preventDefault();
+        dispatch({ type: 'SET_VIEW', payload: 'today' });
+      } else if (matchesShortcut(shortcuts.navigateProjects || 'ctrl+2', e)) {
+        e.preventDefault();
+        dispatch({ type: 'SET_VIEW', payload: 'projects' });
+      } else if (matchesShortcut(shortcuts.navigateKanban || 'ctrl+3', e)) {
+        e.preventDefault();
+        dispatch({ type: 'SET_VIEW', payload: 'kanban' });
+      } else if (matchesShortcut(shortcuts.navigateCalendar || 'ctrl+4', e)) {
+        e.preventDefault();
+        dispatch({ type: 'SET_VIEW', payload: 'calendar' });
+      } else if (matchesShortcut(shortcuts.navigateReports || 'ctrl+5', e)) {
+        e.preventDefault();
+        dispatch({ type: 'SET_VIEW', payload: 'reports' });
+      } else if (matchesShortcut(shortcuts.navigateSettings || 'ctrl+6', e)) {
+        e.preventDefault();
+        dispatch({ type: 'SET_VIEW', payload: 'settings' });
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [appSettings?.keyboardShortcuts, dispatch]);
 
   if (isLoading) {
     return (

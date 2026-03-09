@@ -16,6 +16,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { calculateDuration, isMultiDayTask } from '../../utils/dateUtils';
 import { TrelloImportModal } from '../UI/TrelloImportModal';
+import { matchesShortcut } from '../../utils/keyboardUtils';
 
 import { ActivityFeed } from './ActivityFeed';
 import { AIService } from '../../services/aiService';
@@ -1431,6 +1432,25 @@ export function ProjectsView() {
 
   // Can manage tasks (create, edit, delete, toggle) - Member+
   const canManageTasks = isLocal || isOwner || ['admin', 'member'].includes(currentUserRole as string);
+
+  // Gestion du raccourci clavier pour basculer entre mode édition et lecture dans le modal de projet
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ne fonctionne que si le modal de projet est ouvert et que l'utilisateur peut éditer
+      if (!editingProject || !canEditProject) return;
+
+      const shortcut = state.appSettings.keyboardShortcuts?.toggleEditMode || 'ctrl+e';
+      if (matchesShortcut(shortcut, e)) {
+        e.preventDefault();
+        setIsEditingProjectModal(!isEditingProjectModal);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [editingProject, canEditProject, isEditingProjectModal, state.appSettings.keyboardShortcuts]);
 
   return (
     <div className="space-y-8">

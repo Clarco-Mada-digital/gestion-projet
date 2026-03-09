@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Calendar as CalendarIcon, Clock, Plus, X as XIcon, Edit2, Eye, Image as ImageIcon, Video, Music, Link as LinkIcon, Sparkles } from 'lucide-react';
 import { Task, Project, SubTask, Attachment, User, TaskStatus } from '../../types';
 import { useApp } from '../../context/AppContext';
@@ -10,6 +10,7 @@ import { CompactAttachments } from '../UI/CompactAttachments';
 import { cloudinaryService } from '../../services/collaboration/cloudinaryService';
 import { localAttachmentService } from '../../services/localAttachmentService';
 import { TaskComments } from './TaskComments';
+import { matchesShortcut } from '../../utils/keyboardUtils';
 import { calculateDuration, isMultiDayTask } from '../../utils/dateUtils';
 
 // Fonction pour nettoyer le markdown mal formé
@@ -124,6 +125,10 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
   const [isEditing, setIsEditing] = useState(false);
   const [isEstimating, setIsEstimating] = useState(false);
   const [estimationReasoning, setEstimationReasoning] = useState('');
+
+  // Calculer isMultiDay et autoCalculatedDuration
+  const isMultiDay = useMemo(() => isMultiDayTask(editedTask.startDate, editedTask.dueDate), [editedTask.startDate, editedTask.dueDate]);
+  const autoCalculatedDuration = useMemo(() => isMultiDay ? calculateDuration(editedTask.startDate, editedTask.dueDate) : '', [isMultiDay, editedTask.startDate, editedTask.dueDate]);
 
   // Gérer l'ajout d'un tag
   const [isAddingTag, setIsAddingTag] = useState(false);
@@ -274,10 +279,23 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
 
     loadProjectMembers();
   }, [project.id, project.members, state.users]);
-  // Filtrer les utilisateurs disponibles pour l'assignation (variable for future use if needed, commenting out to clear lint)
-  // const availableUsers = state.users.filter(
-  //   (user: User) => !editedTask.assignees.includes(user.id)
-  // );
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const shortcut = state.appSettings.keyboardShortcuts?.toggleEditMode || 'ctrl+e';
+      if (matchesShortcut(shortcut, e)) {
+        e.preventDefault();
+        if (canEdit) {
+          setIsEditing(!isEditing);
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [canEdit, isEditing, state.appSettings.keyboardShortcuts]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -801,119 +819,110 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
             </div>
 
             {/* Heures estimées */}
-            {(() => {
-              const isMultiDay = isMultiDayTask(editedTask.startDate, editedTask.dueDate);
-              const autoCalculatedDuration = isMultiDay ? calculateDuration(editedTask.startDate, editedTask.dueDate) : '';
-
-              return (
-                <>
-                  {isEditing ? (
-                    isMultiDay ? (
-                      // Tâche multi-jours : afficher la durée calculée automatiquement
-                      <div>
-                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Durée totale</label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Clock className="h-5 w-5 text-gray-400" />
-                          </div>
-                          <input
-                            type="text"
-                            value={autoCalculatedDuration}
-                            readOnly
-                            className="w-full pl-10 pr-4 py-2.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-gray-900 dark:text-white cursor-not-allowed"
-                            title="Durée calculée automatiquement selon les dates"
-                          />
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          Calculée automatiquement selon la durée entre le début et la fin
-                        </p>
-                      </div>
-                    ) : (
-                      // Tâche d'un jour : permettre la saisie manuelle
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Heures estimées</label>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              setIsEstimating(true);
-                              try {
-                                const estimation = await AIService.estimateTaskDuration(
-                                  state.appSettings.aiSettings,
-                                  state,
-                                  editedTask.title,
-                                  editedTask.description,
-                                  editedTask.startDate,
-                                  editedTask.dueDate
-                                );
-                                setEditedTask({
-                                  ...editedTask,
-                                  dueDate: estimation.suggestedDueDate || editedTask.dueDate,
-                                  estimatedHours: estimation.estimatedHours > 8 ? 0 : estimation.estimatedHours
-                                });
-                                setEstimationReasoning(estimation.reasoning);
-                              } catch (e) {
-                                console.error(e);
-                              } finally {
-                                setIsEstimating(false);
-                              }
-                            }}
-                            disabled={isEstimating}
-                            className="text-[10px] flex items-center px-1.5 py-0.5 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-md border border-purple-200 dark:border-purple-800 hover:bg-purple-100 transition-colors font-bold uppercase tracking-tighter"
-                          >
-                            <Sparkles className={`w-3 h-3 mr-1 ${isEstimating ? 'animate-spin' : ''}`} />
-                            {isEstimating ? 'Calcul...' : 'Estimer via IA'}
-                          </button>
-                        </div>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Clock className="h-5 w-5 text-gray-400" />
-                          </div>
-                          <input
-                            type="number"
-                            min="0"
-                            value={editedTask.estimatedHours || ''}
-                            onChange={(e) => setEditedTask({ ...editedTask, estimatedHours: parseInt(e.target.value) || 0 })}
-                            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
-                            placeholder="0"
-                          />
-                        </div>
-                        {estimationReasoning && (
-                          <p className="text-[10px] text-purple-500 italic mt-1 font-medium">
-                            💡 {estimationReasoning}
-                          </p>
-                        )}
-                        {!estimationReasoning && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Saisie manuelle pour les tâches d'un jour
-                          </p>
-                        )}
-                      </div>
-                    )
-                  ) : (
-                    // Mode lecture
-                    <div>
-                      <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                        {isMultiDay ? 'Durée totale' : 'Heures estimées'}
-                      </label>
-                      <div className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white">
-                        {isMultiDay ? (
-                          <span className="flex items-center">
-                            <Clock className="h-4 w-4 mr-2 text-blue-500" />
-                            {autoCalculatedDuration}
-                          </span>
-                        ) : (
-                          <span className="flex items-center">
-                            <Clock className="h-4 w-4 mr-2 text-blue-500" />
-                            {(editedTask.estimatedHours || 0) > 0 ? `${editedTask.estimatedHours} h` : 'Non spécifié'}
-                          </span>
-                        )}
-                      </div>
+            {isEditing ? (
+              isMultiDay ? (
+                // Tâche multi-jours : afficher la durée calculée automatiquement
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Durée totale</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Clock className="h-5 w-5 text-gray-400" />
                     </div>
+                    <input
+                      type="text"
+                      value={autoCalculatedDuration}
+                      readOnly
+                      className="w-full pl-10 pr-4 py-2.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-gray-900 dark:text-white cursor-not-allowed"
+                      title="Durée calculée automatiquement selon les dates"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Calculée automatiquement selon la durée entre le début et la fin
+                  </p>
+                </div>
+              ) : (
+                // Tâche d'un jour : permettre la saisie manuelle
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Heures estimées</label>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setIsEstimating(true);
+                        try {
+                          const estimation = await AIService.estimateTaskDuration(
+                            state.appSettings.aiSettings,
+                            state,
+                            editedTask.title,
+                            editedTask.description,
+                            editedTask.startDate,
+                            editedTask.dueDate
+                          );
+                          setEditedTask({
+                            ...editedTask,
+                            dueDate: estimation.suggestedDueDate || editedTask.dueDate,
+                            estimatedHours: estimation.estimatedHours > 8 ? 0 : estimation.estimatedHours
+                          });
+                          setEstimationReasoning(estimation.reasoning);
+                        } catch (e) {
+                          console.error(e);
+                        } finally {
+                          setIsEstimating(false);
+                        }
+                      }}
+                      disabled={isEstimating}
+                      className="text-[10px] flex items-center px-1.5 py-0.5 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-md border border-purple-200 dark:border-purple-800 hover:bg-purple-100 transition-colors font-bold uppercase tracking-tighter"
+                    >
+                      <Sparkles className={`w-3 h-3 mr-1 ${isEstimating ? 'animate-spin' : ''}`} />
+                      {isEstimating ? 'Calcul...' : 'Estimer via IA'}
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Clock className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editedTask.estimatedHours || ''}
+                      onChange={(e) => setEditedTask({ ...editedTask, estimatedHours: parseInt(e.target.value) || 0 })}
+                      className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white transition duration-200"
+                      placeholder="0"
+                    />
+                  </div>
+                  {estimationReasoning && (
+                    <p className="text-[10px] text-purple-500 italic mt-1 font-medium">
+                      💡 {estimationReasoning}
+                    </p>
                   )}
-                </>
-              );
-            })()}
+                  {!estimationReasoning && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Saisie manuelle pour les tâches d'un jour
+                    </p>
+                  )}
+                </div>
+              )
+            ) : (
+              // Mode lecture
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                  {isMultiDay ? 'Durée totale' : 'Heures estimées'}
+                </label>
+                <div className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white">
+                  {isMultiDay ? (
+                    <span className="flex items-center">
+                      <Clock className="h-4 w-4 mr-2 text-blue-500" />
+                      {autoCalculatedDuration}
+                    </span>
+                  ) : (
+                    <span className="flex items-center">
+                      <Clock className="h-4 w-4 mr-2 text-blue-500" />
+                      {(editedTask.estimatedHours || 0) > 0 ? `${editedTask.estimatedHours} h` : 'Non spécifié'}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Assignés */}

@@ -46,6 +46,7 @@ export function SettingsView() {
   const tabs = [
     { id: 'profile', name: 'Profil', icon: UserIcon, subtitle: 'Infos personnelles & compte' },
     { id: 'appearance', name: 'Apparence', icon: Palette, subtitle: 'Thèmes, couleurs & branding' },
+    { id: 'shortcuts', name: 'Raccourcis', icon: SettingsIcon, subtitle: 'Clavier & commandes' },
     { id: 'team', name: 'Équipe', icon: Users, subtitle: 'Membres & permissions' },
     { id: 'contacts', name: 'Contacts', icon: ContactIcon, subtitle: 'Gestion du répertoire' },
     { id: 'email', name: 'Email', icon: Mail, subtitle: 'Configuration SMTP/EmailJS' },
@@ -433,8 +434,567 @@ export function SettingsView() {
           </div>
         );
 
-      case 'appearance':
+      case 'shortcuts':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold mb-2">Raccourcis Clavier</h2>
+              <p className="text-gray-500 dark:text-gray-400 mb-6">Personnalisez les raccourcis clavier pour une navigation plus rapide.</p>
 
+              <div className="space-y-6">
+                <Card className="p-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Basculement mode édition/visualisation
+                      </label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                        Utilisé dans les modals de tâches et projets pour basculer entre le mode édition et le mode lecture.
+                      </p>
+                      <input
+                        type="text"
+                        value={state.appSettings.keyboardShortcuts?.toggleEditMode || 'ctrl+e'}
+                        onChange={(e) => {
+                          const value = e.target.value.toLowerCase();
+                          const getCompleteShortcuts = (override: Partial<typeof state.appSettings.keyboardShortcuts>) => ({
+                            toggleEditMode: state.appSettings.keyboardShortcuts?.toggleEditMode || 'ctrl+e',
+                            navigateToday: state.appSettings.keyboardShortcuts?.navigateToday || 'ctrl+1',
+                            navigateProjects: state.appSettings.keyboardShortcuts?.navigateProjects || 'ctrl+2',
+                            navigateKanban: state.appSettings.keyboardShortcuts?.navigateKanban || 'ctrl+3',
+                            navigateCalendar: state.appSettings.keyboardShortcuts?.navigateCalendar || 'ctrl+4',
+                            navigateReports: state.appSettings.keyboardShortcuts?.navigateReports || 'ctrl+5',
+                            navigateSettings: state.appSettings.keyboardShortcuts?.navigateSettings || 'ctrl+6',
+                            ...state.appSettings.keyboardShortcuts,
+                            ...override
+                          });
+                          
+                          dispatch({
+                            type: 'UPDATE_APP_SETTINGS',
+                            payload: {
+                              keyboardShortcuts: getCompleteShortcuts({ toggleEditMode: value })
+                            }
+                          });
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.ctrlKey || e.altKey || e.shiftKey) {
+                            e.preventDefault();
+                            const keys = [];
+                            if (e.ctrlKey) keys.push('ctrl');
+                            if (e.altKey) keys.push('alt');
+                            if (e.shiftKey) keys.push('shift');
+                            const key = e.key.toLowerCase();
+                            if (!['control', 'alt', 'shift'].includes(key)) {
+                              keys.push(key);
+                            }
+                            const shortcut = keys.join('+');
+                            const getCompleteShortcuts = (override: Partial<typeof state.appSettings.keyboardShortcuts>) => ({
+                              toggleEditMode: state.appSettings.keyboardShortcuts?.toggleEditMode || 'ctrl+e',
+                              navigateToday: state.appSettings.keyboardShortcuts?.navigateToday || 'ctrl+1',
+                              navigateProjects: state.appSettings.keyboardShortcuts?.navigateProjects || 'ctrl+2',
+                              navigateKanban: state.appSettings.keyboardShortcuts?.navigateKanban || 'ctrl+3',
+                              navigateCalendar: state.appSettings.keyboardShortcuts?.navigateCalendar || 'ctrl+4',
+                              navigateReports: state.appSettings.keyboardShortcuts?.navigateReports || 'ctrl+5',
+                              navigateSettings: state.appSettings.keyboardShortcuts?.navigateSettings || 'ctrl+6',
+                              ...state.appSettings.keyboardShortcuts,
+                              ...override
+                            });
+                            
+                            dispatch({
+                              type: 'UPDATE_APP_SETTINGS',
+                              payload: {
+                                keyboardShortcuts: getCompleteShortcuts({ toggleEditMode: shortcut })
+                              }
+                            });
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white font-mono"
+                        placeholder="Tapez ou appuyez sur les touches"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        Tapez le raccourci (ex: ctrl+e) ou appuyez sur les touches pour le définir automatiquement.
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Navigation</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Aujourd'hui
+                      </label>
+                      <input
+                        type="text"
+                        value={state.appSettings.keyboardShortcuts?.navigateToday || 'ctrl+1'}
+                        onChange={(e) => {
+                          const value = e.target.value.toLowerCase();
+                          const getCompleteShortcuts = (override: Partial<typeof state.appSettings.keyboardShortcuts>) => ({
+                            toggleEditMode: state.appSettings.keyboardShortcuts?.toggleEditMode || 'ctrl+e',
+                            navigateToday: state.appSettings.keyboardShortcuts?.navigateToday || 'ctrl+1',
+                            navigateProjects: state.appSettings.keyboardShortcuts?.navigateProjects || 'ctrl+2',
+                            navigateKanban: state.appSettings.keyboardShortcuts?.navigateKanban || 'ctrl+3',
+                            navigateCalendar: state.appSettings.keyboardShortcuts?.navigateCalendar || 'ctrl+4',
+                            navigateReports: state.appSettings.keyboardShortcuts?.navigateReports || 'ctrl+5',
+                            navigateSettings: state.appSettings.keyboardShortcuts?.navigateSettings || 'ctrl+6',
+                            ...state.appSettings.keyboardShortcuts,
+                            ...override
+                          });
+                          
+                          dispatch({
+                            type: 'UPDATE_APP_SETTINGS',
+                            payload: {
+                              keyboardShortcuts: getCompleteShortcuts({ navigateToday: value })
+                            }
+                          });
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.ctrlKey || e.altKey || e.shiftKey) {
+                            e.preventDefault();
+                            const keys = [];
+                            if (e.ctrlKey) keys.push('ctrl');
+                            if (e.altKey) keys.push('alt');
+                            if (e.shiftKey) keys.push('shift');
+                            const key = e.key.toLowerCase();
+                            if (!['control', 'alt', 'shift'].includes(key)) {
+                              keys.push(key);
+                            }
+                            const shortcut = keys.join('+');
+                            const getCompleteShortcuts = (override: Partial<typeof state.appSettings.keyboardShortcuts>) => ({
+                              toggleEditMode: state.appSettings.keyboardShortcuts?.toggleEditMode || 'ctrl+e',
+                              navigateToday: state.appSettings.keyboardShortcuts?.navigateToday || 'ctrl+1',
+                              navigateProjects: state.appSettings.keyboardShortcuts?.navigateProjects || 'ctrl+2',
+                              navigateKanban: state.appSettings.keyboardShortcuts?.navigateKanban || 'ctrl+3',
+                              navigateCalendar: state.appSettings.keyboardShortcuts?.navigateCalendar || 'ctrl+4',
+                              navigateReports: state.appSettings.keyboardShortcuts?.navigateReports || 'ctrl+5',
+                              navigateSettings: state.appSettings.keyboardShortcuts?.navigateSettings || 'ctrl+6',
+                              ...state.appSettings.keyboardShortcuts,
+                              ...override
+                            });
+                            
+                            dispatch({
+                              type: 'UPDATE_APP_SETTINGS',
+                              payload: {
+                                keyboardShortcuts: getCompleteShortcuts({ navigateToday: shortcut })
+                              }
+                            });
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white font-mono"
+                        placeholder="Tapez ou appuyez sur les touches"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Projets
+                      </label>
+                      <input
+                        type="text"
+                        value={state.appSettings.keyboardShortcuts?.navigateProjects || 'ctrl+2'}
+                        onChange={(e) => {
+                          const value = e.target.value.toLowerCase();
+                          const getCompleteShortcuts = (override: Partial<typeof state.appSettings.keyboardShortcuts>) => ({
+                            toggleEditMode: state.appSettings.keyboardShortcuts?.toggleEditMode || 'ctrl+e',
+                            navigateToday: state.appSettings.keyboardShortcuts?.navigateToday || 'ctrl+1',
+                            navigateProjects: state.appSettings.keyboardShortcuts?.navigateProjects || 'ctrl+2',
+                            navigateKanban: state.appSettings.keyboardShortcuts?.navigateKanban || 'ctrl+3',
+                            navigateCalendar: state.appSettings.keyboardShortcuts?.navigateCalendar || 'ctrl+4',
+                            navigateReports: state.appSettings.keyboardShortcuts?.navigateReports || 'ctrl+5',
+                            navigateSettings: state.appSettings.keyboardShortcuts?.navigateSettings || 'ctrl+6',
+                            ...state.appSettings.keyboardShortcuts,
+                            ...override
+                          });
+                          
+                          dispatch({
+                            type: 'UPDATE_APP_SETTINGS',
+                            payload: {
+                              keyboardShortcuts: getCompleteShortcuts({ navigateProjects: value })
+                            }
+                          });
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.ctrlKey || e.altKey || e.shiftKey) {
+                            e.preventDefault();
+                            const keys = [];
+                            if (e.ctrlKey) keys.push('ctrl');
+                            if (e.altKey) keys.push('alt');
+                            if (e.shiftKey) keys.push('shift');
+                            const key = e.key.toLowerCase();
+                            if (!['control', 'alt', 'shift'].includes(key)) {
+                              keys.push(key);
+                            }
+                            const shortcut = keys.join('+');
+                            const getCompleteShortcuts = (override: Partial<typeof state.appSettings.keyboardShortcuts>) => ({
+                              toggleEditMode: state.appSettings.keyboardShortcuts?.toggleEditMode || 'ctrl+e',
+                              navigateToday: state.appSettings.keyboardShortcuts?.navigateToday || 'ctrl+1',
+                              navigateProjects: state.appSettings.keyboardShortcuts?.navigateProjects || 'ctrl+2',
+                              navigateKanban: state.appSettings.keyboardShortcuts?.navigateKanban || 'ctrl+3',
+                              navigateCalendar: state.appSettings.keyboardShortcuts?.navigateCalendar || 'ctrl+4',
+                              navigateReports: state.appSettings.keyboardShortcuts?.navigateReports || 'ctrl+5',
+                              navigateSettings: state.appSettings.keyboardShortcuts?.navigateSettings || 'ctrl+6',
+                              ...state.appSettings.keyboardShortcuts,
+                              ...override
+                            });
+                            
+                            dispatch({
+                              type: 'UPDATE_APP_SETTINGS',
+                              payload: {
+                                keyboardShortcuts: getCompleteShortcuts({ navigateProjects: shortcut })
+                              }
+                            });
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white font-mono"
+                        placeholder="Tapez ou appuyez sur les touches"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Kanban
+                      </label>
+                      <input
+                        type="text"
+                        value={state.appSettings.keyboardShortcuts?.navigateKanban || 'ctrl+3'}
+                        onChange={(e) => {
+                          const value = e.target.value.toLowerCase();
+                          const getCompleteShortcuts = (override: Partial<typeof state.appSettings.keyboardShortcuts>) => ({
+                            toggleEditMode: state.appSettings.keyboardShortcuts?.toggleEditMode || 'ctrl+e',
+                            navigateToday: state.appSettings.keyboardShortcuts?.navigateToday || 'ctrl+1',
+                            navigateProjects: state.appSettings.keyboardShortcuts?.navigateProjects || 'ctrl+2',
+                            navigateKanban: state.appSettings.keyboardShortcuts?.navigateKanban || 'ctrl+3',
+                            navigateCalendar: state.appSettings.keyboardShortcuts?.navigateCalendar || 'ctrl+4',
+                            navigateReports: state.appSettings.keyboardShortcuts?.navigateReports || 'ctrl+5',
+                            navigateSettings: state.appSettings.keyboardShortcuts?.navigateSettings || 'ctrl+6',
+                            ...state.appSettings.keyboardShortcuts,
+                            ...override
+                          });
+                          
+                          dispatch({
+                            type: 'UPDATE_APP_SETTINGS',
+                            payload: {
+                              keyboardShortcuts: getCompleteShortcuts({ navigateKanban: value })
+                            }
+                          });
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.ctrlKey || e.altKey || e.shiftKey) {
+                            e.preventDefault();
+                            const keys = [];
+                            if (e.ctrlKey) keys.push('ctrl');
+                            if (e.altKey) keys.push('alt');
+                            if (e.shiftKey) keys.push('shift');
+                            const key = e.key.toLowerCase();
+                            if (!['control', 'alt', 'shift'].includes(key)) {
+                              keys.push(key);
+                            }
+                            const shortcut = keys.join('+');
+                            const getCompleteShortcuts = (override: Partial<typeof state.appSettings.keyboardShortcuts>) => ({
+                              toggleEditMode: state.appSettings.keyboardShortcuts?.toggleEditMode || 'ctrl+e',
+                              navigateToday: state.appSettings.keyboardShortcuts?.navigateToday || 'ctrl+1',
+                              navigateProjects: state.appSettings.keyboardShortcuts?.navigateProjects || 'ctrl+2',
+                              navigateKanban: state.appSettings.keyboardShortcuts?.navigateKanban || 'ctrl+3',
+                              navigateCalendar: state.appSettings.keyboardShortcuts?.navigateCalendar || 'ctrl+4',
+                              navigateReports: state.appSettings.keyboardShortcuts?.navigateReports || 'ctrl+5',
+                              navigateSettings: state.appSettings.keyboardShortcuts?.navigateSettings || 'ctrl+6',
+                              ...state.appSettings.keyboardShortcuts,
+                              ...override
+                            });
+                            
+                            dispatch({
+                              type: 'UPDATE_APP_SETTINGS',
+                              payload: {
+                                keyboardShortcuts: getCompleteShortcuts({ navigateKanban: shortcut })
+                              }
+                            });
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white font-mono"
+                        placeholder="Tapez ou appuyez sur les touches"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Calendrier
+                      </label>
+                      <input
+                        type="text"
+                        value={state.appSettings.keyboardShortcuts?.navigateCalendar || 'ctrl+4'}
+                        onChange={(e) => {
+                          const value = e.target.value.toLowerCase();
+                          const getCompleteShortcuts = (override: Partial<typeof state.appSettings.keyboardShortcuts>) => ({
+                            toggleEditMode: state.appSettings.keyboardShortcuts?.toggleEditMode || 'ctrl+e',
+                            navigateToday: state.appSettings.keyboardShortcuts?.navigateToday || 'ctrl+1',
+                            navigateProjects: state.appSettings.keyboardShortcuts?.navigateProjects || 'ctrl+2',
+                            navigateKanban: state.appSettings.keyboardShortcuts?.navigateKanban || 'ctrl+3',
+                            navigateCalendar: state.appSettings.keyboardShortcuts?.navigateCalendar || 'ctrl+4',
+                            navigateReports: state.appSettings.keyboardShortcuts?.navigateReports || 'ctrl+5',
+                            navigateSettings: state.appSettings.keyboardShortcuts?.navigateSettings || 'ctrl+6',
+                            ...state.appSettings.keyboardShortcuts,
+                            ...override
+                          });
+                          
+                          dispatch({
+                            type: 'UPDATE_APP_SETTINGS',
+                            payload: {
+                              keyboardShortcuts: getCompleteShortcuts({ navigateCalendar: value })
+                            }
+                          });
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.ctrlKey || e.altKey || e.shiftKey) {
+                            e.preventDefault();
+                            const keys = [];
+                            if (e.ctrlKey) keys.push('ctrl');
+                            if (e.altKey) keys.push('alt');
+                            if (e.shiftKey) keys.push('shift');
+                            const key = e.key.toLowerCase();
+                            if (!['control', 'alt', 'shift'].includes(key)) {
+                              keys.push(key);
+                            }
+                            const shortcut = keys.join('+');
+                            const getCompleteShortcuts = (override: Partial<typeof state.appSettings.keyboardShortcuts>) => ({
+                              toggleEditMode: state.appSettings.keyboardShortcuts?.toggleEditMode || 'ctrl+e',
+                              navigateToday: state.appSettings.keyboardShortcuts?.navigateToday || 'ctrl+1',
+                              navigateProjects: state.appSettings.keyboardShortcuts?.navigateProjects || 'ctrl+2',
+                              navigateKanban: state.appSettings.keyboardShortcuts?.navigateKanban || 'ctrl+3',
+                              navigateCalendar: state.appSettings.keyboardShortcuts?.navigateCalendar || 'ctrl+4',
+                              navigateReports: state.appSettings.keyboardShortcuts?.navigateReports || 'ctrl+5',
+                              navigateSettings: state.appSettings.keyboardShortcuts?.navigateSettings || 'ctrl+6',
+                              ...state.appSettings.keyboardShortcuts,
+                              ...override
+                            });
+                            
+                            dispatch({
+                              type: 'UPDATE_APP_SETTINGS',
+                              payload: {
+                                keyboardShortcuts: getCompleteShortcuts({ navigateCalendar: shortcut })
+                              }
+                            });
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white font-mono"
+                        placeholder="Tapez ou appuyez sur les touches"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Rapports
+                      </label>
+                      <input
+                        type="text"
+                        value={state.appSettings.keyboardShortcuts?.navigateReports || 'ctrl+5'}
+                        onChange={(e) => {
+                          const value = e.target.value.toLowerCase();
+                          const getCompleteShortcuts = (override: Partial<typeof state.appSettings.keyboardShortcuts>) => ({
+                            toggleEditMode: state.appSettings.keyboardShortcuts?.toggleEditMode || 'ctrl+e',
+                            navigateToday: state.appSettings.keyboardShortcuts?.navigateToday || 'ctrl+1',
+                            navigateProjects: state.appSettings.keyboardShortcuts?.navigateProjects || 'ctrl+2',
+                            navigateKanban: state.appSettings.keyboardShortcuts?.navigateKanban || 'ctrl+3',
+                            navigateCalendar: state.appSettings.keyboardShortcuts?.navigateCalendar || 'ctrl+4',
+                            navigateReports: state.appSettings.keyboardShortcuts?.navigateReports || 'ctrl+5',
+                            navigateSettings: state.appSettings.keyboardShortcuts?.navigateSettings || 'ctrl+6',
+                            ...state.appSettings.keyboardShortcuts,
+                            ...override
+                          });
+                          
+                          dispatch({
+                            type: 'UPDATE_APP_SETTINGS',
+                            payload: {
+                              keyboardShortcuts: getCompleteShortcuts({ navigateReports: value })
+                            }
+                          });
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.ctrlKey || e.altKey || e.shiftKey) {
+                            e.preventDefault();
+                            const keys = [];
+                            if (e.ctrlKey) keys.push('ctrl');
+                            if (e.altKey) keys.push('alt');
+                            if (e.shiftKey) keys.push('shift');
+                            const key = e.key.toLowerCase();
+                            if (!['control', 'alt', 'shift'].includes(key)) {
+                              keys.push(key);
+                            }
+                            const shortcut = keys.join('+');
+                            const getCompleteShortcuts = (override: Partial<typeof state.appSettings.keyboardShortcuts>) => ({
+                              toggleEditMode: state.appSettings.keyboardShortcuts?.toggleEditMode || 'ctrl+e',
+                              navigateToday: state.appSettings.keyboardShortcuts?.navigateToday || 'ctrl+1',
+                              navigateProjects: state.appSettings.keyboardShortcuts?.navigateProjects || 'ctrl+2',
+                              navigateKanban: state.appSettings.keyboardShortcuts?.navigateKanban || 'ctrl+3',
+                              navigateCalendar: state.appSettings.keyboardShortcuts?.navigateCalendar || 'ctrl+4',
+                              navigateReports: state.appSettings.keyboardShortcuts?.navigateReports || 'ctrl+5',
+                              navigateSettings: state.appSettings.keyboardShortcuts?.navigateSettings || 'ctrl+6',
+                              ...state.appSettings.keyboardShortcuts,
+                              ...override
+                            });
+                            
+                            dispatch({
+                              type: 'UPDATE_APP_SETTINGS',
+                              payload: {
+                                keyboardShortcuts: getCompleteShortcuts({ navigateReports: shortcut })
+                              }
+                            });
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white font-mono"
+                        placeholder="Tapez ou appuyez sur les touches"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Paramètres
+                      </label>
+                      <input
+                        type="text"
+                        value={state.appSettings.keyboardShortcuts?.navigateSettings || 'ctrl+6'}
+                        onChange={(e) => {
+                          const value = e.target.value.toLowerCase();
+                          const getCompleteShortcuts = (override: Partial<typeof state.appSettings.keyboardShortcuts>) => ({
+                            toggleEditMode: state.appSettings.keyboardShortcuts?.toggleEditMode || 'ctrl+e',
+                            navigateToday: state.appSettings.keyboardShortcuts?.navigateToday || 'ctrl+1',
+                            navigateProjects: state.appSettings.keyboardShortcuts?.navigateProjects || 'ctrl+2',
+                            navigateKanban: state.appSettings.keyboardShortcuts?.navigateKanban || 'ctrl+3',
+                            navigateCalendar: state.appSettings.keyboardShortcuts?.navigateCalendar || 'ctrl+4',
+                            navigateReports: state.appSettings.keyboardShortcuts?.navigateReports || 'ctrl+5',
+                            navigateSettings: state.appSettings.keyboardShortcuts?.navigateSettings || 'ctrl+6',
+                            ...state.appSettings.keyboardShortcuts,
+                            ...override
+                          });
+                          
+                          dispatch({
+                            type: 'UPDATE_APP_SETTINGS',
+                            payload: {
+                              keyboardShortcuts: getCompleteShortcuts({ navigateSettings: value })
+                            }
+                          });
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.ctrlKey || e.altKey || e.shiftKey) {
+                            e.preventDefault();
+                            const keys = [];
+                            if (e.ctrlKey) keys.push('ctrl');
+                            if (e.altKey) keys.push('alt');
+                            if (e.shiftKey) keys.push('shift');
+                            const key = e.key.toLowerCase();
+                            if (!['control', 'alt', 'shift'].includes(key)) {
+                              keys.push(key);
+                            }
+                            const shortcut = keys.join('+');
+                            const getCompleteShortcuts = (override: Partial<typeof state.appSettings.keyboardShortcuts>) => ({
+                              toggleEditMode: state.appSettings.keyboardShortcuts?.toggleEditMode || 'ctrl+e',
+                              navigateToday: state.appSettings.keyboardShortcuts?.navigateToday || 'ctrl+1',
+                              navigateProjects: state.appSettings.keyboardShortcuts?.navigateProjects || 'ctrl+2',
+                              navigateKanban: state.appSettings.keyboardShortcuts?.navigateKanban || 'ctrl+3',
+                              navigateCalendar: state.appSettings.keyboardShortcuts?.navigateCalendar || 'ctrl+4',
+                              navigateReports: state.appSettings.keyboardShortcuts?.navigateReports || 'ctrl+5',
+                              navigateSettings: state.appSettings.keyboardShortcuts?.navigateSettings || 'ctrl+6',
+                              ...state.appSettings.keyboardShortcuts,
+                              ...override
+                            });
+                            
+                            dispatch({
+                              type: 'UPDATE_APP_SETTINGS',
+                              payload: {
+                                keyboardShortcuts: getCompleteShortcuts({ navigateSettings: shortcut })
+                              }
+                            });
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-white font-mono"
+                        placeholder="Tapez ou appuyez sur les touches"
+                      />
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 border border-blue-200/30 dark:border-blue-700/30">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 bg-white dark:bg-gray-800 rounded-xl flex items-center justify-center shadow-md">
+                      <Info className="w-6 h-6 text-blue-500" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-900 dark:text-white text-lg">Comment utiliser les raccourcis</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Les raccourcis clavier fonctionnent uniquement lorsque les modals de tâches ou projets sont ouverts.
+                        Assurez-vous que le champ d'entrée n'est pas sélectionné pour éviter les conflits.
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-6 bg-gradient-to-br from-green-50 to-teal-50 dark:from-green-900/10 dark:to-teal-900/10 border border-green-200/30 dark:border-green-700/30">
+                  <div className="flex items-center space-x-4 mb-4">
+                    <div className="w-12 h-12 bg-white dark:bg-gray-800 rounded-xl flex items-center justify-center shadow-md">
+                      <SettingsIcon className="w-6 h-6 text-green-500" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-900 dark:text-white text-lg">Raccourcis par défaut</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Voici les raccourcis clavier prédéfinis de l'application.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                      <h5 className="font-semibold text-gray-800 dark:text-gray-200 text-sm uppercase tracking-wide">Navigation</h5>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">Aujourd'hui</span>
+                          <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded text-xs font-mono">Ctrl + 1</kbd>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">Projets</span>
+                          <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded text-xs font-mono">Ctrl + 2</kbd>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">Kanban</span>
+                          <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded text-xs font-mono">Ctrl + 3</kbd>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">Calendrier</span>
+                          <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded text-xs font-mono">Ctrl + 4</kbd>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">Rapports</span>
+                          <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded text-xs font-mono">Ctrl + 5</kbd>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">Paramètres</span>
+                          <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded text-xs font-mono">Ctrl + 6</kbd>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <h5 className="font-semibold text-gray-800 dark:text-gray-200 text-sm uppercase tracking-wide">Actions</h5>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">Basculer édition</span>
+                          <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded text-xs font-mono">Ctrl + E</kbd>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                    <p className="text-sm text-green-800 dark:text-green-200">
+                      💡 <strong>Astuce :</strong> Vous pouvez personnaliser tous ces raccourcis dans les champs ci-dessus.
+                      Les modifications sont sauvegardées automatiquement.
+                    </p>
+                  </div>
+                </Card>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'appearance':
         return <AppearanceSettings />;
 
       case 'profile':
