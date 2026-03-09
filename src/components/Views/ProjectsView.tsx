@@ -374,9 +374,11 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
         </div>
 
         {project.description && (
-          <div className={`text-gray-600 dark:text-gray-400 mb-6 line-clamp-2 leading-relaxed markdown-body ${state.appSettings?.fontSize === 'small' ? 'text-xs' :
+          <div
+            className={`text-gray-600 dark:text-gray-400 mb-6 line-clamp-2 leading-relaxed markdown-body pointer-events-none ${state.appSettings?.fontSize === 'small' ? 'text-xs' :
             state.appSettings?.fontSize === 'large' ? 'text-base' : 'text-sm'
-            }`}>
+            }`}
+          >
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
@@ -394,7 +396,17 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                 li: ({ children }) => <li style={{ marginBottom: '0' }}>{children}</li>,
                 h1: ({ children }) => <h1 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h1>,
                 h2: ({ children }) => <h2 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h2>,
-                h3: ({ children }) => <h3 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h3>
+                h3: ({ children }) => <h3 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h3>,
+                a: ({ children, href }) => (
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: '#3b82f6', textDecoration: 'underline' }}
+                  >
+                    {children}
+                  </a>
+                )
               }}
             >
               {cleanMarkdown(project.description)}

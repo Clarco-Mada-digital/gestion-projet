@@ -322,7 +322,9 @@ const TaskCardComponent: React.FC<TaskCardProps> = ({ task, project, className, 
       <div className="space-y-3">
         {/* Description */}
         {task.description && (
-          <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 leading-relaxed break-all markdown-body">
+          <div
+            className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 leading-relaxed break-all markdown-body pointer-events-none"
+          >
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
@@ -340,7 +342,17 @@ const TaskCardComponent: React.FC<TaskCardProps> = ({ task, project, className, 
                 li: ({ children }) => <li style={{ marginBottom: '0' }}>{children}</li>,
                 h1: ({ children }) => <h1 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h1>,
                 h2: ({ children }) => <h2 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h2>,
-                h3: ({ children }) => <h3 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h3>
+                h3: ({ children }) => <h3 style={{ fontSize: '1em', fontWeight: 'bold', margin: '0' }}>{children}</h3>,
+                a: ({ children, href }) => (
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: '#3b82f6', textDecoration: 'underline' }}
+                  >
+                    {children}
+                  </a>
+                )
               }}
             >
               {cleanMarkdown(task.description)}
