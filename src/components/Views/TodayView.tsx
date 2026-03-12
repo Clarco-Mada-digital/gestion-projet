@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Sparkles, Target, ChevronDown, ChevronRight, AlertTriangle, Calendar as CalendarIcon, BarChart, Zap, Clock as ClockIcon, MessageSquare, X as XIcon } from 'lucide-react';
+import { Sparkles, Target, ChevronDown, ChevronRight, AlertTriangle, Calendar as CalendarIcon, BarChart, Zap, Clock as ClockIcon, MessageSquare, X as XIcon, Cloud, LogIn } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { firebaseService } from '../../services/collaboration/firebaseService';
 import { TaskCard } from '../Tasks/TaskCard';
 import { Card } from '../UI/Card';
 import { Button } from '../UI/Button';
@@ -149,6 +150,19 @@ export function TodayView() {
                   day: 'numeric'
                 })}
               </p>
+              
+              {!state.cloudUser && firebaseService.isReady() && (
+                <div className="mt-3 inline-flex animate-in fade-in slide-in-from-left-4 duration-700">
+                  <button
+                    onClick={() => firebaseService.login()}
+                    className="flex items-center space-x-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-800/50 transition-all group"
+                  >
+                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+                    <Cloud className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Sync Cloud disponible</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

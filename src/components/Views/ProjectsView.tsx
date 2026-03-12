@@ -1210,10 +1210,11 @@ export function ProjectsView() {
 
 
   const getProjectStats = (project: Project) => {
-    const totalTasks = project.tasks?.length || 0;
-    const completedTasks = project.tasks?.filter(t => t.status === 'done').length || 0;
-    const inProgressTasks = project.tasks?.filter(t => t.status === 'in-progress').length || 0;
-    const todoTasks = project.tasks?.filter(t => t.status === 'todo').length || 0;
+    const trackedTasks = project.tasks?.filter(t => t.status !== 'non-suivi') || [];
+    const totalTasks = trackedTasks.length;
+    const completedTasks = trackedTasks.filter(t => t.status === 'done').length;
+    const inProgressTasks = trackedTasks.filter(t => t.status === 'in-progress').length;
+    const todoTasks = trackedTasks.filter(t => t.status === 'todo').length;
 
     return {
       totalTasks,
@@ -1526,7 +1527,7 @@ export function ProjectsView() {
         <Card className="p-6 text-center" hover gradient>
           <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
             <span className="text-2xl font-bold text-white">
-              {state.projects.reduce((acc, p) => acc + p.tasks.length, 0)}
+              {state.projects.reduce((acc, p) => acc + (p.tasks?.filter(t => t.status !== 'non-suivi').length || 0), 0)}
             </span>
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">Total Tâches</div>

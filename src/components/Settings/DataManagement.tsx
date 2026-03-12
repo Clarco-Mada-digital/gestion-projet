@@ -5,6 +5,7 @@ import { Card } from '../UI/Card';
 import { ExportableData } from '../../context/AppContext';
 import { firebaseService } from '../../services/collaboration/firebaseService';
 import { User as FirebaseUser } from 'firebase/auth';
+import { FileJson, Table as TableIcon, FileText, Upload, Database, ShieldAlert } from 'lucide-react';
 
 export function DataManagement() {
   const { state, dispatch } = useApp();
@@ -42,8 +43,8 @@ export function DataManagement() {
     }
   };
 
-  // Exporter les données
-  const handleExport = () => {
+  // Exporter les données en JSON
+  const handleExportJSON = () => {
     try {
       const dataToExport: ExportableData = {
         projects: state.projects,
@@ -69,7 +70,7 @@ export function DataManagement() {
 
       setImportStatus({
         type: 'success',
-        message: 'Données exportées avec succès!',
+        message: 'Données JSON exportées avec succès!',
       });
     } catch (error) {
       console.error('Erreur lors de l\'exportation des données:', error);
@@ -77,6 +78,119 @@ export function DataManagement() {
         type: 'error',
         message: 'Erreur lors de l\'exportation des données',
       });
+    } finally {
+      setTimeout(() => setImportStatus({ type: 'idle', message: '' }), 5000);
+    }
+  };
+
+  // Exporter les données en CSV
+  const handleExportCSV = () => {
+    try {
+      const userMap = new Map(state.users.map(u => [u.id, u.name]));
+      
+      const headers = [
+        'Projet', 'Tâche', 'Statut', 'Priorité', 'Date début', 'Date échéance', 
+        'Assignés', 'Tags', 'Sous-tâches (Total)', 'Sous-tâches (Faites)', 
+        'Notes', 'Heures estimées', 'Créé le', 'Mis à jour le'
+      ];
+
+      const rows = state.projects.flatMap(project => 
+        project.tasks.map(task => [
+          project.name,
+          task.title,
+          task.status,
+          task.priority,
+          task.startDate || '',
+          task.dueDate || '',
+          task.assignees.map(id => userMap.get(id) || id).join('; '),
+          task.tags.join('; '),
+          task.subTasks.length,
+          task.subTasks.filter(st => st.completed).length,
+          (task.notes || task.description || '').replace(/\n/g, ' '),
+          task.estimatedHours || 0,
+          task.createdAt,
+          task.updatedAt
+        ])
+      );
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `gestion-projet-tasks-${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      setImportStatus({
+        type: 'success',
+        message: 'Données CSV exportées avec succès!',
+      });
+    } catch (error) {
+      console.error('Erreur lors de l\'exportation CSV:', error);
+      setImportStatus({ type: 'error', message: 'Erreur lors de l\'exportation CSV' });
+    } finally {
+      setTimeout(() => setImportStatus({ type: 'idle', message: '' }), 5000);
+    }
+  };
+
+  // Exporter les données en Markdown
+  const handleExportMarkdown = () => {
+    try {
+      const userMap = new Map(state.users.map(u => [u.id, u.name]));
+      let md = `# Exportation des Projets - ${new Date().toLocaleDateString('fr-FR')}\n\n`;
+
+      state.projects.forEach(project => {
+        md += `## Projets : ${project.name}\n`;
+        md += `**Statut :** ${project.status}  \n`;
+        md += `**Description :** ${project.description || 'Aucune description'}  \n\n`;
+
+        if (project.tasks && project.tasks.length > 0) {
+          md += `### Tâches\n\n`;
+          project.tasks.forEach(task => {
+            md += `#### ${task.title} [${task.status}]\n`;
+            md += `- **Priorité :** ${task.priority}\n`;
+            md += `- **Échéance :** ${task.dueDate || 'Non définie'}\n`;
+            md += `- **Assignés :** ${task.assignees.map(id => userMap.get(id) || id).join(', ') || 'Personne'}\n`;
+            if (task.tags && task.tags.length > 0) md += `- **Tags :** ${task.tags.join(', ')}\n`;
+            if (task.description) md += `- **Description :** ${task.description}\n`;
+            
+            if (task.subTasks && task.subTasks.length > 0) {
+              md += `- **Sous-tâches :**\n`;
+              task.subTasks.forEach(st => {
+                md += `  - [${st.completed ? 'x' : ' '}] ${st.title}\n`;
+              });
+            }
+            
+            if (task.notes) md += `\n**Notes :**\n${task.notes}\n`;
+            md += `\n---\n\n`;
+          });
+        } else {
+          md += `*Aucune tâche dans ce projet.*\n\n---\n\n`;
+        }
+      });
+
+      const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `gestion-projet-export-${new Date().toISOString().split('T')[0]}.md`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      setImportStatus({
+        type: 'success',
+        message: 'Données Markdown exportées avec succès!',
+      });
+    } catch (error) {
+      console.error('Erreur lors de l\'exportation Markdown:', error);
+      setImportStatus({ type: 'error', message: 'Erreur lors de l\'exportation Markdown' });
     } finally {
       setTimeout(() => setImportStatus({ type: 'idle', message: '' }), 5000);
     }
@@ -175,9 +289,16 @@ export function DataManagement() {
 
   return (
     <Card className="p-6">
-      <h2 className="text-xl font-semibold mb-4">Gestion des données</h2>
+      <div className="flex items-center space-x-3 mb-6">
+        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+          <Database className="w-6 h-6 text-white" />
+        </div>
+        <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+          Gestion des données
+        </h2>
+      </div>
 
-      <div className="space-y-6">
+      <div className="space-y-8">
         {/* Section Cloud Sync */}
         <div className="border-b pb-4">
           <h3 className="text-lg font-medium mb-3">Collaboration Cloud & Synchronisation</h3>
@@ -235,20 +356,42 @@ export function DataManagement() {
         <div className="border-b pb-4">
           <h3 className="text-lg font-medium mb-3">Sauvegarde et restauration</h3>
 
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Button
-              onClick={handleExport}
-              className="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-800 text-white"
+              onClick={handleExportJSON}
+              className="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-800 text-white flex flex-col items-center justify-center py-5 h-auto transition-all hover:scale-105 shadow-lg group"
             >
-              Exporter les données
+              <FileJson className="w-8 h-8 mb-2 group-hover:rotate-6 transition-transform" />
+              <span className="font-bold">JSON</span>
+              <span className="text-[10px] opacity-80">Sauvegarde complète</span>
+            </Button>
+
+            <Button
+              onClick={handleExportCSV}
+              className="bg-emerald-600 dark:bg-emerald-700 hover:bg-emerald-700 dark:hover:bg-emerald-800 text-white flex flex-col items-center justify-center py-5 h-auto transition-all hover:scale-105 shadow-lg group"
+            >
+              <TableIcon className="w-8 h-8 mb-2 group-hover:rotate-6 transition-transform" />
+              <span className="font-bold">CSV</span>
+              <span className="text-[10px] opacity-80">Excel / Tableur</span>
+            </Button>
+
+            <Button
+              onClick={handleExportMarkdown}
+              className="bg-purple-600 dark:bg-purple-700 hover:bg-purple-700 dark:hover:bg-purple-800 text-white flex flex-col items-center justify-center py-5 h-auto transition-all hover:scale-105 shadow-lg group"
+            >
+              <FileText className="w-8 h-8 mb-2 group-hover:rotate-6 transition-transform" />
+              <span className="font-bold">Markdown</span>
+              <span className="text-[10px] opacity-80">Lisible (MD)</span>
             </Button>
 
             <div className="relative">
               <Button
                 onClick={() => fileInputRef.current?.click()}
-                className="bg-green-600 dark:bg-green-700 hover:bg-green-700 dark:hover:bg-green-800 text-white w-full sm:w-auto"
+                className="bg-gray-600 dark:bg-gray-700 hover:bg-gray-700 dark:hover:bg-gray-800 text-white w-full h-full flex flex-col items-center justify-center py-5 transition-all hover:scale-105 shadow-lg group"
               >
-                Importer des données
+                <Upload className="w-8 h-8 mb-2 group-hover:-translate-y-1 transition-transform" />
+                <span className="font-bold">Importer</span>
+                <span className="text-[10px] opacity-80">Restaurer JSON</span>
               </Button>
               <input
                 ref={fileInputRef}
@@ -260,16 +403,21 @@ export function DataManagement() {
             </div>
           </div>
 
-          <div className="mt-4">
+          <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-800">
+            <h4 className="text-sm font-bold text-red-500 uppercase tracking-wider mb-3 flex items-center">
+              <ShieldAlert className="w-4 h-4 mr-2" />
+              Zone de danger
+            </h4>
             <Button
               onClick={handleReset}
               variant="outline"
-              className="text-red-600 border-red-600 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-700"
+              className="text-red-600 border-red-600 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 px-6 py-2 transition-colors flex items-center"
             >
+              <ShieldAlert className="w-4 h-4 mr-2" />
               Réinitialiser toutes les données
             </Button>
-            <p className="text-sm text-gray-500 mt-1">
-              Attention : Cette action supprimera toutes les données de l'application.
+            <p className="text-xs text-gray-500 mt-2">
+              Attention : Cette action supprimera définitivement toutes les tâches, projets et réglages de cet appareil.
             </p>
           </div>
 
@@ -286,10 +434,11 @@ export function DataManagement() {
         <div>
           <h3 className="text-lg font-medium mb-3">Instructions</h3>
           <ul className="list-disc pl-5 space-y-2 text-gray-700">
-            <li>Exportez vos données pour les sauvegarder sur votre ordinateur.</li>
-            <li>Importez des données précédemment exportées pour les restaurer.</li>
-            <li>Utilisez ces fonctionnalités pour transférer vos données vers un autre appareil.</li>
-            <li>Le format des fichiers est JSON et peut être lu avec un éditeur de texte.</li>
+            <li>Exportez en <strong>JSON</strong> pour créer une sauvegarde complète que vous pourrez réimporter plus tard.</li>
+            <li>Exportez en <strong>CSV</strong> pour analyser vos tâches dans Excel, Google Sheets ou d'autres tableurs.</li>
+            <li>Exportez en <strong>Markdown</strong> pour obtenir une version lisible et documentée de vos projets, idéale pour les rapports ou l'archivage.</li>
+            <li>Importez des données au format JSON pour restaurer une sauvegarde précédente.</li>
+            <li>Le format Markdown est structuré par projet, incluant les descriptions, priorités et l'état des sous-tâches.</li>
           </ul>
         </div>
       </div>

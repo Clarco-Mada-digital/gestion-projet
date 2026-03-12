@@ -98,10 +98,13 @@ export function CalendarView() {
     })
     .flatMap((p) => p.tasks)
     .filter((task) => {
+      // Toujours exclure les tâches non suivies du calendrier
+      if (task.status === 'non-suivi') return false;
+
       if (selectedUserIds.length > 0) {
         return task.assignees.some(userId => selectedUserIds.includes(userId));
       }
-      return task.status !== 'non-suivi';
+      return true;
     }) as Task[] : [], [showProjects, state.projects, selectedProjectIds, selectedUserIds, showUnfollowedProjects]);
 
   // Fusionner les tâches et les événements externes pour l'affichage

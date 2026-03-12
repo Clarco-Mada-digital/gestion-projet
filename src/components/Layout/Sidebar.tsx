@@ -1,6 +1,7 @@
-import { Calendar, CheckSquare, FileText, FolderOpen, Kanban, Moon, Sun, Sparkles, Settings, Info, X } from 'lucide-react';
+import { Calendar, CheckSquare, FileText, FolderOpen, Kanban, Moon, Sun, Sparkles, Settings, Info, X, LogIn, LogOut } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { ViewMode } from '../../types';
+import { firebaseService } from '../../services/collaboration/firebaseService';
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -107,79 +108,125 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         {/* Footer avec profil utilisateur */}
         <div className="p-4 border-t border-gray-200/50 dark:border-gray-700/50 space-y-3 bg-gradient-to-r from-gray-50/50 to-blue-50/50 dark:from-gray-800/50 dark:to-blue-900/50">
-          <div className="space-y-2">
+          <div className="space-y-1">
             <button
               onClick={toggleTheme}
-              className="w-full flex items-center space-x-3 px-4 py-3 rounded-2xl text-gray-600 dark:text-gray-300 hover:bg-gradient-to-r hover:from-gray-100/50 hover:to-gray-200/50 dark:hover:from-gray-700/50 dark:hover:to-gray-600/50 transition-all duration-300 group"
+              className="w-full flex items-center space-x-3 px-4 py-2 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gradient-to-r hover:from-gray-100/50 hover:to-gray-200/50 dark:hover:from-gray-700/50 dark:hover:to-gray-600/50 transition-all duration-300 group"
             >
               <div className="relative">
                 {state.theme === 'light' ? (
-                  <Moon className="w-5 h-5 group-hover:rotate-12 transition-transform duration-300" />
+                  <Moon className="w-4 h-4 group-hover:rotate-12 transition-transform duration-300" />
                 ) : (
-                  <Sun className="w-5 h-5 group-hover:rotate-12 transition-transform duration-300" />
+                  <Sun className="w-4 h-4 group-hover:rotate-12 transition-transform duration-300" />
                 )}
               </div>
-              <span className="font-medium">
+              <span className="text-sm font-medium">
                 {state.theme === 'light' ? 'Mode Sombre' : 'Mode Clair'}
               </span>
             </button>
 
-            {/* Bouton de réinitialisation */}
-            <button
-              onClick={() => {
-                if (window.confirm('Êtes-vous sûr de vouloir réinitialiser toutes les données ? Cette action est irréversible.')) {
-                  localStorage.removeItem('astroProjectManagerData');
-                  window.location.reload();
-                }
-              }}
-              className="w-full flex items-center space-x-3 px-4 py-3 rounded-2xl text-red-600 dark:text-red-400 hover:bg-gradient-to-r hover:from-red-50/50 hover:to-red-100/50 dark:hover:from-red-900/20 dark:hover:to-red-800/30 transition-all duration-300 group text-sm"
-            >
-              <div className="relative">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="group-hover:rotate-12 transition-transform duration-300">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-                  <path d="M3 3v5h5"></path>
-                  <path d="M12 7v5l4 2"></path>
-                </svg>
-              </div>
-              <span className="font-medium">Réinitialiser</span>
-            </button>
+            {/* Bouton de réinitialisation (uniquement si pas connecté pour éviter les accidents majeurs en cloud) */}
+            {!state.cloudUser && (
+              <button
+                onClick={() => {
+                  if (window.confirm('Êtes-vous sûr de vouloir réinitialiser toutes les données locales ?')) {
+                    localStorage.removeItem('astroProjectManagerData');
+                    window.location.reload();
+                  }
+                }}
+                className="w-full flex items-center space-x-3 px-4 py-2 rounded-xl text-red-500/70 hover:text-red-500 dark:text-red-400/70 dark:hover:text-red-400 transition-all duration-300 group bg-transparent hover:bg-red-50 dark:hover:bg-red-900/10"
+              >
+                <div className="relative">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="group-hover:rotate-12 transition-transform duration-300">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                    <path d="M3 3v5h5"></path>
+                    <path d="M12 7v5l4 2"></path>
+                  </svg>
+                </div>
+                <span className="text-xs font-medium">Réinitialiser Local</span>
+              </button>
+            )}
           </div>
 
           {state.cloudUser ? (
-            <div className="flex items-center space-x-3 px-4 py-3 rounded-2xl bg-gradient-to-r from-gray-50/50 to-blue-50/50 dark:from-gray-800/50 dark:to-blue-900/50 border border-gray-100 dark:border-gray-800">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-lg overflow-hidden shrink-0 border-2 border-white dark:border-gray-800">
-                {state.cloudUser.photoURL ? (
-                  <img
-                    src={state.cloudUser.photoURL}
-                    alt={state.cloudUser.displayName || 'User'}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  state.cloudUser.email?.charAt(0).toUpperCase() || 'U'
-                )}
+            <div className="space-y-2">
+              <div className="flex items-center space-x-3 px-3 py-3 rounded-2xl bg-white/60 dark:bg-gray-800/60 backdrop-blur-md border border-blue-100 dark:border-blue-900/30 shadow-sm relative overflow-hidden">
+                {/* Effet de fond subtil pour le mode cloud */}
+                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full -mr-12 -mt-12 blur-2xl" />
+                
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-md overflow-hidden shrink-0 border-2 border-white dark:border-gray-700">
+                  {state.cloudUser.photoURL ? (
+                    <img
+                      src={state.cloudUser.photoURL}
+                      alt={state.cloudUser.displayName || 'User'}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    state.cloudUser.email?.charAt(0).toUpperCase() || 'U'
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
+                    {state.cloudUser.displayName || 'Utilisateur'}
+                  </p>
+                  <p className="text-[10px] text-blue-600 dark:text-blue-400 font-bold tracking-tight flex items-center">
+                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5 animate-pulse" />
+                    MODE CLOUD
+                  </p>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                  {state.cloudUser.displayName || 'Utilisateur'}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {state.cloudUser.email}
-                </p>
-              </div>
+              
+              <button 
+                onClick={async () => {
+                  if (window.confirm('Voulez-vous vous déconnecter du Cloud ? Vos données locales seront conservées.')) {
+                    await firebaseService.logout();
+                  }
+                }}
+                className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-white dark:bg-gray-800/50 text-red-500 border border-red-100 dark:border-red-900/30 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-300 group shadow-sm"
+              >
+                <LogOut className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                <span className="text-xs font-bold uppercase tracking-wider">Se déconnecter</span>
+              </button>
             </div>
           ) : (
-            <div className="flex items-center space-x-3 px-4 py-3 rounded-2xl bg-gradient-to-r from-gray-50/50 to-blue-50/50 dark:from-gray-800/50 dark:to-blue-900/50 border border-gray-100 dark:border-gray-800">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-lg overflow-hidden shrink-0 border-2 border-white dark:border-gray-800 uppercase">
-                {state.users[0]?.name?.charAt(0) || 'A'}
+            <div className="space-y-2">
+              <div className="flex items-center space-x-3 px-3 py-3 rounded-2xl bg-gray-100/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-gray-400 to-gray-500 flex items-center justify-center text-white text-sm font-bold shadow-sm overflow-hidden shrink-0 border-2 border-white dark:border-gray-700 uppercase">
+                  {state.users[0]?.name?.charAt(0) || 'A'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-gray-700 dark:text-gray-300 truncate">
+                    {state.users[0]?.name || 'Administrateur'}
+                  </p>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium tracking-wide">
+                    STOCKAGE LOCAL
+                  </p>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                  {state.users[0]?.name || 'Administrateur'}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  Mode Local
-                </p>
-              </div>
+              
+              {!firebaseService.isReady() ? (
+                <div className="px-4 py-2 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30">
+                  <p className="text-[10px] text-amber-600 dark:text-amber-400 text-center font-medium italic">
+                    Firebase non configuré
+                  </p>
+                </div>
+              ) : (
+                <button
+                  onClick={async () => {
+                    try {
+                      await firebaseService.login();
+                    } catch (e) {
+                      console.error("Erreur de connexion:", e);
+                    }
+                  }}
+                  className="w-full flex items-center justify-center space-x-2 px-4 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-[1.02] transition-all duration-300 group"
+                >
+                  <div className="p-1 bg-white/20 rounded-lg group-hover:rotate-12 transition-transform">
+                    <LogIn className="w-4 h-4" />
+                  </div>
+                  <span className="text-xs font-bold uppercase tracking-wider">Passer au Cloud</span>
+                </button>
+              )}
             </div>
           )}
         </div>
