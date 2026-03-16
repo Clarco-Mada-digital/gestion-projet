@@ -24,6 +24,7 @@ export function NotificationCenter() {
     isSupported,
     isQuietHours,
     clearAllNotifications: clearPWANotifications,
+    deleteNotification: deletePWANotification,
     getRecentNotifications,
     showCustomNotification
   } = useNotifications();
@@ -236,19 +237,31 @@ export function NotificationCenter() {
 
   // Gérer les clics sur les notifications PWA
   const handlePWANotificationClick = (notification: any) => {
+    console.log('🔔 Clic sur notification PWA locale:', notification);
+    
+    // 1. Navigation prioritaire via les données structurées
     if (notification.data) {
-      const { projectId, taskId, type: _type } = notification.data;
+      const { projectId, taskId } = notification.data;
       if (projectId && taskId) {
-        // Naviguer via paramètre URL pour éviter le 404 sur Astro
-        const taskUrl = `${fixPath('/')}?task=${taskId}`;
-        window.location.href = taskUrl;
-      } else if (projectId) {
-        // Lien vers le projet (si on veut supporter ?project=ID plus tard)
-        window.location.href = fixPath('/');
+        console.log('🚀 Navigation vers tâche:', taskId, 'dans projet:', projectId);
+        dispatch({
+          type: 'NAVIGATE_TO_TASK',
+          payload: { projectId, taskId }
+        });
+        setIsOpen(false);
+        return;
       }
     }
-    // Marquer comme vue après navigation
-    setTimeout(() => clearPWANotifications(), 100);
+
+    // 2. Fallback vers le lien s'il existe
+    if (notification.link) {
+      window.location.href = fixPath(notification.link);
+      setIsOpen(false);
+      return;
+    }
+    
+    // 3. Fallback générique si rien d'autre
+    setIsOpen(false);
   };
 
   const totalNotifications = cloudNotifications.length + pwaNotifications.length;
@@ -429,35 +442,30 @@ export function NotificationCenter() {
                               📁 {notification.projectName}
                             </p>
                           )}
+                          <div className="mt-2 flex items-center gap-2">
+                             <button
+                                onClick={() => handlePWANotificationClick(notification)}
+                                className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                Voir
+                              </button>
+                              <span className="text-[10px] text-gray-400">
+                                {new Date(notification.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                          </div>
                         </div>
                         <div className="flex gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              // Marquer la notification PWA spécifique comme lue (simulation)
-                              console.log('🔔 Notification PWA marquée comme lue:', notification.id);
-                              // Pour l'instant, on la supprime car l'API ne permet pas de marquer comme lue
-                              // TODO: Implémenter une vraie API pour marquer comme lue
-                              clearPWANotifications();
+                              deletePWANotification(notification.id);
                             }}
-                            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                            title="Marquer comme vue"
-                          >
-                            <Check className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              clearPWANotifications();
-                            }}
-                            className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
+                            className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors text-red-500"
                             title="Supprimer"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
-                        </div>
-                        <div className="text-xs text-gray-400 whitespace-nowrap ml-2">
-                          {new Date(notification.timestamp).toLocaleTimeString()}
                         </div>
                       </div>
                     </div>

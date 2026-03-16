@@ -46,10 +46,31 @@ export class PushNotificationService {
     projectId?: string; 
     taskId?: string;
     projectName?: string;
+    data?: any;
   }> = [];
 
   private constructor() {
     this.checkSupport();
+    this.loadPersistence();
+  }
+
+  private loadPersistence(): void {
+    try {
+      const saved = localStorage.getItem('pwaRecentNotifications');
+      if (saved) {
+        this.recentNotifications = JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error('Erreur lors du chargement de l\'historique PWA:', e);
+    }
+  }
+
+  private savePersistence(): void {
+    try {
+      localStorage.setItem('pwaRecentNotifications', JSON.stringify(this.recentNotifications));
+    } catch (e) {
+      console.error('Erreur lors de la sauvegarde de l\'historique PWA:', e);
+    }
   }
 
   public static getInstance(): PushNotificationService {
@@ -225,7 +246,8 @@ export class PushNotificationService {
         timestamp: Date.now(),
         projectId: options.data?.projectId,
         taskId: options.data?.taskId,
-        projectName: options.data?.projectName
+        projectName: options.data?.projectName,
+        data: options.data
       };
 
       this.recentNotifications.unshift(recentNotification);
@@ -234,6 +256,8 @@ export class PushNotificationService {
       if (this.recentNotifications.length > 50) {
         this.recentNotifications = this.recentNotifications.slice(0, 50);
       }
+
+      this.savePersistence();
 
       // Notifier les abonnés
       this.newNotificationCallback?.(recentNotification);
@@ -287,7 +311,12 @@ export class PushNotificationService {
     // Vider notre tracking interne
     this.activeNotifications.clear();
     this.recentNotifications = [];
-    this.recentNotifications = []; // Vider aussi les notifications récentes
+    this.savePersistence();
+  }
+
+  public deleteNotification(id: string): void {
+    this.recentNotifications = this.recentNotifications.filter(n => n.id !== id);
+    this.savePersistence();
   }
 
   public getActiveNotificationCount(): number {

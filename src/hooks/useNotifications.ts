@@ -342,6 +342,7 @@ export const useNotifications = () => {
     showCustomNotification,
     scheduleNotification,
     clearAllNotifications,
+    deleteNotification: (id: string) => notificationService.deleteNotification(id),
     
     // Utilitaires
     isProjectFollowed,
