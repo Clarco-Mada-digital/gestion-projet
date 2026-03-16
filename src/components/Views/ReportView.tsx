@@ -9,6 +9,7 @@ import { Input } from '../UI/Input';
 import { Textarea } from '../UI/Textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../UI/dialog';
 import { EmailService } from '../../services/emailService';
+import { getBasePath } from '../../lib/pathUtils';
 
 interface SubTaskReport {
   id: string;
@@ -297,7 +298,8 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
         {
           ...report,
           title: emailForm.subject,
-          content: messageContent
+          content: messageContent,
+          publicProjects: report.projects.filter((p: any) => p.isPublic && p.source === 'firebase')
         },
         state.users[0]
       );
@@ -530,6 +532,8 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
         return {
           projectId: project.id,
           projectName: project.name,
+          isPublic: project.isPublic,
+          source: project.source,
           completedTasks: totalCompletedTasks,
           completedSubTasks: totalCompletedSubTasks,
           totalTasks: totalTasksCount,
@@ -743,9 +747,22 @@ RÈGLES :
       }
 
       const currentUser = state.users[0];
+      
+      // Identifier les projets publics pour ajouter leurs liens
+      const publicProjects = report.projects.filter((p: any) => p.isPublic && p.source === 'firebase');
+      let publicLinksSection = '';
+      
+      if (publicProjects.length > 0) {
+        publicLinksSection = `\n\n## LIENS DE CONSULTATION PUBLIQUE\n\n`;
+        publicProjects.forEach((prj: any) => {
+          const publicUrl = `${window.location.origin}${getBasePath()}/v?id=${prj.projectId}`;
+          publicLinksSection += `- ${prj.projectName} : ${publicUrl}\n`;
+        });
+      }
+
       const signature = `\n\n---\nCordialement,\n\n${currentUser?.name || 'Responsable de Projet'}${currentUser?.position ? `, ${currentUser.position}` : ''}${currentUser?.department ? ` - ${currentUser.department}` : ''}`;
 
-      const finalReportText = finalAiResponse + signature;
+      const finalReportText = finalAiResponse + publicLinksSection + signature;
       setAiReport(finalReportText);
       setEditedReport(finalReportText);
       setIsEditing(false);

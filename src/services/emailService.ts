@@ -1,5 +1,6 @@
 import { errorHandler } from '../lib/error/errorHandler';
 import { ErrorContext } from '../lib/error/AppError';
+import { getBasePath } from '../lib/pathUtils';
 
 declare global {
   interface Window {
@@ -399,6 +400,25 @@ export class EmailService {
                     <div class="report-body">
                       ${report.content || '<p>Contenu non disponible.</p>'}
                     </div>
+
+                    <!-- Liens Publics -->
+                    ${report.publicProjects && report.publicProjects.length > 0 ? `
+                      <div style="margin-top: 30px;">
+                        <h3 style="font-size: 16px; color: #111827; margin-bottom: 12px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px;">🔗 Liens de consultation publique</h3>
+                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                          ${report.publicProjects.map((prj: any) => `
+                            <tr>
+                              <td style="padding: 8px 0; border-bottom: 1px solid #f3f4f6;">
+                                <div style="font-size: 14px; font-weight: 600; color: #374151;">${prj.projectName}</div>
+                                <div style="margin-top: 4px; font-family: monospace; font-size: 12px; color: #4f46e5; word-break: break-all;">
+                                  ${typeof window !== 'undefined' ? window.location.origin : ''}${getBasePath()}/v?id=${prj.projectId}
+                                </div>
+                              </td>
+                            </tr>
+                          `).join('')}
+                        </table>
+                      </div>
+                    ` : ''}
                     
                     <!-- Signature Professionnelle -->
                     <div class="signature-box">
