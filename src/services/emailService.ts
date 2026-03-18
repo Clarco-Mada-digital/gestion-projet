@@ -18,6 +18,10 @@ export interface EmailOptions {
   fromName?: string;
   templateId?: string;
   templateParams?: Record<string, unknown>;
+  provider?: 'emailjs' | 'google';
+  googleAccessToken?: string;
+  threadId?: string;
+  inReplyTo?: string;
 }
 
 // Interface pour la configuration EmailJS
@@ -55,16 +59,33 @@ export class EmailService {
    * @param config Configuration optionnelle (utilise la config chargée si non fournie)
    * @returns Promesse résolue avec le statut de l'envoi
    */
-  public static async sendEmail(options: EmailOptions, config?: EmailJsConfig): Promise<{ success: boolean; message: string }> {
+  public static async sendEmail(options: EmailOptions, config?: EmailJsConfig): Promise<{ success: boolean; message: string; messageId?: string; threadId?: string }> {
     try {
-      // Si une config est passée, on l'utilise
+      // Si une config est passée, on l'utilise (principalement pour EmailJS)
       if (config) {
         this.config = config;
       }
 
-      await this.sendEmailInternal(options);
-      return { success: true, message: 'Email envoyé avec succès' };
-    } catch (error) {
+      // Déterminer le provider à utiliser
+      const provider = options.provider || (this.config ? 'emailjs' : 'google');
+
+      let result: any = null;
+      if (provider === 'google' || options.googleAccessToken) {
+        if (!options.googleAccessToken) {
+          throw new Error('Jeton d\'accès Google manquant pour l\'envoi via Gmail');
+        }
+        result = await this.sendViaGoogle(options);
+      } else {
+        await this.sendEmailInternal(options);
+      }
+
+      return {
+        success: true,
+        message: 'Email envoyé avec succès',
+        messageId: result?.customMessageId || result?.id,
+        threadId: result?.threadId
+      };
+    } catch (error: any) {
       const errorMessage = this.getErrorMessage(error);
       const context: ErrorContext = {
         type: 'API_ERROR',
@@ -154,6 +175,88 @@ export class EmailService {
     }
   }
 
+  /**
+   * Envoie un email via l'API Gmail de Google
+   */
+  private static async sendViaGoogle(options: EmailOptions): Promise<{ id: string; threadId: string; customMessageId?: string }> {
+    const { to, subject, html, googleAccessToken, fromName, from } = options;
+
+    if (!googleAccessToken) {
+      throw new Error('Token Google manquant');
+    }
+
+    // Préparation des destinataires
+    const recipients = Array.isArray(to) ? to.join(', ') : to;
+
+    // Construction du message RFC 2822 simple
+    // Pour supporter l'UTF-8 et l'HTML proprement
+    const utf8Subject = `=?utf-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`;
+    const fromHeader = fromName ? `${fromName} <${from || 'me'}>` : (from || 'me');
+
+    // Génération d'un Message-ID unique pour cet envoi si non présent
+    // Cela permet un threading fiable car nous contrôlons l'identifiant de référence
+    const generatedMessageId = `<${Math.random().toString(36).substring(2)}.${Date.now()}@gestion-projet.gmail.com>`;
+    
+    // Construction des headers (avec \r\n comme requis par la RFC 822)
+    const emailHeaderLines = [
+      `Content-Type: text/html; charset="UTF-8"`,
+      `MIME-Version: 1.0`,
+      `To: ${recipients}`,
+      `From: ${fromHeader}`,
+      `Subject: ${utf8Subject}`,
+      `Message-ID: ${generatedMessageId}`
+    ];
+
+    // Ajouter les headers de réponse si nécessaire
+    if (options.inReplyTo) {
+      // S'assurer que l'ID est bien entouré de <>
+      const formattedInReplyTo = options.inReplyTo.startsWith('<') ? options.inReplyTo : `<${options.inReplyTo}>`;
+      emailHeaderLines.push(`In-Reply-To: ${formattedInReplyTo}`);
+      emailHeaderLines.push(`References: ${formattedInReplyTo}`);
+    }
+
+    const email = [
+      ...emailHeaderLines,
+      ``,
+      html
+    ].join('\r\n');
+
+    // Encodage base64url sécurisé pour l'API Gmail
+    const base64EncodedEmail = btoa(unescape(encodeURIComponent(email)))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    try {
+      const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${googleAccessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          raw: base64EncodedEmail,
+          threadId: options.threadId // Crucial pour le regroupement Gmail
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || `Erreur Google API (${response.status})`);
+      }
+
+      const data = await response.json();
+      return {
+        id: data.id,
+        threadId: data.threadId,
+        customMessageId: generatedMessageId // On retourne notre ID personnalisé pour l'historique
+      };
+    } catch (error) {
+      console.error('Gmail send error:', error);
+      throw error;
+    }
+  }
+
   // Méthode utilitaire pour obtenir un message d'erreur convivial
   private static getErrorMessage(error: any): string {
     if (!error) return 'Erreur inconnue';
@@ -222,6 +325,40 @@ export class EmailService {
     });
   }
 
+  // Méthode utilitaire simple pour convertir le Markdown en HTML basique pour les emails
+  private static markdownToHtml(markdown: string): string {
+    if (!markdown) return '';
+
+    return markdown
+      // Entêtes
+      .replace(/^#### (.*$)/gim, '<h4 style="color: #1a365d; margin-top: 20px; margin-bottom: 10px; font-size: 1em; padding-bottom: 5px;">$1</h4>')
+      .replace(/^### (.*$)/gim, '<h3 style="color: #1a365d; margin-top: 20px; margin-bottom: 10px; font-size: 1.1em; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">$1</h3>')
+      .replace(/^## (.*$)/gim, '<h2 style="color: #1a365d; margin-top: 25px; margin-bottom: 15px; font-size: 1.25em; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">$1</h2>')
+      .replace(/^# (.*$)/gim, '<h1 style="color: #1a365d; margin-top: 30px; margin-bottom: 20px; font-size: 1.5em; text-align: center;">$1</h1>')
+      // Gras
+      .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
+      .replace(/__(.*)__/gim, '<strong>$1</strong>')
+      // Italique
+      .replace(/\*(.*)\*/gim, '<em>$1</em>')
+      .replace(/_(.*)_/gim, '<em>$1</em>')
+      // Listes à puces
+      .replace(/^\s*[\-\+\*] (.*$)/gim, '<li style="margin-bottom: 5px;">$1</li>')
+      // Regrouper les <li> consécutifs dans un <ul>
+      .replace(/((?:<li.*<\/li>\n?)+)/gim, '<ul style="padding-left: 0; margin-bottom: 25px; list-style-type: none;">$1</ul>')
+      // Checkbox [x] et [ ]
+      .replace(/\[x\]/gim, '<span style="color: #10b981; font-weight: bold; margin-right: 8px;">✓</span>')
+      .replace(/\[ \]/gim, '<span style="color: #9ca3af; font-weight: bold; margin-right: 8px;">○</span>')
+      // Paragraphes (lignes simples)
+      .split('\n').map(line => {
+        const trimmed = line.trim();
+        if (!trimmed) return '<div style="height: 12px;"></div>';
+        if (trimmed.startsWith('<h') || trimmed.startsWith('<ul') || trimmed.startsWith('<li') || trimmed.startsWith('<div')) return line;
+        return `<p style="margin-bottom: 12px; color: #334155; font-size: 16px; line-height: 1.6; text-align: left;">${line}</p>`;
+      }).join('\n')
+      // Liens
+      .replace(/\[(.*?)\]\((.*?)\)/gim, '<a href="$2" style="color: #4f46e5; text-decoration: underline; font-weight: 500;">$1</a>');
+  }
+
   // Méthode utilitaire pour formater une date au format français
   private static formatDate(dateString: string): string {
     if (!dateString) return 'Date non spécifiée';
@@ -233,9 +370,7 @@ export class EmailService {
       return date.toLocaleDateString('fr-FR', {
         year: 'numeric',
         month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
+        day: 'numeric'
       });
     } catch (error) {
       console.error('Erreur de formatage de date:', error);
@@ -244,13 +379,7 @@ export class EmailService {
   }
 
   // Méthode utilitaire pour générer le contenu HTML d'un rapport
-  static generateReportEmail(report: any, userProfile: any): string {
-    // Signature de l'utilisateur
-    const userName = userProfile?.name || 'Équipe Gestion de Projet';
-    const userPosition = userProfile?.position || '';
-    const userEmail = userProfile?.email || '';
-    const userPhone = userProfile?.phone || '';
-
+  static generateReportEmail(report: any, _userProfile: any): string {
     // Date de génération du rapport
     const now = new Date();
     const generatedDate = this.formatDate(now.toISOString());
@@ -265,153 +394,55 @@ export class EmailService {
       <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${report.title || 'Delivery'}</title>
+        <title>${report.title || 'Delivery de Projet'}</title>
         <style type="text/css">
-          /* Styles de base pour la compatibilité email */
-          body, #bodyTable, #bodyCell { height: 100% !important; margin: 0; padding: 0; width: 100% !important; background-color: #f3f4f6; }
-          table { border-collapse: collapse; }
-          
-          /* Styles du conteneur optimisés */
-          .email-container { 
-            max-width: 600px; 
-            margin: 20px auto; 
-            background-color: #ffffff;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-          }
-          
-          .header { 
-            background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%); 
-            padding: 40px 30px; 
-            text-align: center; 
-          }
-          
-          .header-title { 
-            margin: 0; 
-            font-size: 28px; 
-            font-weight: 700;
-            color: #ffffff;
-            letter-spacing: -0.5px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
-          }
-          
-          .header-period { 
-            margin: 10px 0 0; 
-            font-size: 14px; 
-            color: rgba(255, 255, 255, 0.9);
-            background-color: rgba(255, 255, 255, 0.2);
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-          }
-          
-          .content { 
-            padding: 40px 30px; 
-            color: #1f2937;
-            line-height: 1.6;
-          }
-          
-          .content h2 {
-            color: #111827;
-            font-size: 20px;
-            margin-top: 0;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #e5e7eb;
-            padding-bottom: 10px;
-          }
-          
-          .report-body {
-            background-color: #f9fafb;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            padding: 20px;
-            font-size: 15px;
-            color: #374151;
-          }
-          
-          .signature-box { 
-            margin-top: 40px; 
-            padding-top: 20px; 
-            border-top: 1px solid #e5e7eb;
-          }
-          
-          .signature-name {
-            font-weight: 700;
-            color: #111827;
-            font-size: 16px;
-            margin-bottom: 4px;
-          }
-          
-          .signature-role {
-            color: #4f46e5;
-            font-weight: 500;
-            font-size: 14px;
-            margin-bottom: 12px;
-          }
-          
-          .contact-info {
-            font-size: 13px;
-            color: #6b7280;
-            margin: 2px 0;
-          }
-          
-          .footer { 
-            background-color: #f9fafb;
-            padding: 20px; 
-            text-align: center;
-            border-top: 1px solid #e5e7eb;
-          }
-          
-          .footer-text {
-            margin: 0; 
-            font-size: 12px; 
-            color: #9ca3af;
-          }
-          
-          @media only screen and (max-width: 600px) {
-            .email-container { width: 100% !important; margin: 0 !important; border-radius: 0; }
-            .header, .content { padding: 25px 20px !important; }
-            .header-title { font-size: 24px !important; }
-          }
+          body { margin: 0; padding: 0; width: 100% !important; background-color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+          .email-wrapper { background-color: #ffffff; padding: 20px; }
+          .email-container { max-width: 800px; margin: 0 auto; background-color: #ffffff; text-align: left; }
+          .header { padding: 0 0 30px 0; border-bottom: 2px solid #f1f5f9; margin-bottom: 30px; }
+          .report-title { color: #1e293b; font-size: 28px; font-weight: 800; line-height: 1.2; margin: 0; margin-bottom: 10px; text-align: left; }
+          .report-meta { display: flex; align-items: center; gap: 10px; color: #64748b; font-size: 14px; }
+          .main-content { padding: 0; }
+          .report-body { font-size: 16px; color: #334155; line-height: 1.7; text-align: left; }
+          .public-links { margin-top: 40px; padding: 25px; background-color: #f8fafc; border-radius: 12px; border: 1px solid #f1f5f9; }
+          .footer { padding: 40px 0; text-align: left; color: #94a3b8; font-size: 13px; border-top: 1px solid #f1f5f9; margin-top: 40px; }
+          .footer p { margin: 4px 0; }
+          h2 { color: #1e293b; font-size: 20px; font-weight: 700; margin-top: 35px; margin-bottom: 15px; text-align: left; }
+          h3 { color: #1e293b; font-size: 17px; font-weight: 700; margin-top: 25px; margin-bottom: 12px; text-align: left; }
         </style>
       </head>
       <body>
-        <table border="0" cellpadding="0" cellspacing="0" width="100%" height="100%">
-          <tr>
-            <td align="center" valign="top" style="padding: 20px 0;">
-              <!-- Container Principal -->
-              <table class="email-container" border="0" cellpadding="0" cellspacing="0">
-                <!-- En-tête avec Gradient -->
-                <tr>
-                  <td class="header">
-                    <h1 class="header-title">${report.title || 'Delivery de Projet'}</h1>
-                    <p class="header-period">📅 Du ${startDate} au ${endDate}</p>
-                  </td>
-                </tr>
-                
-                <!-- Contenu Principal -->
-                <tr>
-                  <td class="content">
-                    <h2>Rapport d'Exécution</h2>
-                    
-                    <!-- Corps du Rapport -->
-                    <div class="report-body">
-                      ${report.content || '<p>Contenu non disponible.</p>'}
-                    </div>
+        <div class="email-wrapper">
+          <div class="email-container">
+            <!-- Header simple et pro -->
+            <div class="header">
+              <h1 class="report-title">${report.title || 'Rapport d\'activité'}</h1>
+              <div class="report-meta">
+                <span>🗓️ Période : ${startDate} au ${endDate}</span>
+                <span style="margin: 0 10px; color: #cbd5e1;">|</span>
+                <span>📄 Généré le ${generatedDate}</span>
+              </div>
+            </div>
+            
+            <!-- Main Content (Aligné à gauche) -->
+            <div class="main-content">
+              <div class="report-body">
+                ${this.markdownToHtml(report.content) || '<p>Contenu non disponible.</p>'}
+              </div>
 
-                    <!-- Liens Publics -->
                     ${report.publicProjects && report.publicProjects.length > 0 ? `
-                      <div style="margin-top: 30px;">
-                        <h3 style="font-size: 16px; color: #111827; margin-bottom: 12px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px;">🔗 Liens de consultation publique</h3>
+                      <div class="public-links">
+                        <h3 style="margin-top: 0; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; margin-bottom: 20px;">Suivi Projet en Temps réel</h3>
                         <table border="0" cellpadding="0" cellspacing="0" width="100%">
                           ${report.publicProjects.map((prj: any) => `
                             <tr>
-                              <td style="padding: 8px 0; border-bottom: 1px solid #f3f4f6;">
-                                <div style="font-size: 14px; font-weight: 600; color: #374151;">${prj.projectName}</div>
-                                <div style="margin-top: 4px; font-family: monospace; font-size: 12px; color: #4f46e5; word-break: break-all;">
-                                  ${typeof window !== 'undefined' ? window.location.origin : ''}${getBasePath()}/v?id=${prj.projectId}
+                              <td style="padding: 16px 0; border-bottom: 1px solid #f1f5f9;">
+                                <div style="font-weight: 700; color: #1e293b; font-size: 16px;">${prj.projectName}</div>
+                                <div style="margin-top: 6px;">
+                                  <a href="${typeof window !== 'undefined' ? window.location.origin : ''}${getBasePath()}/v?id=${prj.projectId}" 
+                                     style="color: #4f46e5; text-decoration: none; font-size: 14px; font-weight: 600;">
+                                    Consulter le tableau de bord public →
+                                  </a>
                                 </div>
                               </td>
                             </tr>
@@ -419,33 +450,18 @@ export class EmailService {
                         </table>
                       </div>
                     ` : ''}
-                    
-                    <!-- Signature Professionnelle -->
-                    <div class="signature-box">
-                      <p style="margin-bottom: 15px;">Cordialement,</p>
-                      <div class="signature-name">${userName}</div>
-                      ${userPosition ? `<div class="signature-role">${userPosition}</div>` : ''}
-                      ${userEmail ? `<div class="contact-info">📧 ${userEmail}</div>` : ''}
-                      ${userPhone ? `<div class="contact-info">📱 ${userPhone}</div>` : ''}
-                    </div>
-                  </td>
-                </tr>
-                
-                <!-- Pied de page -->
-                <tr>
-                  <td class="footer">
-                    <p class="footer-text">
-                      Ce delivery a été généré automatiquement via <strong>Gestion de Projet</strong>.
-                    </p>
-                    <p class="footer-text" style="margin-top: 5px;">
-                      Document généré le ${generatedDate}
-                    </p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-        </table>
+                  </div>
+                  
+                  <!-- Footer -->
+                  <div class="footer">
+                    <p>Ce rapport est envoyé automatiquement via votre plateforme de gestion de projets.</p>
+                    <p>&copy; ${now.getFullYear()} Gestion de Projet Digital. Tous droits réservés.</p>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </div>
       </body>
       </html>
     `;

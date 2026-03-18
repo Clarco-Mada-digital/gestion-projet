@@ -151,6 +151,7 @@ export const firebaseService = {
     // Accès complet au calendrier (lecture, écriture, suppression) et accès aux tâches
     provider.addScope('https://www.googleapis.com/auth/calendar');
     provider.addScope('https://www.googleapis.com/auth/tasks');
+    provider.addScope('https://www.googleapis.com/auth/gmail.send');
 
     // Paramètres personnalisés pour améliorer l'expérience utilisateur
     const params: any = {

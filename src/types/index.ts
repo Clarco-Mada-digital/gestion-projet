@@ -205,6 +205,7 @@ export interface RootState {
 }
 
 export interface EmailSettings {
+  provider?: 'emailjs' | 'google';
   serviceId: string;
   templateId: string;
   userId: string;
@@ -316,6 +317,8 @@ export interface ReportEntry {
     lastSentTo?: string[];
     emailSubject?: string;
     messageId?: string;
+    threadId?: string;
+    inReplyTo?: string;
   };
 }
 

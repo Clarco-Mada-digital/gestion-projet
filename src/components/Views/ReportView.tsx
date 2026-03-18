@@ -3,7 +3,7 @@ import { Calendar, FileText, CheckCircle, X, ChevronDown, Send, Loader2, Edit, S
 import { Button } from '../UI/Button';
 import { Card } from '../UI/Card';
 import { useApp } from '../../context/AppContext';
-import { Task, AISettings, SubTask, TaskStatus } from '../../types';
+import { Task, AISettings, SubTask, ReportEntry } from '../../types';
 import { AIService } from '../../services/aiService';
 import { Input } from '../UI/Input';
 import { Textarea } from '../UI/Textarea';
@@ -36,11 +36,13 @@ export function ReportView() {
   const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
   const [replyToMessageId, setReplyToMessageId] = useState<string | null>(null);
+  const [replyToThreadId, setReplyToThreadId] = useState<string | null>(null);
 
   const [report, setReport] = useState<{
     startDate: Date;
     endDate: Date;
     projects: any[];
+    publicProjects?: any[];
   } | null>(null);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [aiReport, setAiReport] = useState<string>('');
@@ -130,7 +132,13 @@ export function ReportView() {
     }
   };
 
-  const handleOpenEmailDialog = (replyToSubject?: string, messageId?: string) => {
+  const handleOpenEmailDialog = (replyToSubject?: string, messageId?: string, threadId?: string, sentTo?: string[]) => {
+    // Réinitialiser les IDs de réponse si ce n'est pas une réponse directe
+    if (!replyToSubject) {
+      setReplyToMessageId(null);
+      setReplyToThreadId(null);
+    }
+    
     // Si un sujet est passé (bouton Répondre de l'historique), on l'utilise directement
     if (replyToSubject) {
       // Gérer les réponses multiples (Re:, Re2:, Re3:, etc.)
@@ -138,11 +146,15 @@ export function ReportView() {
 
       setEmailForm(prev => ({
         ...prev,
+        to: sentTo && sentTo.length > 0 ? sentTo.join(', ') : prev.to,
         subject: subjectWithReply,
         message: aiReport || 'Voici une mise à jour de mon delivery.'
       }));
       if (messageId) {
         setReplyToMessageId(messageId);
+      }
+      if (threadId) {
+        setReplyToThreadId(threadId);
       }
     } else if (report) {
       // Sinon on génère le sujet par défaut
@@ -299,7 +311,7 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
           ...report,
           title: emailForm.subject,
           content: messageContent,
-          publicProjects: report.projects.filter((p: any) => p.isPublic && p.source === 'firebase')
+          publicProjects: report.publicProjects
         },
         state.users[0]
       );
@@ -314,6 +326,10 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
         subject: emailForm.subject,
         html: emailContent,
         text: messageContent.replace(/<[^>]*>?/gm, ''),
+        provider: state.emailSettings.provider || 'emailjs',
+        googleAccessToken: state.googleAccessToken,
+        threadId: replyToThreadId,
+        inReplyTo: replyToMessageId,
         templateParams: {
           to_emails: toEmails,
           to_name: toEmails[0].split('@')[0],
@@ -334,9 +350,8 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
       if (result.success) {
         setEmailStatus({ type: 'success', message: `Email envoyé avec succès à ${toEmails.length} destinataire(s) !` });
 
-        // Récupérer l'ID du message généré par EmailJS si disponible
-        // Note: EmailJS v4 renvoie { status, text } mais l'ID du message est parfois dans text ou renvoyé différemment selon le service
-        const sentMessageId = (result as any).messageId || (result as any).message_id || replyToMessageId;
+        const sentMessageId = result.messageId || replyToMessageId;
+        const sentThreadId = result.threadId || replyToThreadId;
 
         const contentForHistory = editedReport || aiReport;
         if (report) {
@@ -355,7 +370,9 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
               emailSent: true,
               lastSentTo: toEmails,
               emailSubject: emailForm.subject,
-              messageId: sentMessageId
+              messageId: sentMessageId ?? undefined,
+              threadId: sentThreadId ?? undefined,
+              inReplyTo: replyToMessageId ?? undefined
             }
           };
 
@@ -371,6 +388,7 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
           setEmailDialogOpen(false);
           setEmailStatus({ type: null, message: '' });
           setReplyToMessageId(null);
+          setReplyToThreadId(null);
         }, 2000);
       } else {
         throw new Error(result.message);
@@ -455,31 +473,29 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
               });
           }).filter(subTask => subTask._inRange);
 
-        const tasksWithCompletedSubTasks = includeSubTasks
-          ? allTasks
-            .filter(task => task.status !== 'non-suivi')
-            .map(task => {
-              const subTasks = task.subTasks || [];
-              const completedSubTasks = subTasks.filter((subTask): subTask is SubTask & { completedAt: string } => {
-                if (!subTask.completed || !subTask.completedAt) return false;
-                return isDateInRange(new Date(subTask.completedAt), start, end);
-              });
+        const tasksWithCompletedSubTasks = allTasks
+          .filter(task => task.status !== 'non-suivi')
+          .map(task => {
+            const subTasks = task.subTasks || [];
+            const completedSubTasks = subTasks.filter((subTask): subTask is SubTask & { completedAt: string } => {
+              if (!subTask.completed || !subTask.completedAt) return false;
+              return isDateInRange(new Date(subTask.completedAt), start, end);
+            });
 
-              if (completedSubTasks.length > 0) {
-                // Si la tâche principale est déjà terminée (dans completedMainTasks), 
-                // on ne l'ajoute pas ici pour éviter les doublons dans le contexte IA
-                const alreadyIncluded = completedMainTasks.some(mt => mt.id === task.id);
-                if (alreadyIncluded) return null;
+            if (completedSubTasks.length > 0) {
+              // Si la tâche principale est déjà terminée (dans completedMainTasks),
+              // on ne l'ajoute pas ici pour éviter les doublons
+              const alreadyIncluded = completedMainTasks.some(mt => mt.id === task.id);
+              if (alreadyIncluded) return null;
 
-                return {
-                  ...task,
-                  completedSubTasks
-                };
-              }
-              return null;
-            })
-            .filter((task): task is Task & { completedSubTasks: (SubTask & { completedAt: string })[] } => task !== null)
-          : [];
+              return {
+                ...task,
+                completedSubTasks: includeSubTasks ? completedSubTasks : [] // Liste vide si désactivé, mais tâche conservée
+              };
+            }
+            return null;
+          })
+          .filter((task): task is Task & { completedSubTasks: (SubTask & { completedAt: string })[] } => task !== null);
 
         const upcomingTasks = allTasks
           .filter(task => task.status !== 'done' && task.status !== 'non-suivi')
@@ -543,15 +559,19 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
             title: task.title,
             status: task.status,
             priority: task.priority,
+            dueDate: task.dueDate,
             subTasks: task.subTasks
           }))
         };
       });
 
+    const publicProjects = projectsData.filter(p => p.isPublic);
+
     setReport({
       startDate: start,
       endDate: end,
-      projects: projectsData
+      projects: projectsData,
+      publicProjects
     });
   };
 
@@ -603,7 +623,7 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
         contexteRealData += `PROJET: ${prjData.projectName}\n`;
 
         // Tâches actives (non terminées)
-        const activeTasks = (prjData.tasks || []).filter(task => task.status !== 'done' && task.status !== 'non-suivi');
+        const activeTasks = (prjData.tasks || []).filter((task: any) => task.status !== 'done' && task.status !== 'non-suivi');
         if (activeTasks.length > 0) {
           contexteRealData += `TÂCHES EN COURS:\n`;
           activeTasks.forEach((task: any) => {
@@ -622,7 +642,7 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
         }
 
         // Tâches effectuées
-        const performedTasks = (prjData.tasks || []).filter(task => task.status === 'done');
+        const performedTasks = (prjData.tasks || []).filter((task: any) => task.status === 'done');
         if (performedTasks.length > 0) {
           contexteRealData += `TÂCHES EFFECTUÉES:\n`;
           performedTasks.forEach((task: any) => {
@@ -646,7 +666,8 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
           contexteRealData += `TÂCHES SUIVANTES:\n`;
           upcoming.forEach((task: any) => {
             const statusLabel = task.status === 'in-progress' ? 'En cours' : 'À faire';
-            contexteRealData += `- ${task.title} [${statusLabel}]\n`;
+            const dueDateStr = task.dueDate ? ` (Échéance : ${new Date(task.dueDate).toLocaleDateString('fr-FR')})` : '';
+            contexteRealData += `- ${task.title} [${statusLabel}]${dueDateStr}\n`;
 
             // Inclure les sous-tâches actives si présentes
             if (task.subTasks && task.subTasks.length > 0) {
@@ -749,7 +770,7 @@ RÈGLES :
       const currentUser = state.users[0];
       
       // Identifier les projets publics pour ajouter leurs liens
-      const publicProjects = report.projects.filter((p: any) => p.isPublic && p.source === 'firebase');
+      const publicProjects = report.projects.filter((p: any) => p.isPublic);
       let publicLinksSection = '';
       
       if (publicProjects.length > 0) {
@@ -799,7 +820,7 @@ RÈGLES :
 
   useEffect(() => {
     generateReport();
-  }, [dateRange, selectedProjectIds, state.projects]);
+  }, [dateRange, selectedProjectIds, state.projects, includeSubTasks]);
 
   const handleGenerateAIReport = async () => {
     if (!report || report.projects.length === 0) {
@@ -830,7 +851,6 @@ RÈGLES :
 
   const toggleIncludeSubTasks = () => {
     setIncludeSubTasks(!includeSubTasks);
-    generateReport();
   };
 
   const handleDeleteReport = (id: string, e: React.MouseEvent) => {
@@ -845,15 +865,37 @@ RÈGLES :
     }
   };
 
-  const handleLoadReport = (reportEntry: any) => {
+  const handleLoadReport = (reportEntry: ReportEntry) => {
     setSelectedReportId(reportEntry.id);
     setAiReport(reportEntry.content);
     setEditedReport(reportEntry.content);
+    
+    // Identifier les projets qui étaient dans ce rapport et sont encore publics
+    const relevantProjects = (state.projects || []).filter(p => (reportEntry.projectIds || []).includes(p.id));
+    const publicPrjsData = relevantProjects.filter(p => p.isPublic).map(p => ({
+      projectId: p.id,
+      projectName: p.name,
+      isPublic: true
+    }));
+
     setReport({
       startDate: new Date(reportEntry.period.start),
       endDate: new Date(reportEntry.period.end),
-      projects: []
+      projects: relevantProjects.map(p => ({ 
+        projectId: p.id, 
+        projectName: p.name,
+        tasks: [],
+        upcomingTasks: [],
+        completedTasks: 0,
+        completedSubTasks: 0,
+        totalTasks: 0,
+        isPublic: p.isPublic,
+        source: p.source
+      })),
+      publicProjects: publicPrjsData
     });
+    
+    setSelectedProjectIds(reportEntry.projectIds || []);
     setActiveTab('generator');
   };
 
@@ -1000,10 +1042,10 @@ RÈGLES :
                         </div>
                       )}
                     </div>
-                    {project.tasks.filter(task => task.status !== 'non-suivi').length > 0 ? (
+                    {project.tasks.filter((task: any) => task.status !== 'non-suivi').length > 0 ? (
                       <div className="space-y-3">
                         <div className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wider mb-2">Tâches effectuées</div>
-                        {project.tasks.filter(task => task.status !== 'non-suivi').map((task: any) => (
+                        {project.tasks.filter((task: any) => task.status !== 'non-suivi').map((task: any) => (
                           <div key={task.id} className={`p-3 border rounded-md transition-colors ${task.isMainTask ? 'bg-green-50 dark:bg-green-900/20' : 'bg-white dark:bg-gray-800'} hover:bg-gray-50 dark:hover:bg-gray-700`}>
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex items-start gap-3">
@@ -1053,10 +1095,10 @@ RÈGLES :
                       <p className="text-sm text-gray-500 italic">Aucune tâche terminée pour cette période.</p>
                     )}
 
-                    {project.upcomingTasks && project.upcomingTasks.filter(task => task.status !== 'non-suivi').length > 0 && (
+                    {project.upcomingTasks && project.upcomingTasks.filter((task: any) => task.status !== 'non-suivi').length > 0 && (
                       <div className="mt-6 space-y-3">
                         <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-2">Tâches suivantes</div>
-                        {project.upcomingTasks.filter(task => task.status !== 'non-suivi').map((task: any) => (
+                        {project.upcomingTasks.filter((task: any) => task.status !== 'non-suivi').map((task: any) => (
                           <div key={task.id} className="p-3 border border-dashed rounded-md bg-gray-50/50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex items-start gap-3">
@@ -1072,6 +1114,12 @@ RÈGLES :
                                       {task.status === 'in-progress' ? 'En cours' : 'À faire'}
                                     </span>
                                   </div>
+                                  {task.dueDate && (
+                                    <div className="text-[11px] font-medium text-amber-600 dark:text-amber-400 flex items-center mt-0.5 ml-0.5">
+                                      <Calendar className="w-3 h-3 mr-1" />
+                                      Échéance : {new Date(task.dueDate).toLocaleDateString('fr-FR')}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                               <span className={`px-2 py-1 text-xs rounded-full whitespace-nowrap opacity-70 ${task.priority === 'high' ? 'bg-red-100 text-red-800' : task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
@@ -1153,8 +1201,10 @@ RÈGLES :
                           <input
                             type="radio"
                             name="deliveryType"
-                            checked={!state.reports.some(r => r.title === emailForm.subject)}
+                            checked={!replyToMessageId}
                             onChange={() => {
+                              setReplyToMessageId(null);
+                              setReplyToThreadId(null);
                               // Re-générer le sujet par défaut
                               const formatDateShort = (date: Date) => {
                                 const d = date.getDate().toString().padStart(2, '0');
@@ -1174,15 +1224,20 @@ RÈGLES :
                           <input
                             type="radio"
                             name="deliveryType"
-                            checked={state.reports.some(r => r.title === emailForm.subject)}
+                            checked={!!replyToMessageId}
                             onChange={() => {
-                              // Prendre le sujet du dernier rapport
-                              if (state.reports.length > 0) {
-                                const lastReport = state.reports[0];
-                                setEmailForm(prev => ({ ...prev, subject: lastReport.title }));
-                                if (lastReport.metadata?.messageId) {
-                                  setReplyToMessageId(lastReport.metadata.messageId);
-                                }
+                              // Prendre le sujet du dernier rapport envoyé avec un messageId
+                              const lastSentReport = [...state.reports].reverse().find(r => r.metadata?.messageId);
+                              if (lastSentReport) {
+                                setEmailForm(prev => ({ 
+                                  ...prev, 
+                                  subject: lastSentReport.title,
+                                  to: lastSentReport.metadata?.lastSentTo && lastSentReport.metadata.lastSentTo.length > 0 
+                                      ? lastSentReport.metadata.lastSentTo.join(', ') 
+                                      : prev.to
+                                }));
+                                setReplyToMessageId(lastSentReport.metadata?.messageId || null);
+                                setReplyToThreadId(lastSentReport.metadata?.threadId || null);
                               }
                             }}
                             className="mr-2"
@@ -1200,8 +1255,17 @@ RÈGLES :
                             const matched = state.reports.find(r => r.title === subj);
                             if (matched?.metadata?.messageId) {
                               setReplyToMessageId(matched.metadata.messageId);
+                              setReplyToThreadId(matched.metadata.threadId || null);
+                              
+                              // Mettre à jour les destinataires aussi si le sujet change
+                              if (matched?.metadata?.lastSentTo && matched.metadata.lastSentTo.length > 0) {
+                                setEmailForm(prev => ({ ...prev, subject: subj, to: matched.metadata!.lastSentTo!.join(', ') }));
+                              } else {
+                                setEmailForm(prev => ({ ...prev, subject: subj }));
+                              }
                             } else {
                               setReplyToMessageId(null);
+                              setReplyToThreadId(null);
                             }
                           }}
                           className="mt-2 w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md bg-white dark:bg-gray-700 dark:border-gray-600"
@@ -1273,7 +1337,7 @@ RÈGLES :
                       {reportEntry.metadata?.emailSent && (
                         <div className="mt-3 flex items-center gap-2">
                           <div className="flex items-center text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded"><CheckCircle className="w-3 h-3 mr-1" />Envoyé par email</div>
-                          <Button size="sm" variant="ghost" className="h-7 text-[10px] text-blue-600" onClick={(e: any) => { e.stopPropagation(); handleLoadReport(reportEntry); setTimeout(() => handleOpenEmailDialog(reportEntry.metadata.emailSubject, reportEntry.metadata.messageId), 100); }}>
+                          <Button size="sm" variant="ghost" className="h-7 text-[10px] text-blue-600" onClick={(e: any) => { e.stopPropagation(); handleLoadReport(reportEntry); setTimeout(() => handleOpenEmailDialog(reportEntry.metadata.emailSubject, reportEntry.metadata.messageId, reportEntry.metadata.threadId, reportEntry.metadata.lastSentTo), 100); }}>
                             <Send className="w-3 h-3 mr-1" />Répondre (Fil)
                           </Button>
                         </div>

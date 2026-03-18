@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { EmailService } from '../../services/emailService';
 
-// Interface pour les paramètres EmailJS
+// Interface pour les paramètres d'email
 export interface EmailJsSettings {
+  provider: 'emailjs' | 'google';
   serviceId: string;
   templateId: string;
   userId: string;
@@ -17,6 +18,7 @@ export interface EmailJsSettings {
 export function EmailSettings() {
   const { state, dispatch } = useApp();
   const [formData, setFormData] = useState<EmailJsSettings>({
+    provider: 'emailjs',
     serviceId: '',
     templateId: 'template_default',
     userId: '',
@@ -30,15 +32,6 @@ export function EmailSettings() {
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [showAccessToken, setShowAccessToken] = useState(false);
-  const [testStatus, setTestStatus] = useState<{
-    isRunning: boolean;
-    isSuccess: boolean | null;
-    message: string;
-  }>({
-    isRunning: false,
-    isSuccess: null,
-    message: ''
-  });
   const [saveStatus, setSaveStatus] = useState<{
     type: 'success' | 'error' | 'info' | null;
     message: string
@@ -51,6 +44,7 @@ export function EmailSettings() {
   useEffect(() => {
     if (state.emailSettings) {
       setFormData({
+        provider: state.emailSettings.provider || 'emailjs',
         serviceId: state.emailSettings.serviceId || '',
         templateId: state.emailSettings.templateId || 'template_default',
         userId: state.emailSettings.userId || '',
@@ -78,10 +72,8 @@ export function EmailSettings() {
     setSaveStatus({ type: null, message: '' });
 
     try {
-
-
-      // Valider les champs requis
-      if (!formData.serviceId || !formData.userId) {
+      // Valider les champs requis uniquement pour EmailJS
+      if (formData.provider === 'emailjs' && (!formData.serviceId || !formData.userId)) {
         const missingFields = [];
         if (!formData.serviceId) missingFields.push('Service ID');
         if (!formData.userId) missingFields.push('User ID');
@@ -89,8 +81,8 @@ export function EmailSettings() {
         throw new Error(`Veuillez remplir les champs obligatoires : ${missingFields.join(', ')}`);
       }
 
-      // Préparer les données à envoyer
       const settingsToSave = {
+        provider: formData.provider,
         serviceId: formData.serviceId.trim(),
         templateId: formData.templateId.trim(),
         userId: formData.userId.trim(),
@@ -140,28 +132,27 @@ export function EmailSettings() {
     // Réinitialiser les états précédents
     setSaveStatus({ type: null, message: '' });
 
-    // Validation des champs obligatoires
-    if (!formData.serviceId || !formData.userId || !formData.fromEmail) {
+    // Validation selon le provider
+    if (formData.provider === 'emailjs' && (!formData.serviceId || !formData.userId || !formData.fromEmail)) {
       const missingFields = [];
       if (!formData.serviceId) missingFields.push('Service ID');
       if (!formData.userId) missingFields.push('User ID (clé publique)');
       if (!formData.fromEmail) missingFields.push('Email d\'expéditeur');
 
       const errorMessage = `Veuillez configurer les champs obligatoires avant de tester : ${missingFields.join(', ')}`;
+      setSaveStatus({ type: 'error', message: errorMessage });
+      return;
+    }
 
+    if (formData.provider === 'google' && (!state.googleAccessToken || !state.calendarEmail)) {
       setSaveStatus({
         type: 'error',
-        message: errorMessage
+        message: 'Vous devez être connecté avec Google (via le Calendrier ou en haut à droite) pour tester l\'envoi Gmail.'
       });
       return;
     }
 
     setIsTesting(true);
-    setTestStatus({
-      isRunning: true,
-      isSuccess: null,
-      message: 'Initialisation du test...'
-    });
 
     setSaveStatus({
       type: 'info',
@@ -170,51 +161,72 @@ export function EmailSettings() {
 
     try {
       // Tester la connexion en envoyant un email de test
-      const testEmail = {
-        to: formData.fromEmail, // Envoyer à soi-même pour le test
-        subject: 'Test de connexion EmailJS',
+      const isGoogle = formData.provider === 'google';
+      const testEmail: any = {
+        to: isGoogle ? (state.calendarEmail || formData.fromEmail) : formData.fromEmail,
+        subject: `Test de connexion ${isGoogle ? 'Gmail' : 'EmailJS'}`,
         html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; line-height: 1.6;">
-            <h2 style="color: #1a365d;">Test de connexion EmailJS réussi !</h2>
-            <p>Félicitations, votre configuration EmailJS fonctionne correctement.</p>
-            <div style="background: #f8fafc; border-left: 4px solid #4299e1; padding: 12px; margin: 16px 0; font-family: monospace; font-size: 14px;">
-              <p><strong>Service ID:</strong> ${formData.serviceId}</p>
-              <p><strong>Template ID:</strong> ${formData.templateId}</p>
-              <p><strong>User ID:</strong> ${formData.userId.substring(0, 8)}...</p>
-              <p><strong>Expéditeur:</strong> ${formData.fromName} &lt;${formData.fromEmail}&gt;</p>
+          <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; color: #1e293b; line-height: 1.6; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <div style="background: linear-gradient(135deg, ${isGoogle ? '#4285F4, #34A853' : '#2563eb, #3b82f6'}); padding: 32px; text-align: center; color: white;">
+              <h1 style="margin: 0; font-size: 24px;">Test de connexion réussi !</h1>
             </div>
-            <p>Vous pouvez maintenant utiliser le service d'envoi d'emails dans votre application.</p>
+            <div style="padding: 32px; background: white;">
+              <p style="font-size: 16px; margin-top: 0;">Félicitations, votre configuration <strong>${isGoogle ? 'Google Gmail' : 'EmailJS'}</strong> fonctionne parfaitement.</p>
+              
+              <div style="background: #f8fafc; border-radius: 12px; padding: 20px; margin: 24px 0; font-family: monospace; font-size: 13px; border: 1px dashed #cbd5e1;">
+                <p style="margin: 4px 0;"><strong>Fournisseur:</strong> ${isGoogle ? 'Google Direct (Gmail)' : 'EmailJS'}</p>
+                ${!isGoogle ? `
+                <p style="margin: 4px 0;"><strong>Service ID:</strong> ${formData.serviceId}</p>
+                <p style="margin: 4px 0;"><strong>Template ID:</strong> ${formData.templateId}</p>
+                <p style="margin: 4px 0;"><strong>User ID:</strong> ${formData.userId.substring(0, 8)}...</p>
+                ` : `
+                <p style="margin: 4px 0;"><strong>Compte Google:</strong> ${state.calendarEmail}</p>
+                <p style="margin: 4px 0;"><strong>Status:</strong> Authentifié et autorisé</p>
+                `}
+                <p style="margin: 4px 0;"><strong>Expéditeur:</strong> ${formData.fromName}</p>
+              </div>
+              
+              <p style="font-size: 14px; color: #64748b;">
+                ${isGoogle 
+                  ? "Vous pouvez maintenant envoyer des rapports directement via votre propre compte Google. Vos clients pourront vous répondre directement !" 
+                  : "Votre service EmailJS est prêt à être utilisé pour l'envoi de rapports."}
+              </p>
+            </div>
+            <div style="padding: 20px; background: #f1f5f9; text-align: center; font-size: 12px; color: #94a3b8;">
+              Envoyé par votre outil de Gestion de Projet Digital
+            </div>
           </div>
         `,
         fromName: formData.fromName,
-        from: formData.fromEmail,
-        templateParams: {
+        from: isGoogle ? state.calendarEmail : formData.fromEmail,
+        provider: formData.provider,
+        googleAccessToken: isGoogle ? state.googleAccessToken : undefined,
+        templateParams: !isGoogle ? {
           to_name: 'Utilisateur de test',
           from_name: formData.fromName || 'Gestion de Projet',
           subject: 'Test de connexion EmailJS',
           message: 'Ceci est un email de test pour vérifier la configuration EmailJS.'
-        }
+        } : undefined
       };
 
-      setTestStatus(prev => ({ ...prev, message: 'Chargement du service EmailJS...' }));
-
-      setTestStatus(prev => ({ ...prev, message: 'Envoi de l\'email de test...' }));
+      setSaveStatus({ type: 'info', message: `Envoi de l'email via ${isGoogle ? 'Gmail' : 'EmailJS'}...` });
 
       // Envoyer l'email de test
-      const result = await EmailService.sendEmail(testEmail, {
+      const result = await EmailService.sendEmail(testEmail, formData.provider === 'emailjs' ? {
         serviceId: formData.serviceId.trim(),
         templateId: formData.templateId.trim(),
         userId: formData.userId.trim(),
         accessToken: formData.accessToken?.trim(),
         fromName: formData.fromName.trim(),
         fromEmail: formData.fromEmail.trim()
-      });
+      } : undefined);
 
       if (result.success) {
         const successMessage = 'Connexion réussie ! Un email de test a été envoyé avec succès.';
 
         // Préparer les données à sauvegarder
         const settingsToSave = {
+          provider: formData.provider,
           serviceId: formData.serviceId.trim(),
           templateId: formData.templateId.trim(),
           userId: formData.userId.trim(),
@@ -228,9 +240,8 @@ export function EmailSettings() {
 
 
         // Mettre à jour le statut du test
-        setTestStatus({
-          isRunning: false,
-          isSuccess: true,
+        setSaveStatus({
+          type: 'success',
           message: successMessage
         });
 
@@ -275,11 +286,6 @@ export function EmailSettings() {
         }
       }
 
-      setTestStatus({
-        isRunning: false,
-        isSuccess: false,
-        message: errorMessage
-      });
 
       setSaveStatus({
         type: 'error',
@@ -310,23 +316,158 @@ export function EmailSettings() {
 
         <div className="px-4 py-5 sm:p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
+
+            {/* Choix du fournisseur */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
+              <label className="block text-sm font-bold text-blue-800 dark:text-blue-300 mb-3 uppercase tracking-wider text-center">
+                Fournisseur de service Email
+              </label>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, provider: 'google' }))}
+                  className={`flex-1 flex items-center justify-center p-4 rounded-xl border-2 transition-all duration-300 ${formData.provider === 'google'
+                    ? 'border-blue-500 bg-white dark:bg-gray-700 shadow-lg scale-105'
+                    : 'border-transparent bg-gray-100 dark:bg-gray-800 text-gray-500 opacity-60 hover:opacity-100'
+                    }`}
+                >
+                  <div className="text-center">
+                    <div className="text-2xl mb-1">📧</div>
+                    <div className="font-bold text-gray-900 dark:text-white">Google Gmail API</div>
+                    <div className="text-xs text-gray-500">Utilise votre email de connexion</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, provider: 'emailjs' }))}
+                  className={`flex-1 flex items-center justify-center p-4 rounded-xl border-2 transition-all duration-300 ${formData.provider === 'emailjs'
+                    ? 'border-blue-500 bg-white dark:bg-gray-700 shadow-lg scale-105'
+                    : 'border-transparent bg-gray-100 dark:bg-gray-800 text-gray-500 opacity-60 hover:opacity-100'
+                    }`}
+                >
+                  <div className="text-center">
+                    <div className="text-2xl mb-1">⚡</div>
+                    <div className="font-bold text-gray-900 dark:text-white">EmailJS Service</div>
+                    <div className="text-xs text-gray-500">Configuration manuelle (Service externe)</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
             {/* Statut de sauvegarde */}
             {saveStatus.message && (
               <div
-                className={`p-4 rounded-md ${saveStatus.type === 'success'
-                  ? 'bg-green-50 dark:bg-green-900 text-green-800 dark:text-green-200'
+                className={`p-4 rounded-xl animate-in fade-in slide-in-from-top-2 duration-300 border ${saveStatus.type === 'success'
+                  ? 'bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-200 dark:border-green-800'
                   : saveStatus.type === 'error'
-                    ? 'bg-red-50 dark:bg-red-900 text-red-800 dark:text-red-200'
-                    : 'bg-blue-50 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
+                    ? 'bg-red-50 dark:bg-red-900/30 text-red-800 dark:text-red-200 border-red-200 dark:border-red-800'
+                    : 'bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-800'
                   }`}
               >
-                <p className="text-sm">{saveStatus.message}</p>
+                <div className="flex items-center">
+                  {saveStatus.type === 'success' && <span className="mr-2">✅</span>}
+                  {saveStatus.type === 'error' && <span className="mr-2">⚠️</span>}
+                  {saveStatus.type === 'info' && <span className="mr-2 text-blue-500">ℹ️</span>}
+                  <p className="text-sm font-medium">{saveStatus.message}</p>
+                </div>
               </div>
             )}
 
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              {/* Service ID */}
-              <div className="col-span-2">
+              {formData.provider === 'google' ? (
+                /* Configuration Google */
+                <div className="col-span-2 space-y-6">
+                  <div className="bg-gray-50 dark:bg-gray-900/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
+                    <div className="flex items-center space-x-4 mb-4">
+                      <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center text-2xl">
+                        G
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-gray-900 dark:text-white">Connexion Google</h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          L'envoi se fera via votre compte Google (Gmail).
+                        </p>
+                      </div>
+                    </div>
+
+                    {state.googleAccessToken ? (
+                      <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl border border-green-100 dark:border-green-800 flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-3"></div>
+                          <div>
+                            <p className="text-sm font-bold text-green-800 dark:text-green-200">Connecté avec succès</p>
+                            <p className="text-xs text-green-600 dark:text-green-400">{state.calendarEmail}</p>
+                          </div>
+                        </div>
+                        <span className="px-3 py-1 bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300 rounded-lg text-xs font-bold uppercase">Actif</span>
+                      </div>
+                    ) : (
+                      <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-xl border border-amber-100 dark:border-amber-800">
+                        <p className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-3">
+                          Vous n'êtes pas encore authentifié avec les permissions Gmail.
+                        </p>
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mb-4">
+                          L'authentification Google est partagée avec le Calendrier.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            dispatch({ type: 'SET_VIEW', payload: 'calendar' });
+                          }}
+                          className="w-full sm:w-auto px-6 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-sm transition-all"
+                        >
+                          Aller au Calendrier pour se connecter
+                        </button>
+                      </div>
+                    )}
+                    
+                    <div className="mt-6 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Nom de l'expéditeur
+                          </label>
+                          <input
+                            type="text"
+                            name="fromName"
+                            value={formData.fromName}
+                            onChange={handleChange}
+                            className="w-full p-3 rounded-xl border-gray-300 dark:border-gray-700 dark:bg-gray-800 shadow-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                            placeholder="Ex: Jean Dupont"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Utiliser cet email (Info)
+                          </label>
+                          <input
+                            type="email"
+                            readOnly
+                            value={state.calendarEmail || 'Non connecté'}
+                            className="w-full p-3 rounded-xl border-gray-300 dark:border-gray-700 dark:bg-gray-900 bg-gray-50 text-gray-500 cursor-not-allowed shadow-sm font-medium"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800">
+                    <h5 className="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center">
+                      <span className="mr-2">💡</span> Pourquoi utiliser Google Gmail ?
+                    </h5>
+                    <ul className="text-xs text-indigo-700 dark:text-indigo-400 space-y-2 list-disc pl-5">
+                      <li><strong>Réponses directes :</strong> Vos clients peuvent répondre directement à vos emails de rapport.</li>
+                      <li><strong>Format HTML riche :</strong> Support complet des styles, couleurs et mises en page professionnelles.</li>
+                      <li><strong>Pas de configuration complexe :</strong> Pas d'IDs de service ou de modèles à créer manuellement.</li>
+                      <li><strong>Une seule connexion :</strong> Utilisez le compte avec lequel vous collaborez déjà.</li>
+                    </ul>
+                  </div>
+                </div>
+              ) : (
+                /* Configuration EmailJS */
+                <>
+                  {/* Service ID */}
+                  <div className="col-span-2">
                 <label htmlFor="serviceId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   ID du service EmailJS <span className="text-red-500">*</span>
                 </label>
@@ -484,7 +625,7 @@ export function EmailSettings() {
               </div>
 
               {/* Activer/désactiver */}
-              <div className="flex items-start col-span-2">
+              <div className="flex items-start col-span-2 mt-4 bg-gray-50 dark:bg-gray-900/40 p-4 rounded-xl border border-gray-100 dark:border-gray-800">
                 <div className="flex items-center h-5">
                   <input
                     id="isEnabled"
@@ -492,25 +633,27 @@ export function EmailSettings() {
                     type="checkbox"
                     checked={formData.isEnabled}
                     onChange={handleChange}
-                    className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+                    className="focus:ring-blue-500 h-5 w-5 text-blue-600 border-gray-300 rounded-lg transition-all"
                   />
                 </div>
-                <div className="ml-3 text-sm">
-                  <label htmlFor="isEnabled" className="font-medium text-gray-700 dark:text-gray-300">
+                <div className="ml-4 text-sm">
+                  <label htmlFor="isEnabled" className="font-bold text-gray-700 dark:text-gray-300">
                     Activer l'envoi d'emails
                   </label>
                   <p className="text-gray-500 dark:text-gray-400">
-                    Activez ou désactivez l'envoi d'emails dans l'application
+                    Activez ou désactivez globalement l'envoi d'emails dans l'application
                   </p>
                 </div>
               </div>
-            </div>
+          </>
+        )}
+      </div>
 
             <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 pt-6">
               <button
                 type="button"
                 onClick={testConnection}
-                disabled={isSaving || isTesting || !formData.serviceId || !formData.userId || !formData.fromEmail}
+                disabled={isSaving || isTesting || (formData.provider === 'emailjs' && (!formData.serviceId || !formData.userId || !formData.fromEmail))}
                 className={`inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${isTesting
                   ? 'bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500'
                   : 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
@@ -530,7 +673,7 @@ export function EmailSettings() {
               </button>
               <button
                 type="submit"
-                disabled={isSaving || isTesting || !formData.serviceId || !formData.userId}
+                disabled={isSaving || isTesting || (formData.provider === 'emailjs' && (!formData.serviceId || !formData.userId))}
                 className="inline-flex justify-center items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSaving ? (
