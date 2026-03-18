@@ -13,6 +13,8 @@ import { AboutView } from './components/Views/AboutView';
 import Chatbot from './components/Chatbot';
 import { motion, AnimatePresence } from 'framer-motion';
 import { matchesShortcut } from './utils/keyboardUtils';
+import { activityService } from './services/collaboration/activityService';
+import { message } from 'antd';
 
 function AppContent() {
   const { state, dispatch } = useApp();
@@ -33,6 +35,8 @@ function AppContent() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const taskId = urlParams.get('task');
+    const replyTo = urlParams.get('replyTo');
+    const replyText = urlParams.get('text');
 
     // Gérer les redirections depuis GitHub Pages 404.html
     const redirectPath = sessionStorage.getItem('_astro_redirect');
@@ -52,6 +56,39 @@ function AppContent() {
       }
     }
 
+    // Gérer l'envoi de réponse rapide (Quick Reply)
+    if (replyTo && replyText && state.cloudUser) {
+      const sendQuickReply = async () => {
+        try {
+          await activityService.logActivity({
+            projectId: replyTo,
+            type: 'project_discussion',
+            actorId: state.cloudUser!.uid,
+            actorName: state.cloudUser!.displayName || state.cloudUser!.email || 'Membre',
+            actorAvatar: state.cloudUser!.photoURL || undefined,
+            details: decodeURIComponent(replyText),
+            targetId: replyTo,
+            targetName: 'Discussion'
+          });
+          message.success("Réponse envoyée !");
+          
+          // Ouvrir la discussion pour voir le message
+          dispatch({ type: 'SET_VIEW', payload: 'projects' });
+          window.dispatchEvent(new CustomEvent('openProjectFeed', { 
+            detail: state.projects.find(p => p.id === replyTo)
+          }));
+        } catch (err) {
+          console.error("Erreur envoi Quick Reply:", err);
+        }
+      };
+      
+      sendQuickReply();
+      
+      // Nettoyer l'URL
+      const newUrl = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, document.title, newUrl);
+    }
+
     if (taskId) {
       const allTasks = state.projects.flatMap(p => p.tasks || []);
       const task = allTasks.find(t => t.id === taskId);
@@ -66,7 +103,7 @@ function AppContent() {
         window.history.replaceState({}, document.title, newUrl);
       }
     }
-  }, [dispatch, state.projects]);
+  }, [dispatch, state.projects, state.cloudUser]);
 
   const [isLoading, setIsLoading] = useState(true);
 

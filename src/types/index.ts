@@ -95,6 +95,7 @@ export interface Project {
   coverImage?: string | null; // URL de l'image de couverture
   coverImagePublicId?: string | null; // ID Public Cloudinary pour suivi/suppression
   isFollowed?: boolean; // Option pour suivre/ne pas suivre le projet (défaut: true)
+  lastActivityAt?: string; // Horodatage du dernier message/activité (pour badge non lu)
 
   // Champs pour la synchronisation Cloud (Firebase)
   source?: 'local' | 'firebase';
@@ -345,9 +346,32 @@ export interface Comment {
   reactions?: CommentReaction[]; // Liste des réactions au commentaire
 }
 
+export interface ProjectFeedItem {
+  id: string;
+  projectId: string;
+  authorId: string;
+  authorName: string;
+  authorAvatar?: string;
+  type: 'message' | 'activity';
+  content: string;
+  contentId?: string; // ID de la tâche ou autre élément concerné par l'activité
+  contentType?: 'task' | 'subtask' | 'project';
+  activityType?: 'create' | 'update' | 'delete' | 'complete' | 'status_change' | 'comment';
+  metadata?: {
+    oldValue?: any;
+    newValue?: any;
+    taskTitle?: string;
+    subTaskTitle?: string;
+  }; 
+  createdAt: string;
+  reactions?: Record<string, string[]>; // emoji -> list of userIds
+  isReadBy?: string[]; // list of userIds
+}
+
 export type ActivityType =
   | 'project_created'
   | 'project_updated'
+  | 'project_discussion'
   | 'project_archived'
   | 'task_created'
   | 'task_updated'

@@ -1,4 +1,4 @@
-import { collection, addDoc, query, where, onSnapshot, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, query, where, onSnapshot, serverTimestamp, Timestamp, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { Activity } from '../../types';
 import { db, auth } from './firebaseService';
 
@@ -8,15 +8,23 @@ const ensureInitialized = () => {
 
 export const activityService = {
   /**
-   * Enregistre une nouvelle activité
+   * Enregistre une nouvelle activité et met à jour le projet
    */
   async logActivity(activity: Omit<Activity, 'id' | 'createdAt'>): Promise<void> {
     if (!ensureInitialized() || !auth.currentUser) return;
 
     try {
-      await addDoc(collection(db, 'activities'), {
+      const activitiesRef = collection(db, 'activities');
+      await addDoc(activitiesRef, {
         ...activity,
         createdAt: serverTimestamp()
+      });
+
+      // Mettre à jour le timestamp du projet pour le badge "non lu"
+      const projectRef = doc(db, 'projects', activity.projectId);
+      await updateDoc(projectRef, {
+        lastActivityAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       });
     } catch (error) {
       console.error("Erreur lors de l'enregistrement de l'activité:", error);
@@ -45,7 +53,7 @@ export const activityService = {
         } as Activity);
       });
 
-      // Tri et limitation côté client pour éviter la création d'index composite Firebase
+      // Tri et limitation côté client
       activities.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       const limitedActivities = activities.slice(0, 50);
 
@@ -53,5 +61,50 @@ export const activityService = {
     }, (error) => {
       console.error("Erreur lors de l'écoute des activités:", error);
     });
+  },
+
+  /**
+   * Met à jour une activité existante
+   */
+  async updateActivity(activityId: string, details: string): Promise<void> {
+    if (!ensureInitialized() || !auth.currentUser) return;
+    try {
+      const activityRef = doc(db, 'activities', activityId);
+      await updateDoc(activityRef, {
+        details,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error("Erreur mise à jour activité:", error);
+    }
+  },
+
+  /**
+   * Supprime une activité
+   */
+  async deleteActivity(activityId: string): Promise<void> {
+    if (!ensureInitialized() || !auth.currentUser) return;
+    try {
+      const activityRef = doc(db, 'activities', activityId);
+      await deleteDoc(activityRef);
+    } catch (error) {
+      console.error("Erreur suppression activité:", error);
+    }
+  },
+
+  /**
+   * Supprime plusieurs activités d'un coup
+   */
+  async deleteMultipleActivities(activityIds: string[]): Promise<void> {
+    if (!ensureInitialized() || !auth.currentUser || activityIds.length === 0) return;
+    try {
+      const batch = writeBatch(db);
+      activityIds.forEach(id => {
+        batch.delete(doc(db, 'activities', id));
+      });
+      await batch.commit();
+    } catch (error) {
+      console.error("Erreur suppression multiple activités:", error);
+    }
   }
 };

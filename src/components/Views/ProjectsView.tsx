@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Archive, AlertTriangle, Calendar, Cpu, ChevronDown, Loader2, LogOut, Clock, Eye, Edit2, Check, Upload, Shield, Copy, AlertCircle } from 'lucide-react';
+import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Archive, AlertTriangle, Calendar, Cpu, ChevronDown, Loader2, LogOut, Clock, Eye, Edit2, Check, Upload, Shield, Copy, AlertCircle, MessageSquare } from 'lucide-react';
 import { EncryptionService } from '../../services/security/encryptionService';
 import { useApp } from '../../context/AppContext';
 import { firebaseService } from '../../services/collaboration/firebaseService';
@@ -11,7 +11,7 @@ import { CoverImageUpload } from '../UI/CoverImageUpload';
 import { Project, Task, AISettings as AISettingsType, DEFAULT_AI_SETTINGS, TaskStatus } from '../../types';
 import { AISettings } from '../Settings/AISettings';
 import { EditTaskForm } from '../Tasks/EditTaskForm';
-import { Tabs, Form, Input, Select, Row, Col, InputNumber, message } from 'antd';
+import { Tabs, Form, Input, Select, Row, Col, InputNumber, message, Drawer, Tooltip } from 'antd';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { calculateDuration, isMultiDayTask } from '../../utils/dateUtils';
@@ -19,6 +19,8 @@ import { TrelloImportModal } from '../UI/TrelloImportModal';
 import { matchesShortcut } from '../../utils/keyboardUtils';
 
 import { ActivityFeed } from './ActivityFeed';
+import { activityService } from '../../services/collaboration/activityService';
+import { projectReadService } from '../../services/collaboration/projectReadService';
 import { AIService } from '../../services/aiService';
 import { getBasePath } from '../../lib/pathUtils';
 
@@ -105,6 +107,7 @@ interface ProjectCardProps {
   onDelete: (project: Project) => void;
   onManageMembers: (project: Project) => void;
   getProjectStats: (project: Project) => { totalTasks: number; completedTasks: number };
+  isUnread?: boolean;
   children?: React.ReactNode;
 }
 
@@ -115,6 +118,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
   onDelete,
   onManageMembers,
   getProjectStats,
+  isUnread,
   children
 }) => {
   const { state, dispatch } = useApp();
@@ -138,7 +142,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
 
   return (
     <Card
-      className="p-6 group cursor-pointer relative"
+      className={`p-6 group cursor-pointer relative transition-all duration-300 ${showMenu ? 'z-[100]' : 'z-10'}`}
       hover
       gradient
       onClick={() => onEdit(project)}
@@ -157,30 +161,31 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
 
       <div className="relative z-10">
         <div className="flex items-start justify-between mb-6">
-          <div className="flex items-center space-x-3 min-w-0">
+          <div className="flex items-center space-x-3 min-w-0 flex-1">
             <div
               className="w-5 h-5 rounded-full shadow-lg flex-shrink-0"
               style={{ backgroundColor: project.color }}
             />
             <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-2">
-                <h3 className={`font-bold text-gray-900 dark:text-white truncate ${state.appSettings?.fontSize === 'small' ? 'text-lg' :
-                  state.appSettings?.fontSize === 'large' ? 'text-2xl' : 'text-xl'
-                  }`}>
-                  {project.name}
-                </h3>
+              <h3 className={`font-bold text-gray-900 dark:text-white truncate ${state.appSettings?.fontSize === 'small' ? 'text-lg' :
+                state.appSettings?.fontSize === 'large' ? 'text-2xl' : 'text-xl'
+                }`}>
+                {project.name}
+              </h3>
+
+              <div className="flex flex-wrap items-center gap-1.5 mt-2">
                 {project.source === 'firebase' && (
-                  <span className="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800 uppercase tracking-wider">
+                  <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800 uppercase tracking-wider">
                     Cloud
                   </span>
                 )}
                 {project.isPublic && (
-                  <span className="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-green-50 text-green-600 border border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800 uppercase tracking-wider">
+                  <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-50 text-green-600 border border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800 uppercase tracking-wider">
                     Public
                   </span>
                 )}
                 {project.isEncryptionEnabled && (
-                  <span className="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 uppercase tracking-wider gap-1">
+                  <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 uppercase tracking-wider gap-0.5">
                     <Shield className="w-2.5 h-2.5" />
                     Sécurisé
                   </span>
@@ -189,7 +194,27 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
             </div>
           </div>
 
-          <div className="relative" ref={menuRef}>
+          <div className="flex items-center flex-shrink-0 ml-4 relative" ref={menuRef}>
+            <Tooltip title={isUnread ? "Nouveaux messages non lus !" : "Espace de discussion & collaboration"}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // On définit le projet actif pour le drawer de feed
+                  // @ts-ignore - On gère l'ouverture via le state local de ProjectsView
+                  window.dispatchEvent(new CustomEvent('openProjectFeed', { detail: project }));
+                }}
+                className={`p-2 mr-1 rounded-xl transition-all duration-200 relative ${
+                  isUnread 
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-none animate-pulse' 
+                    : 'hover:bg-blue-50 dark:hover:bg-blue-900/40 text-blue-600'
+                }`}
+              >
+                <MessageSquare className="w-5 h-5" />
+                {isUnread && (
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 border-2 border-white dark:border-gray-800 rounded-full" />
+                )}
+              </button>
+            </Tooltip>
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -245,6 +270,17 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
 
                               await firebaseService.syncProject(projectToSync);
                               dispatch({ type: 'UPDATE_PROJECT', payload: projectToSync });
+
+                              // Log activity
+                              await activityService.logActivity({
+                                projectId: projectToSync.id,
+                                type: 'project_created',
+                                actorId: user.uid,
+                                actorName: user.displayName || user.email || 'Anonyme',
+                                actorAvatar: user.photoURL || undefined,
+                                targetId: projectToSync.id,
+                                targetName: projectToSync.name
+                              });
 
                               message.success("Projet synchronisé avec succès !");
                             } catch (error: any) {
@@ -376,8 +412,8 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
         {project.description && (
           <div
             className={`text-gray-600 dark:text-gray-400 mb-6 line-clamp-2 leading-relaxed markdown-body pointer-events-none ${state.appSettings?.fontSize === 'small' ? 'text-xs' :
-            state.appSettings?.fontSize === 'large' ? 'text-base' : 'text-sm'
-            }`}
+              state.appSettings?.fontSize === 'large' ? 'text-base' : 'text-sm'
+              }`}
           >
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
@@ -763,11 +799,33 @@ export function ProjectsView() {
   const { state, dispatch } = useApp();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [managingMembersProject, setManagingMembersProject] = useState<Project | null>(null);
+  const [readStatuses, setReadStatuses] = useState<Record<string, string>>({});
+
+  // Écouter les changements de lecture
+  useEffect(() => {
+    if (state.cloudUser?.uid) {
+      const unsubscribe = projectReadService.subscribeToAllReadStatuses(
+        state.cloudUser.uid, 
+        (statuses) => setReadStatuses(statuses)
+      );
+      return () => unsubscribe();
+    }
+  }, [state.cloudUser?.uid]);
 
 
 
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [activeProjectFeed, setActiveProjectFeed] = useState<Project | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+
+  // Écouter l'événement personnalisé pour ouvrir le fil
+  useEffect(() => {
+    const handleOpenFeed = (e: any) => {
+      setActiveProjectFeed(e.detail);
+    };
+    window.addEventListener('openProjectFeed', handleOpenFeed);
+    return () => window.removeEventListener('openProjectFeed', handleOpenFeed);
+  }, []);
 
   // Synchroniser editingProject avec le store global quand les tâches sont modifiées
   useEffect(() => {
@@ -1131,11 +1189,26 @@ export function ProjectsView() {
 
     setEditingProject(updatedProject);
 
-    // Mettre à jour le projet dans le store aussi
     dispatch({
       type: 'UPDATE_PROJECT',
       payload: updatedProject
     });
+
+    // Journaliser le changement de statut si c'est un projet Firebase
+    if (updatedProject.source === 'firebase' && state.cloudUser) {
+      activityService.logActivity({
+        projectId: updatedProject.id,
+        type: newStatus === 'done' ? 'task_completed' : 'task_updated',
+        actorId: state.cloudUser.uid,
+        actorName: state.cloudUser.displayName || state.cloudUser.email || 'Anonyme',
+        actorAvatar: state.cloudUser.photoURL || undefined,
+        targetId: task.id,
+        targetName: task.title
+      });
+
+      // Sync cloud
+      firebaseService.syncProject(updatedProject).catch(console.error);
+    }
   };
 
   const createProject = () => {
@@ -1196,7 +1269,20 @@ export function ProjectsView() {
     // Sauvegarder dans Firebase si c'est un projet cloud
     if (updatedProject.source === 'firebase') {
       firebaseService.syncProject(updatedProject)
-        .then(() => console.log('[Sync] Projet synchronisé après modification'))
+        .then(() => {
+          console.log('[Sync] Projet synchronisé après modification');
+          if (state.cloudUser) {
+            activityService.logActivity({
+              projectId: updatedProject.id,
+              type: 'project_updated',
+              actorId: state.cloudUser.uid,
+              actorName: state.cloudUser.displayName || state.cloudUser.email || 'Anonyme',
+              actorAvatar: state.cloudUser.photoURL || undefined,
+              targetId: updatedProject.id,
+              targetName: updatedProject.name
+            });
+          }
+        })
         .catch(err => {
           console.error('[Sync] Erreur sync:', err);
           message.error('Erreur lors de la synchronisation avec le cloud');
@@ -1294,15 +1380,15 @@ export function ProjectsView() {
     if (project.isEncryptionEnabled && !EncryptionService.getProjectKey(project.id)) {
       const { Modal, Input } = await import('antd');
       let enteredKey = '';
-      
+
       Modal.confirm({
         title: 'Projet Sécurisé',
         icon: <Shield className="text-emerald-500 mr-2" />,
         content: (
           <div className="py-4">
             <p className="text-sm text-gray-600 mb-4">Ce projet utilise le chiffrement de bout en bout. Veuillez saisir la clé de sécurité pour y accéder :</p>
-            <Input.Password 
-              placeholder="Clé de sécurité (AES)" 
+            <Input.Password
+              placeholder="Clé de sécurité (AES)"
               onChange={(e) => enteredKey = e.target.value}
             />
           </div>
@@ -1314,11 +1400,11 @@ export function ProjectsView() {
             message.error("La clé est obligatoire");
             return Promise.reject();
           }
-          
+
           try {
             // On tente de déchiffrer le nom pour valider la clé
             const decryptedName = await EncryptionService.decrypt(project.name, enteredKey);
-            
+
             // Si le nom déchiffré ressemble à de l'hexadécimal (ou est identique), la clé est probablement mauvaise
             // Note: C'est une heuristique simple
             if (decryptedName === project.name || decryptedName.match(/^[0-9a-f]+$/i) && project.name.length > 20) {
@@ -1329,7 +1415,7 @@ export function ProjectsView() {
             // Sauvegarder la clé et rafraîchir le projet
             EncryptionService.saveProjectKey(project.id, enteredKey);
             const decryptedProject = await firebaseService.decryptProject(project, enteredKey);
-            
+
             dispatch({ type: 'UPDATE_PROJECT', payload: decryptedProject });
             setEditingProject(decryptedProject);
             setShowProjectModal(true);
@@ -1414,14 +1500,14 @@ export function ProjectsView() {
         } as any
       };
       dispatch({ type: 'ADD_PROJECT', payload: project });
-      
+
       // Sauvegarder la clé localement si E2EE est activé
       if (project.isEncryptionEnabled && project.encryptionKey) {
         import('../../services/security/encryptionService').then(({ EncryptionService }) => {
           EncryptionService.saveProjectKey(project.id, project.encryptionKey!);
         });
       }
-      
+
       message.success('Projet créé avec succès');
     }
 
@@ -1596,18 +1682,19 @@ export function ProjectsView() {
                 return isActive && (showUnfollowed || isFollowed);
               })
               .map(project => (
-                <ProjectCard
-                  key={project.id}
-                  project={project}
-                  onEdit={handleEditProject}
-                  onArchive={handleArchiveProject}
-                  onDelete={(p) => {
-                    setProjectToDelete(p);
-                    setShowDeleteConfirm(true);
-                  }}
-                  onManageMembers={handleManageMembers}
-                  getProjectStats={getProjectStats}
-                />
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    onEdit={handleEditProject}
+                    onArchive={handleArchiveProject}
+                    onDelete={(p) => {
+                      setProjectToDelete(p);
+                      setShowDeleteConfirm(true);
+                    }}
+                    onManageMembers={handleManageMembers}
+                    getProjectStats={getProjectStats}
+                    isUnread={!!project.lastActivityAt && (!readStatuses[project.id] || project.lastActivityAt > readStatuses[project.id])}
+                  />
               ))}
           </div>
         ) : showActive ? (
@@ -1672,12 +1759,13 @@ export function ProjectsView() {
                       project={project}
                       onEdit={handleEditProject}
                       onArchive={handleArchiveProject}
-                      onDelete={(p: Project) => {
+                      onDelete={(p) => {
                         setProjectToDelete(p);
                         setShowDeleteConfirm(true);
                       }}
                       onManageMembers={handleManageMembers}
                       getProjectStats={getProjectStats}
+                      isUnread={!!project.lastActivityAt && (!readStatuses[project.id] || project.lastActivityAt > readStatuses[project.id])}
                     >
                       <div className="flex justify-between mt-2">
                         <Button
@@ -1774,6 +1862,7 @@ export function ProjectsView() {
                       }}
                       onManageMembers={handleManageMembers}
                       getProjectStats={getProjectStats}
+                      isUnread={!!project.lastActivityAt && (!readStatuses[project.id] || project.lastActivityAt > readStatuses[project.id])}
                     >
                       <div className="flex gap-2 mt-4">
                         <Button
@@ -2065,7 +2154,7 @@ export function ProjectsView() {
                   <div>
                     <h4 className="text-sm font-bold text-blue-900 dark:text-blue-100">Chiffrement de bout en bout (E2EE)</h4>
                     <p className="text-xs text-blue-800 dark:text-blue-200 mt-1">
-                      Une fois activé, vos données (titres, descriptions, tâches) sont chiffrées localement avant d'être envoyées sur le Cloud. 
+                      Une fois activé, vos données (titres, descriptions, tâches) sont chiffrées localement avant d'être envoyées sur le Cloud.
                       Personne, pas même nous, ne peut lire vos données.
                     </p>
                   </div>
@@ -2452,16 +2541,16 @@ export function ProjectsView() {
                       const enabled = !editingProject.isEncryptionEnabled;
                       const { EncryptionService } = await import('../../services/security/encryptionService');
                       let key = editingProject.encryptionKey || EncryptionService.getProjectKey(editingProject.id);
-                      
+
                       if (enabled && !key) {
                         key = await EncryptionService.generateProjectKey();
                         EncryptionService.saveProjectKey(editingProject.id, key);
                       }
-                      
-                      setEditingProject({ 
-                        ...editingProject, 
-                        isEncryptionEnabled: enabled, 
-                        encryptionKey: key || undefined 
+
+                      setEditingProject({
+                        ...editingProject,
+                        isEncryptionEnabled: enabled,
+                        encryptionKey: key || undefined
                       });
                     }}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${editingProject?.isEncryptionEnabled ? 'bg-green-600' : 'bg-gray-300 dark:bg-gray-700'
@@ -2508,7 +2597,7 @@ export function ProjectsView() {
                 <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg">
                   <p className="text-[10px] text-blue-800 dark:text-blue-200 leading-relaxed">
                     <AlertCircle className="w-3 h-3 inline mr-1" />
-                    <strong>Note :</strong> Cette clé assure que vos données sont illisibles par quiconque n'a pas la clé. 
+                    <strong>Note :</strong> Cette clé assure que vos données sont illisibles par quiconque n'a pas la clé.
                     Partagez-la <u>uniquement</u> avec les membres de confiance de ce projet par un canal sécurisé.
                   </p>
                 </div>
@@ -2872,11 +2961,7 @@ export function ProjectsView() {
             )}
           </div>
 
-          {!isEditingProjectModal && editingProject && (
-            <div className="mt-8 pt-8 border-t border-gray-100 dark:border-gray-800">
-              <ActivityFeed projectId={editingProject.id} />
-            </div>
-          )}
+          {/* On ne rend plus le feed ici car il est maintenant dans un Drawer latéral indépendant */}
         </div>
       </Modal>
 
@@ -3122,6 +3207,24 @@ export function ProjectsView() {
         }}
         currentUserId={state.cloudUser?.uid}
       />
+      <Drawer
+        title={null}
+        placement="right"
+        closable={false}
+        onClose={() => setActiveProjectFeed(null)}
+        open={!!activeProjectFeed}
+        width={450}
+        styles={{ body: { padding: 0, overflow: 'hidden' } }}
+        className="dark:bg-gray-900 border-l dark:border-gray-800"
+      >
+        {activeProjectFeed && (
+          <ActivityFeed 
+            projectId={activeProjectFeed.id} 
+            project={activeProjectFeed} 
+            onClose={() => setActiveProjectFeed(null)}
+          />
+        )}
+      </Drawer>
     </div>
   );
 }

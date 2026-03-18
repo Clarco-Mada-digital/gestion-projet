@@ -16,44 +16,48 @@ service cloud.firestore {
 
     // Règles pour la collection 'users'
     match /users/{userId} {
-      // Lecture : tout utilisateur connecté peut lire les profils (pour l'ajout aux équipes)
-      // Écriture : l'utilisateur ne peut modifier que son propre profil
       allow read: if isAuthenticated();
       allow write: if isAuthenticated() && request.auth.uid == userId;
     }
 
     // Règles pour la collection 'projects'
     match /projects/{projectId} {
-      // Lecture : seul le propriétaire ou un membre peut lire le projet, ou s'il est public
       allow read: if (isAuthenticated() && isProjectMember(resource.data)) || resource.data.isPublic == true;
-      
-      // Création : tout utilisateur connecté peut créer un projet
-      // Note: on vérifie que le ownerId correspond bien à l'utilisateur qui crée
       allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
-      
-      // Mise à jour : seul le propriétaire ou un membre peut modifier
-      // (On pourrait restreindre davantage pour interdire aux membres de changer le propriétaire par exemple)
       allow update: if isAuthenticated() && isProjectMember(resource.data);
-      
-      // Suppression : seul le propriétaire peut supprimer le projet
       allow delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
     }
 
     // Règles pour la collection 'notifications'
     match /notifications/{notificationId} {
-      allow read, write: if isAuthenticated();
+      // Seul le destinataire peut lire ses notifications
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // On autorise la création par d'autres (pour l'envoi de mentions)
+      allow create: if isAuthenticated();
+      // Seul le destinataire peut modifier (marquer comme lu) ou supprimer
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
 
     // Règles pour les activités (historique)
     match /activities/{activityId} {
       allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
+      allow create: if isAuthenticated();
+      // Seul l'acteur de l'activité peut la modifier ou la supprimer
+      allow update, delete: if isAuthenticated() && resource.data.actorId == request.auth.uid;
+    }
+
+    // Règles pour les statuts de lecture (Badges non lus)
+    match /user_read_status/{statusId} {
+      // L'utilisateur ne peut lire et écrire que ses propres statuts de lecture
+      // L'ID est sous la forme userId_projectId
+      allow read, write: if isAuthenticated() && statusId.startsWith(request.auth.uid);
     }
 
     // Règles pour la collection 'comments'
     match /comments/{commentId} {
       allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
   }
 }

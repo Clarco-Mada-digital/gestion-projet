@@ -3,6 +3,7 @@ import { Bell, Settings, Check, Trash2, ExternalLink } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useNotifications } from '../../hooks/useNotifications';
 import { notificationService } from '../../services/collaboration/notificationService';
+import { activityService } from '../../services/collaboration/activityService';
 import { fixPath } from '../../lib/pathUtils';
 import { Notification as NotificationType } from '../../types';
 
@@ -16,6 +17,7 @@ interface Notification {
   taskId?: string;
   projectName?: string;
   link?: string;
+  type?: string;
 }
 
 export function NotificationCenter() {
@@ -32,6 +34,9 @@ export function NotificationCenter() {
   const [isOpen, setIsOpen] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const [replyMessage, setReplyMessage] = useState('');
+  const [isSendingReply, setIsSendingReply] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Initialiser Firebase Cloud Messaging
@@ -214,12 +219,25 @@ export function NotificationCenter() {
     }
     
     if (n.projectId) {
-      const projectExists = state.projects.some(p => p.id === n.projectId);
-      if (projectExists) {
-        dispatch({
-          type: 'NAVIGATE_TO_TASK',
-          payload: { projectId: n.projectId!, taskId: n.taskId! }
-        });
+      const project = state.projects.find(p => p.id === n.projectId);
+      if (project) {
+        // Rediriger vers la vue projets si on n'y est pas
+        if (state.currentView !== 'projects') {
+          dispatch({ type: 'SET_VIEW', payload: 'projects' });
+        }
+        
+        // Ouvrir spécifiquement la discussion si c'est une mention
+        if (n.type === 'mention') {
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('openProjectFeed', { detail: project }));
+          }, 100);
+        } else if (n.taskId) {
+          dispatch({
+            type: 'NAVIGATE_TO_TASK',
+            payload: { projectId: n.projectId!, taskId: n.taskId! }
+          });
+        }
+        
         setIsOpen(false);
         return;
       } else {
@@ -232,6 +250,33 @@ export function NotificationCenter() {
 
     if (n.link) {
       window.location.href = fixPath(n.link);
+    }
+  };
+
+  const handleSendReply = async (n: Notification) => {
+    if (!replyMessage.trim() || !state.cloudUser || !n.projectId) return;
+
+    setIsSendingReply(true);
+    try {
+      await activityService.logActivity({
+        projectId: n.projectId,
+        type: 'project_discussion',
+        actorId: state.cloudUser.uid,
+        actorName: state.cloudUser.displayName || state.cloudUser.email || 'Anonyme',
+        actorAvatar: state.cloudUser.photoURL || undefined,
+        details: replyMessage.trim()
+      });
+
+      // Marquer comme lu après avoir répondu
+      await notificationService.markAsRead(n.id);
+      setCloudNotifications(prev => prev.map(notif => notif.id === n.id ? { ...notif, isRead: true } : notif));
+      
+      setReplyingToId(null);
+      setReplyMessage('');
+    } catch (error) {
+      console.error('Erreur lors de l\'envois de la réponse:', error);
+    } finally {
+      setIsSendingReply(false);
     }
   };
 
@@ -399,19 +444,65 @@ export function NotificationCenter() {
                   {n.message}
                 </p>
                 {n.projectName && (
-                  <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 mb-2">
+                  <div className="flex items-center gap-1 text-[10px] text-gray-400 mb-2">
                     <span className="font-medium">Projet:</span>
-                    <span>{n.projectName}</span>
+                    <span className="truncate max-w-[150px]">{n.projectName}</span>
                   </div>
                 )}
-                {n.link && (
-                  <button
-                    onClick={() => handleNotificationClick(n)}
-                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                    Voir
-                  </button>
+                
+                <div className="flex items-center gap-3">
+                  {n.link || n.projectId ? (
+                    <button
+                      onClick={() => handleNotificationClick(n)}
+                      className="text-xs text-blue-600 dark:text-blue-400 font-bold hover:underline flex items-center gap-1"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      Voir
+                    </button>
+                  ) : null}
+                  
+                  {n.type === 'mention' && !n.isRead && (
+                    <button
+                      onClick={() => {
+                        setReplyingToId(replyingToId === n.id ? null : n.id);
+                        setReplyMessage('');
+                      }}
+                      className="text-xs text-emerald-600 dark:text-emerald-400 font-bold hover:underline flex items-center gap-1"
+                    >
+                      <Check className="w-3 h-3" />
+                      Répondre
+                    </button>
+                  )}
+                </div>
+
+                {/* Zone de réponse rapide */}
+                {replyingToId === n.id && (
+                  <div className="mt-3 space-y-2 animate-in slide-in-from-top-1 duration-200">
+                    <textarea
+                      autoFocus
+                      className="w-full p-2 text-xs bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-1 focus:ring-blue-500 outline-none resize-none dark:text-white"
+                      placeholder="Votre réponse rapide..."
+                      rows={2}
+                      value={replyMessage}
+                      onChange={(e) => setReplyMessage(e.target.value)}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => setReplyingToId(null)}
+                        className="px-2 py-1 text-[10px] text-gray-500 hover:bg-gray-100 rounded"
+                        disabled={isSendingReply}
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        onClick={() => handleSendReply(n)}
+                        className="px-2 py-1 text-[10px] bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                        disabled={isSendingReply || !replyMessage.trim()}
+                      >
+                        {isSendingReply ? '...' : 'Envoyer'}
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
             ))}
@@ -427,7 +518,7 @@ export function NotificationCenter() {
                     <div
                       key={notification.id}
                       onClick={() => handlePWANotificationClick(notification)}
-                      className="p-2 border border border-gray-100 dark:border-gray-800 rounded hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer group relative"
+                      className="p-2 border border-gray-100 dark:border-gray-800 rounded hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer group relative"
                     >
                       <div className="flex justify-between items-start">
                         <div className="flex-1 min-w-0">
