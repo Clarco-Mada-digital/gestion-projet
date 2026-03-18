@@ -10,6 +10,10 @@ let app: any = null;
 let db: any = null;
 let auth: any = null;
 
+// Registre des listeners de tâches pour éviter les fuites de mémoire et doublons
+const projectTaskListeners: Record<string, () => void> = {};
+const projectTasksCache: Record<string, Task[]> = {};
+
 // Initialisation immédiate si possible
 if (isFirebaseConfigured()) {
   try {
@@ -152,6 +156,9 @@ export const firebaseService = {
     provider.addScope('https://www.googleapis.com/auth/calendar');
     provider.addScope('https://www.googleapis.com/auth/tasks');
     provider.addScope('https://www.googleapis.com/auth/gmail.send');
+    // Nécessaire pour pouvoir lire le vrai Message-ID (metadata) après l'envoi
+    // afin de construire correctement les threads (In-Reply-To)
+    provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
 
     // Paramètres personnalisés pour améliorer l'expérience utilisateur
     const params: any = {
@@ -247,6 +254,11 @@ export const firebaseService = {
       let projectToSync = JSON.parse(JSON.stringify(project));
       const key = project.encryptionKey;
 
+      // Forcer la version 2 pour les nouvelles synchronisations si non définie
+      if (!projectToSync.syncVersion) {
+        projectToSync.syncVersion = 2;
+      }
+
       // Si le chiffrement est activé et qu'on a la clé, on chiffre les données sensibles
       if (project.isEncryptionEnabled && key) {
         console.log(`[E2EE] Chiffrement du projet "${project.name}" avant synchronisation...`);
@@ -255,16 +267,9 @@ export const firebaseService = {
         projectToSync.description = await EncryptionService.encrypt(project.description, key);
         
         if (projectToSync.tasks) {
-          projectToSync.tasks = await Promise.all(projectToSync.tasks.map(async (task: Task) => ({
-            ...task,
-            title: await EncryptionService.encrypt(task.title, key),
-            description: await EncryptionService.encrypt(task.description, key),
-            notes: task.notes ? await EncryptionService.encrypt(task.notes, key) : task.notes,
-            subTasks: task.subTasks ? await Promise.all(task.subTasks.map(async st => ({
-              ...st,
-              title: await EncryptionService.encrypt(st.title, key)
-            }))) : task.subTasks
-          })));
+          projectToSync.tasks = await Promise.all(projectToSync.tasks.map(async (task: Task) => 
+            await this.encryptTask(task, key)
+          ));
         }
       }
 
@@ -283,10 +288,74 @@ export const firebaseService = {
         projectToSync.members = [...(projectToSync.members || []), auth.currentUser.uid];
       }
 
+      // 1. Sauvegarde du document principal du projet
       await setDoc(doc(db, 'projects', project.id), projectToSync, { merge: true });
+
+      // 2. Si syncVersion >= 2, on synchronise aussi chaque tâche individuellement dans la sous-collection
+      // Cela permet d'éviter les conflits lors de modifications simultanées
+      if (projectToSync.syncVersion >= 2 && project.tasks) {
+        await Promise.all(project.tasks.map(task => 
+          this.syncTask(project.id, task, project.encryptionKey)
+        ));
+      }
     } catch (error) {
       console.error("Erreur lors de la synchronisation du projet:", error);
       throw error;
+    }
+  },
+
+  /**
+   * Chiffre une tâche individuelle
+   */
+  async encryptTask(task: Task, key: string): Promise<Task> {
+    const encryptedTask = { ...task };
+    encryptedTask.title = await EncryptionService.encrypt(task.title, key);
+    encryptedTask.description = await EncryptionService.encrypt(task.description, key);
+    encryptedTask.notes = task.notes ? await EncryptionService.encrypt(task.notes, key) : task.notes;
+    
+    if (task.subTasks) {
+      encryptedTask.subTasks = await Promise.all(task.subTasks.map(async st => ({
+        ...st,
+        title: await EncryptionService.encrypt(st.title, key)
+      })));
+    }
+    return encryptedTask;
+  },
+
+  /**
+   * Synchronise une tâche individuelle dans la sous-collection du projet
+   */
+  async syncTask(projectId: string, task: Task, encryptionKey?: string): Promise<void> {
+    if (!ensureInitialized() || !auth.currentUser) return;
+
+    try {
+      let taskToSync = { ...task };
+      
+      // Chiffrement si nécessaire
+      if (encryptionKey) {
+        taskToSync = await this.encryptTask(task, encryptionKey);
+      }
+
+      taskToSync.updatedAt = new Date().toISOString();
+      
+      // Sauvegarde dans projects/{projectId}/tasks/{taskId}
+      const taskRef = doc(db, 'projects', projectId, 'tasks', task.id);
+      await setDoc(taskRef, taskToSync, { merge: true });
+    } catch (error) {
+      console.error(`Erreur lors de la synchronisation de la tâche ${task.id}:`, error);
+    }
+  },
+
+  /**
+   * Supprime une tâche du Cloud
+   */
+  async deleteCloudTask(projectId: string, taskId: string): Promise<void> {
+    if (!ensureInitialized() || !auth.currentUser) return;
+    try {
+      const taskRef = doc(db, 'projects', projectId, 'tasks', taskId);
+      await deleteDoc(taskRef);
+    } catch (error) {
+      console.error(`Erreur lors de la suppression de la tâche ${taskId}:`, error);
     }
   },
 
@@ -336,15 +405,27 @@ export const firebaseService = {
       );
 
       const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => {
+      const projects = await Promise.all(querySnapshot.docs.map(async doc => {
         const data = doc.data({ serverTimestamps: 'estimate' });
+        const projectId = doc.id;
+
+        // Récupérer les tâches de la sous-collection pour getSharedProjects
+        const tasksRef = collection(db, 'projects', projectId, 'tasks');
+        const tasksSnapshot = await getDocs(tasksRef);
+        const subTasks = tasksSnapshot.docs.map(tDoc => tDoc.data() as Task);
+
+        const tasks = subTasks.length > 0 ? subTasks : (data.tasks || []);
+
         return {
           ...data,
+          id: projectId,
+          tasks,
           source: 'firebase', // Force la source
           lastActivityAt: data.lastActivityAt?.toDate ? data.lastActivityAt.toDate().toISOString() : data.lastActivityAt,
           updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt
         } as Project;
-      });
+      }));
+      return projects;
     } catch (error) {
       console.error("Erreur lors de la récupération des projets partagés:", error);
       return [];
@@ -362,19 +443,75 @@ export const firebaseService = {
       where('members', 'array-contains', uid)
     );
 
-    return onSnapshot(q, (snapshot) => {
-      const projects = snapshot.docs.map(doc => {
-        const data = doc.data({ serverTimestamps: 'estimate' });
-        return {
-          ...data,
-          source: 'firebase',
-          lastActivityAt: data.lastActivityAt?.toDate ? data.lastActivityAt.toDate().toISOString() : data.lastActivityAt,
-          updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt
-        } as Project;
+    const unsubscribeProjects = onSnapshot(q, (snapshot) => {
+      snapshot.docs.forEach(doc => {
+        const projectId = doc.id;
+
+        // Mise à jour de la liste des listeners de tâches pour ce snapshot
+        this.setupTaskListener(projectId, () => {
+          // Quand les tâches d'un projet changent, on déclenche une nouvelle mise à jour globale
+          this.triggerProjectsUpdate(snapshot, callback);
+        });
       });
-      callback(projects);
+
+      this.triggerProjectsUpdate(snapshot, callback);
     }, (error) => {
       console.error("Erreur lors de l'écoute des projets partagés:", error);
+    });
+
+    return () => {
+      unsubscribeProjects();
+      // Nettoyage de tous les listeners de tâches
+      Object.values(projectTaskListeners).forEach(unsub => unsub());
+      for (const key in projectTaskListeners) delete projectTaskListeners[key];
+    };
+  },
+
+  /**
+   * Helper pour transformer un document Firestore en objet Project
+   */
+  mapProjectDoc(doc: any): Project {
+    const data = doc.data({ serverTimestamps: 'estimate' });
+    const projectId = doc.id;
+    
+    // On récupère les tâches depuis le cache (sous-collection v2) 
+    // ou on utilise celles du document principal (v1)
+    const tasksFromSubcollection = projectTasksCache[projectId];
+    const tasks = (tasksFromSubcollection && tasksFromSubcollection.length > 0) 
+      ? tasksFromSubcollection 
+      : (data.tasks || []);
+
+    return {
+      ...data,
+      id: projectId,
+      tasks: tasks,
+      source: 'firebase',
+      lastActivityAt: data.lastActivityAt?.toDate ? data.lastActivityAt.toDate().toISOString() : data.lastActivityAt,
+      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt
+    } as Project;
+  },
+
+  /**
+   * Déclenche une mise à jour globale avec les données fusionnées
+   */
+  triggerProjectsUpdate(snapshot: any, callback: (projects: Project[]) => void) {
+    const projects = snapshot.docs.map((doc: any) => this.mapProjectDoc(doc));
+    callback(projects);
+  },
+
+  /**
+   * Configure un listener pour la sous-collection de tâches d'un projet
+   */
+  setupTaskListener(projectId: string, onTasksUpdate: (tasks: Task[]) => void) {
+    if (projectTaskListeners[projectId]) return;
+
+    const tasksRef = collection(db, 'projects', projectId, 'tasks');
+    projectTaskListeners[projectId] = onSnapshot(tasksRef, (snapshot) => {
+      const tasks = snapshot.docs.map(doc => doc.data() as Task);
+      projectTasksCache[projectId] = tasks;
+      onTasksUpdate(tasks);
+    }, (error) => {
+      console.error(`Erreur listener tâches projet ${projectId}:`, error);
     });
   },
 

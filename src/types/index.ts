@@ -106,6 +106,7 @@ export interface Project {
   isShared?: boolean;
   isPublic?: boolean;
   lastSyncedAt?: string;
+  syncVersion?: number; // Version du système de synchronisation (v2 = tâches individuelles)
   kanbanSettings?: {
     columnOrder: string[];
     taskOrder?: Record<string, string[]>;

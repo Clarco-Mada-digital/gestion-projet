@@ -316,32 +316,41 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
         state.users[0]
       );
 
-      const emailOptions: any = {
+      // Détecter le provider choisi dans les paramètres (priorité absolue au choix utilisateur)
+      const chosenProvider = state.emailSettings.provider || 'emailjs';
+
+      // Pour Gmail API : le sujet doit être préfixé par "Re: " pour être formellement
+      // identifié comme réponse dans l'interface Web quand on se base uniquement sur threadId
+      let emailSubject = emailForm.subject;
+      if (replyToThreadId && !/^Re:\s*/i.test(emailSubject)) {
+        emailSubject = `Re: ${emailSubject.replace(/^Re\d*:\s*/i, '').trim()}`;
+      }
+
+      const emailOptions: EmailOptions = {
         serviceId: state.emailSettings.serviceId,
         templateId: state.emailSettings.templateId,
         userId: state.emailSettings.userId,
         to: toEmails.join(', '),
         from: state.emailSettings?.fromEmail || 'noreply@gestion-projet.com',
         fromName: state.emailSettings?.fromName || 'Gestion de Projet',
-        subject: emailForm.subject,
+        subject: emailSubject,
         html: emailContent,
         text: messageContent.replace(/<[^>]*>?/gm, ''),
-        provider: state.emailSettings.provider || 'emailjs',
-        googleAccessToken: state.googleAccessToken,
+        provider: chosenProvider,
+        // On ne passe le token Google QUE si le client a explicitement choisi Gmail
+        googleAccessToken: chosenProvider === 'google' ? state.googleAccessToken : undefined,
         threadId: replyToThreadId,
-        inReplyTo: replyToMessageId,
+        inReplyTo: replyToMessageId, // On passe toujours notre custom ID (fallback pour Gmail, requis pour emailjs)
         templateParams: {
           to_emails: toEmails,
           to_name: toEmails[0].split('@')[0],
           from_name: state.emailSettings?.fromName || 'Gestion de Projet',
           from_email: state.emailSettings?.fromEmail || 'noreply@gestion-projet.com',
-          subject: emailForm.subject,
+          subject: emailSubject,
           message: messageContent,
           content: emailContent,
-          title: emailForm.subject,
+          title: emailSubject,
           user_name: state.users[0]?.name || 'Utilisateur',
-          // Note: EmailJS ne supporte pas le threading natif avec In-Reply-To et References
-          // On utilise plutôt le préfixe "Re:" dans le sujet pour indiquer une réponse
         }
       };
 
@@ -350,8 +359,12 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
       if (result.success) {
         setEmailStatus({ type: 'success', message: `Email envoyé avec succès à ${toEmails.length} destinataire(s) !` });
 
-        const sentMessageId = result.messageId || replyToMessageId;
-        const sentThreadId = result.threadId || replyToThreadId;
+        // IMPORTANT : On sauvegarde TOUJOURS le threadId réel retourné par Gmail.
+        // C'est lui qui permet à Gmail de regrouper les emails dans le même fil.
+        // result.messageId = notre Message-ID RFC 2822 généré (pour les futures In-Reply-To)
+        // result.threadId = le threadId réel de Gmail (pour les futures requêtes API)
+        const savedMessageId = result.messageId; // Notre Message-ID RFC 2822
+        const savedThreadId = result.threadId;   // Le threadId réel de Gmail
 
         const contentForHistory = editedReport || aiReport;
         if (report) {
@@ -370,9 +383,9 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
               emailSent: true,
               lastSentTo: toEmails,
               emailSubject: emailForm.subject,
-              messageId: sentMessageId ?? undefined,
-              threadId: sentThreadId ?? undefined,
-              inReplyTo: replyToMessageId ?? undefined
+              messageId: savedMessageId ?? undefined,   // Message-ID RFC 2822 de cet envoi
+              threadId: savedThreadId ?? undefined,     // threadId Gmail réel
+              inReplyTo: replyToMessageId ?? undefined  // Message-ID auquel on a répondu
             }
           };
 

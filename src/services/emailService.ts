@@ -67,22 +67,26 @@ export class EmailService {
       }
 
       // Déterminer le provider à utiliser
+      // RÈGLE : On respecte TOUJOURS le choix explicite du client dans ses paramètres.
+      // La présence d'un googleAccessToken (ex: pour le Calendar) ne doit PAS forcer Gmail.
       const provider = options.provider || (this.config ? 'emailjs' : 'google');
 
       let result: any = null;
-      if (provider === 'google' || options.googleAccessToken) {
+      if (provider === 'google') {
+        // Gmail : uniquement si le client a explicitement choisi ce provider
         if (!options.googleAccessToken) {
-          throw new Error('Jeton d\'accès Google manquant pour l\'envoi via Gmail');
+          throw new Error('Jeton d\'accès Google manquant. Veuillez vous connecter à Gmail dans les paramètres.');
         }
         result = await this.sendViaGoogle(options);
       } else {
+        // EmailJS : par défaut ou si le client a choisi EmailJS
         await this.sendEmailInternal(options);
       }
 
       return {
         success: true,
         message: 'Email envoyé avec succès',
-        messageId: result?.customMessageId || result?.id,
+        messageId: result?.realMessageId || result?.id,
         threadId: result?.threadId
       };
     } catch (error: any) {
@@ -178,66 +182,59 @@ export class EmailService {
   /**
    * Envoie un email via l'API Gmail de Google
    */
-  private static async sendViaGoogle(options: EmailOptions): Promise<{ id: string; threadId: string; customMessageId?: string }> {
+  private static async sendViaGoogle(options: EmailOptions): Promise<{ id: string; threadId: string; realMessageId?: string }> {
     const { to, subject, html, googleAccessToken, fromName, from } = options;
 
     if (!googleAccessToken) {
       throw new Error('Token Google manquant');
     }
 
-    // Préparation des destinataires
     const recipients = Array.isArray(to) ? to.join(', ') : to;
-
-    // Construction du message RFC 2822 simple
-    // Pour supporter l'UTF-8 et l'HTML proprement
     const utf8Subject = `=?utf-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`;
     const fromHeader = fromName ? `${fromName} <${from || 'me'}>` : (from || 'me');
 
-    // Génération d'un Message-ID unique pour cet envoi si non présent
-    // Cela permet un threading fiable car nous contrôlons l'identifiant de référence
-    const generatedMessageId = `<${Math.random().toString(36).substring(2)}.${Date.now()}@gestion-projet.gmail.com>`;
-    
-    // Construction des headers (avec \r\n comme requis par la RFC 822)
+    // Construction des headers RFC 2822
     const emailHeaderLines = [
       `Content-Type: text/html; charset="UTF-8"`,
       `MIME-Version: 1.0`,
       `To: ${recipients}`,
       `From: ${fromHeader}`,
       `Subject: ${utf8Subject}`,
-      `Message-ID: ${generatedMessageId}`
     ];
 
-    // Ajouter les headers de réponse si nécessaire
+    // Ajouter les headers IN-REPLY-TO et REFERENCES si c'est une réponse
+    // IMPORTANT : C'est eux (couplé au threadId) qui informent Gmail et les autres serveurs
+    // que ce message appartient formellement à la conversation.
     if (options.inReplyTo) {
-      // S'assurer que l'ID est bien entouré de <>
-      const formattedInReplyTo = options.inReplyTo.startsWith('<') ? options.inReplyTo : `<${options.inReplyTo}>`;
+      const formattedInReplyTo = options.inReplyTo.startsWith('<') 
+        ? options.inReplyTo 
+        : `<${options.inReplyTo}>`;
       emailHeaderLines.push(`In-Reply-To: ${formattedInReplyTo}`);
       emailHeaderLines.push(`References: ${formattedInReplyTo}`);
     }
 
-    const email = [
-      ...emailHeaderLines,
-      ``,
-      html
-    ].join('\r\n');
+    const email = [...emailHeaderLines, ``, html].join('\r\n');
 
-    // Encodage base64url sécurisé pour l'API Gmail
     const base64EncodedEmail = btoa(unescape(encodeURIComponent(email)))
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
       .replace(/=+$/, '');
 
+    // Inclure threadId UNIQUEMENT s'il existe pour forcer le regroupement Gmail
+    const requestBody: any = { raw: base64EncodedEmail };
+    if (options.threadId) {
+      requestBody.threadId = options.threadId;
+    }
+
     try {
+      // 1. Envoi de l'email
       const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${googleAccessToken}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          raw: base64EncodedEmail,
-          threadId: options.threadId // Crucial pour le regroupement Gmail
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
@@ -246,10 +243,35 @@ export class EmailService {
       }
 
       const data = await response.json();
+      const sentId = data.id;
+      const sentThreadId = data.threadId;
+
+      // 2. Récupération du VRAI Message-ID assigné par le serveur de Google
+      //    (Nécessite le scope gmail.readonly rajouté dans les permissions)
+      let realMessageId = sentId; // Fallback par défaut sur l'ID interne
+      try {
+        const metadataResponse = await fetch(
+          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${sentId}?format=metadata&metadataHeaders=Message-ID`,
+          {
+            headers: { 'Authorization': `Bearer ${googleAccessToken}` }
+          }
+        );
+        if (metadataResponse.ok) {
+          const metadata = await metadataResponse.json();
+          const pHeader = metadata.payload?.headers?.find((h: any) => h.name.toLowerCase() === 'message-id');
+          if (pHeader && pHeader.value) {
+            realMessageId = pHeader.value;
+            console.log('[Gmail Threading] Vrai Message-ID récupéré:', realMessageId);
+          }
+        }
+      } catch (e) {
+        console.warn('[Gmail Threading] Echec GET messages/{id}', e);
+      }
+      
       return {
-        id: data.id,
-        threadId: data.threadId,
-        customMessageId: generatedMessageId // On retourne notre ID personnalisé pour l'historique
+        id: sentId,
+        threadId: sentThreadId,
+        realMessageId
       };
     } catch (error) {
       console.error('Gmail send error:', error);

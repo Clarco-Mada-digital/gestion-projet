@@ -731,44 +731,63 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => clearTimeout(timer);
   }, [dispatch]);
 
-  // Effet pour sauvegarder les données principales (sans emailSettings et appSettings)
+  // ─── Effet 1 : Sauvegarde locale (localStorage) ───────────────────────────
+  // S'exécute à chaque changement de projets, utilisateurs, thème, vue ou RAPPORTS
+  // IMPORTANT : state.reports DOIT être dans les dépendances pour ne pas perdre l'historique
   useEffect(() => {
-    if (state.isLoading) return; // Ne pas sauvegarder pendant le chargement initial
+    if (state.isLoading) return;
 
     try {
-      // Préparer les données à sauvegarder en excluant les paramètres sensibles ou complexes
       const { isLoading, error, notifications, emailSettings, appSettings, cloudUser, ...dataToSave } = state;
 
       localStorage.setItem('astroProjectManagerData', JSON.stringify({
         ...dataToSave,
-        // S'assurer que les notifications ne sont pas sauvegardées
-        notifications: []
+        notifications: [] // On ne persiste pas les notifications
       }));
-      console.log('[Persistence] Données principales sauvegardées');
+      console.log('[Persistence] Données principales sauvegardées (projets + rapports)');
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde locale:', error);
+    }
+  }, [state.projects, state.users, state.theme, state.currentView, state.selectedProject, state.reports, state.isLoading]);
 
-      // SYNCHRONISATION CLOUD : Uniquement si nécessaire (changements locaux non synchronisés)
-      if (cloudUser) {
-        state.projects
-          .filter(p => p.source === 'firebase')
-          .forEach(project => {
-            // On vérifie si le projet a été modifié localement depuis la dernière synchro
-            const needsSync = !project.lastSyncedAt || 
-                             new Date(project.updatedAt).getTime() > new Date(project.lastSyncedAt).getTime() + 1000; // Marge de 1s
+  // ─── Effet 2 : Synchronisation Cloud Firebase ────────────────────────────
+  // Séparé de la sauvegarde locale pour éviter de bloquer le thread sur les gros projets
+  useEffect(() => {
+    if (state.isLoading || !state.cloudUser) return;
 
-            if (needsSync) {
-              // On utilise setTimeout pour ne pas bloquer le thread principal et dédoubler les appels
+    const cloudUser = state.cloudUser;
+    state.projects
+      .filter(p => p.source === 'firebase')
+      .forEach(project => {
+        // 1. On vérifie si le projet lui-même a été modifié
+        const projectNeedsSync = !project.lastSyncedAt ||
+          new Date(project.updatedAt).getTime() > new Date(project.lastSyncedAt).getTime() + 1000;
+
+        if (projectNeedsSync) {
+          setTimeout(() => {
+            firebaseService.syncProject(project)
+              .then(() => console.log(`[Cloud Sync] Synchro Projet réussie: ${project.name}`))
+              .catch(err => console.error('[Cloud Sync] Erreur synchro Projet:', err));
+          }, 1000);
+        } else {
+          // 2. Synchronisation granulaire par tâche si le projet global n'a pas changé
+          project.tasks?.forEach(task => {
+            const taskNeedsSync = !project.lastSyncedAt ||
+              new Date(task.updatedAt).getTime() > new Date(project.lastSyncedAt).getTime() + 1000;
+
+            if (taskNeedsSync) {
               setTimeout(() => {
-                firebaseService.syncProject(project)
-                  .then(() => console.log(`[Cloud Sync] Synchro auto réussie pour: ${project.name}`))
-                  .catch(err => console.error('[Cloud Sync] Erreur lors de la synchro auto:', err));
-              }, 1000); // Délai de 1s pour laisser le temps au state de se stabiliser
+                firebaseService.syncTask(project.id, task, project.encryptionKey)
+                  .then(() => console.log(`[Cloud Sync] Synchro Tâche réussie: ${task.title}`))
+                  .catch(err => console.error('[Cloud Sync] Erreur synchro Tâche:', err));
+              }, 500);
             }
           });
-      }
-    } catch (error) {
-      console.error('Erreur lors de la sauvegarde des données principales:', error);
-    }
-  }, [state.projects, state.users, state.theme, state.currentView, state.selectedProject, state.reports, state.isLoading, state.cloudUser]);
+        }
+      });
+    // Supprimer avertissement ESLint pour cloudUser (utilisé indirectement via la condition)
+    void cloudUser;
+  }, [state.projects, state.cloudUser, state.isLoading]);
 
   // Effet séparé pour sauvegarder les paramètres email (sécurisé)
   useEffect(() => {
