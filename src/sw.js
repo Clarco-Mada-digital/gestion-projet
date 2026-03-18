@@ -5,8 +5,9 @@ import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 
 // Pre-cache tous les assets générés par le build
-if (self.__WB_MANIFEST) {
-  precacheAndRoute(self.__WB_MANIFEST);
+const manifest = self.__WB_MANIFEST;
+if (manifest) {
+  precacheAndRoute(manifest);
 }
 cleanupOutdatedCaches();
 
