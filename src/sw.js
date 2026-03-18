@@ -107,7 +107,14 @@ self.addEventListener('notificationclick', (event) => {
               actorName: user.displayName || user.email || 'Membre',
               actorAvatar: user.photoURL || null,
               details: replyText,
-              createdAt: new Date().toISOString()
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => {
+              // Mettre à jour le statut du projet pour les "non-lus"
+              return db.collection('projects').doc(projectId).update({
+                lastActivityAt: firebase.firestore.FieldValue.serverTimestamp(),
+                lastActivityBy: user.uid,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+              });
             }).then(resolve).catch(err => {
               console.error('Erreur Quick Reply SW:', err);
               resolve();

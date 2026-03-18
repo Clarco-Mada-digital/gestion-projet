@@ -95,7 +95,8 @@ export interface Project {
   coverImage?: string | null; // URL de l'image de couverture
   coverImagePublicId?: string | null; // ID Public Cloudinary pour suivi/suppression
   isFollowed?: boolean; // Option pour suivre/ne pas suivre le projet (défaut: true)
-  lastActivityAt?: string; // Horodatage du dernier message/activité (pour badge non lu)
+  lastActivityAt?: string;
+  lastActivityBy?: string; // Horodatage du dernier message/activité (pour badge non lu)
 
   // Champs pour la synchronisation Cloud (Firebase)
   source?: 'local' | 'firebase';

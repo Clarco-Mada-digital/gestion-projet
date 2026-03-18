@@ -1693,7 +1693,7 @@ export function ProjectsView() {
                     }}
                     onManageMembers={handleManageMembers}
                     getProjectStats={getProjectStats}
-                    isUnread={!!project.lastActivityAt && (!readStatuses[project.id] || project.lastActivityAt > readStatuses[project.id])}
+                    isUnread={!!project.lastActivityAt && project.lastActivityBy !== state.cloudUser?.uid && (!readStatuses[project.id] || project.lastActivityAt > readStatuses[project.id])}
                   />
               ))}
           </div>
@@ -1765,7 +1765,7 @@ export function ProjectsView() {
                       }}
                       onManageMembers={handleManageMembers}
                       getProjectStats={getProjectStats}
-                      isUnread={!!project.lastActivityAt && (!readStatuses[project.id] || project.lastActivityAt > readStatuses[project.id])}
+                      isUnread={!!project.lastActivityAt && project.lastActivityBy !== state.cloudUser?.uid && (!readStatuses[project.id] || project.lastActivityAt > readStatuses[project.id])}
                     >
                       <div className="flex justify-between mt-2">
                         <Button
@@ -1862,7 +1862,7 @@ export function ProjectsView() {
                       }}
                       onManageMembers={handleManageMembers}
                       getProjectStats={getProjectStats}
-                      isUnread={!!project.lastActivityAt && (!readStatuses[project.id] || project.lastActivityAt > readStatuses[project.id])}
+                      isUnread={!!project.lastActivityAt && project.lastActivityBy !== state.cloudUser?.uid && (!readStatuses[project.id] || project.lastActivityAt > readStatuses[project.id])}
                     >
                       <div className="flex gap-2 mt-4">
                         <Button

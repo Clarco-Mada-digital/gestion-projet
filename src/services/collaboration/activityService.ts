@@ -24,6 +24,7 @@ export const activityService = {
       const projectRef = doc(db, 'projects', activity.projectId);
       await updateDoc(projectRef, {
         lastActivityAt: serverTimestamp(),
+        lastActivityBy: auth.currentUser.uid,
         updatedAt: serverTimestamp()
       });
     } catch (error) {
