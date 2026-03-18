@@ -681,55 +681,32 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
         contexteRealData += '\n';
       });
 
-      const prompt = `Génère un rapport d'activité professionnel au format Markdown, prêt à être envoyé par email.
+      const prompt = `Tu es un assistant professionnel. Ton rôle est de rédiger un rapport d'activité complet et bien structuré prêt à être envoyé par email. Ne fais AUCUNE phrase d'introduction ou de conclusion de ton côté (comme "Voici le rapport" ou "J'espère que ça vous plaît"). Commence directement par le contenu du rapport.
 
-PÉRIODE : ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}
-DONNÉES :
+PÉRIODE DU RAPPORT : du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}
+
+Voici les DONNÉES BRUTES à utiliser :
 ${contexteRealData}
 
-STRUCTURE REQUISE :
-Bonjour,
-
-Veuillez trouver ci-dessous le bilan de mes activités pour la période du ${report.startDate.toLocaleDateString('fr-FR')} au ${report.endDate.toLocaleDateString('fr-FR')}.
-
-# BILAN D'ACTIVITÉ OPÉRATIONNELLE
-
-## RÉSUMÉ EXÉCUTIF
-(Un paragraphe factuel de 2-3 lignes sur l'état global et les points clés)
-
-## RÉALISATIONS MAJEURES
-(Détails par projet : tâches terminées [x] et sous-tâches indentées)
-
-## PROCHAINES ÉTAPES
-(Liste claire des tâches planifiées pour la période suivante)
-
-Je reste à votre disposition pour toute information complémentaire.
-
-RÈGLES :
-- Produis UNIQUEMENT le contenu entre ###REPORT_START### et ###REPORT_END###.
-- Style : Professionnel, factuel, sans fioritures excessives mais poli.
-- Langue : Français.
-
-###REPORT_START###
-(Le rapport commence ici avec le "Bonjour")
-###REPORT_END###`;
+INSTRUCTIONS STRICTES :
+1. Commence DIRECTEMENT le texte par "Bonjour," suivi d'une phrase d'introduction ("Veuillez trouver ci-dessous le bilan...").
+2. Utilise le format Markdown avec les titres exacts suivants :
+   # BILAN D'ACTIVITÉ OPÉRATIONNELLE
+   ## RÉSUMÉ EXÉCUTIF (un bref résumé factuel de l'avancement)
+   ## RÉALISATIONS MAJEURES (liste les projets et tâches terminées/en cours de manière textuelle)
+   ## PROCHAINES ÉTAPES (liste les prochaines actions prévues)
+3. Termine le rapport EXACTEMENT par "Je reste à votre disposition pour toute information complémentaire."
+4. Ne mets ni balises HTML, ni balises inventées comme REPORT_START. Juste le texte brut avec le markdown.`;
 
       const aiResponse = await AIService.generateAiText(finalAISettings, prompt);
 
       // Nettoyage robuste
       let finalAiResponse = aiResponse.trim();
 
-      if (finalAiResponse.includes('###REPORT_START###')) {
-        const startTag = '###REPORT_START###';
-        const endTag = '###REPORT_END###';
-        const startIdx = finalAiResponse.lastIndexOf(startTag) + startTag.length;
-        const endIdx = finalAiResponse.includes(endTag) ? finalAiResponse.lastIndexOf(endTag) : finalAiResponse.length;
-        finalAiResponse = finalAiResponse.substring(startIdx, endIdx).trim();
-      }
-
+      // Enlever tout blabla pré-généré au début s'il y en a quand même
       finalAiResponse = finalAiResponse
-        .replace(/^\(.*?rapport.*?\)\n?/i, '')
-        .replace(/^(Préliminaire|Premièrement|Voici|D'après|Analysons|L'analyse).*?\n/gi, '')
+        .replace(/^(Voici|D'après|Analysons|L'analyse|Bien sûr|Certainement|Oui|Voici le).*?\n/gi, '')
+        .replace(/^\*.*?\*\n/, '') // enlever un potentiel "*Voici le rapport demandé :*"
         .trim();
 
       console.log('Réponse IA nettoyée:', finalAiResponse);
