@@ -34,9 +34,9 @@ export const projectReadService = {
     
     return onSnapshot(readStatusRef, (docSnap) => {
       if (docSnap.exists()) {
-        const data = docSnap.data();
+        const data = docSnap.data({ serverTimestamps: 'estimate' });
         callback({
-          lastReadAt: data.lastReadAt ? data.lastReadAt.toDate().toISOString() : new Date(0).toISOString()
+          lastReadAt: data?.lastReadAt?.toDate ? data.lastReadAt.toDate().toISOString() : new Date(0).toISOString()
         });
       } else {
         callback(null);
@@ -55,8 +55,8 @@ export const projectReadService = {
      return onSnapshot(q, (snapshot) => {
        const statuses: Record<string, string> = {};
        snapshot.forEach(docSnap => {
-         const data = docSnap.data();
-         if (data.projectId && data.lastReadAt) {
+         const data = docSnap.data({ serverTimestamps: 'estimate' });
+         if (data?.projectId && data?.lastReadAt?.toDate) {
            statuses[data.projectId] = data.lastReadAt.toDate().toISOString();
          }
        });

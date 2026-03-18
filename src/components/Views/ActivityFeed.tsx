@@ -146,7 +146,7 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
             userId: mention.uid,
             title: 'Nouvelle mention',
             message: `${state.cloudUser.displayName || 'Quelqu\'un'} vous a mentionné dans "${project.name}"`,
-            type: 'mention',
+            type: 'project_mention',
             projectId: projectId,
             projectName: project.name,
             link: `/projects/${projectId}`

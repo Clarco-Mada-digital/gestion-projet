@@ -599,7 +599,7 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
                   userId: user.id,
                   title: 'Vous avez été mentionné',
                   message: `${currentUser.displayName || 'Un utilisateur'} vous a mentionné: "${newComment.substring(0, 50)}..."`,
-                  type: 'mention',
+                  type: 'task_comment_mention',
                   link: `/projects/${projectId}?task=${taskId}`,
                   projectId: projectId,
                   taskId: taskId,

@@ -226,8 +226,8 @@ export function NotificationCenter() {
           dispatch({ type: 'SET_VIEW', payload: 'projects' });
         }
         
-        // Ouvrir spécifiquement la discussion si c'est une mention
-        if (n.type === 'mention') {
+        // Ouvrir spécifiquement la discussion si c'est une mention de projet
+        if (n.type === 'project_mention') {
           setTimeout(() => {
             window.dispatchEvent(new CustomEvent('openProjectFeed', { detail: project }));
           }, 100);

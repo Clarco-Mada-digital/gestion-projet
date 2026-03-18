@@ -400,7 +400,7 @@ export interface Notification {
   userId: string;
   title: string;
   message: string;
-  type: 'mention' | 'task_assigned' | 'deadline_approaching' | 'project_update' | 'reply_added' | 'reaction_added';
+  type: 'mention' | 'project_mention' | 'task_comment_mention' | 'task_assigned' | 'deadline_approaching' | 'project_update' | 'reply_added' | 'reaction_added';
   link?: string;
   projectId?: string;
   taskId?: string;

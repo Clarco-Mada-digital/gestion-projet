@@ -336,10 +336,15 @@ export const firebaseService = {
       );
 
       const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
-        ...doc.data(),
-        source: 'firebase' // Force la source
-      } as Project));
+      return querySnapshot.docs.map(doc => {
+        const data = doc.data({ serverTimestamps: 'estimate' });
+        return {
+          ...data,
+          source: 'firebase', // Force la source
+          lastActivityAt: data.lastActivityAt?.toDate ? data.lastActivityAt.toDate().toISOString() : data.lastActivityAt,
+          updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt
+        } as Project;
+      });
     } catch (error) {
       console.error("Erreur lors de la récupération des projets partagés:", error);
       return [];
@@ -358,10 +363,15 @@ export const firebaseService = {
     );
 
     return onSnapshot(q, (snapshot) => {
-      const projects = snapshot.docs.map(doc => ({
-        ...doc.data(),
-        source: 'firebase'
-      } as Project));
+      const projects = snapshot.docs.map(doc => {
+        const data = doc.data({ serverTimestamps: 'estimate' });
+        return {
+          ...data,
+          source: 'firebase',
+          lastActivityAt: data.lastActivityAt?.toDate ? data.lastActivityAt.toDate().toISOString() : data.lastActivityAt,
+          updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt
+        } as Project;
+      });
       callback(projects);
     }, (error) => {
       console.error("Erreur lors de l'écoute des projets partagés:", error);
