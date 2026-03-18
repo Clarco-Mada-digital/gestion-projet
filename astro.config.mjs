@@ -63,6 +63,7 @@ export default defineConfig({
       },
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,webp,woff,woff2}'],
+        maximumFileSizeToCacheInBytes: 5242880, // Augmenté à 5 MiB car le bundle principal dépasse les 2 MiB
       },
       devOptions: {
         enabled: true,
