@@ -2493,13 +2493,13 @@ export function ProjectsView() {
                       <input
                         type="text"
                         readOnly
-                        value={`${window.location.origin}${getBasePath()}/v?id=${editingProject.id}`}
+                        value={`${window.location.origin}${getBasePath()}/v/?id=${editingProject.id}`}
                         className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-mono text-gray-600 dark:text-gray-400"
                       />
                       <Button
                         size="sm"
                         onClick={() => {
-                          const url = `${window.location.origin}${getBasePath()}/v?id=${editingProject.id}`;
+                          const url = `${window.location.origin}${getBasePath()}/v/?id=${editingProject.id}`;
                           navigator.clipboard.writeText(url);
                           message.success("Lien copié !");
                         }}

@@ -547,25 +547,59 @@ export const firebaseService = {
   onPublicProjectUpdate: (projectId: string, callback: (project: Project | null) => void) => {
     if (!isFirebaseConfigured()) return () => { };
 
-    // On s'assure que db est initialisé (via ensureInitialized implicitement si on arrive ici via une action)
-    // Mais on peut appeler ensureInitialized pour plus de sécurité
     ensureInitialized();
 
-    return onSnapshot(doc(db, 'projects', projectId), (snapshot) => {
+    let unsubscribeTasks: (() => void) | null = null;
+    let projectDoc: Project | null = null;
+    let projectTasks: Task[] = [];
+
+    const handleUpdate = () => {
+      if (projectDoc) {
+        callback({
+          ...projectDoc,
+          tasks: projectTasks.length > 0 ? projectTasks : (projectDoc.tasks || []),
+          source: 'firebase'
+        });
+      } else {
+        callback(null);
+      }
+    };
+
+    const unsubscribeProject = onSnapshot(doc(db, 'projects', projectId), (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data() as Project;
         if (data.isPublic) {
-          callback({ ...data, source: 'firebase' });
+          projectDoc = data;
+          
+          // Si le projet utilise la version 2 de sync, on écoute aussi les tâches
+          if (data.syncVersion >= 2 && !unsubscribeTasks) {
+            const tasksRef = collection(db, 'projects', projectId, 'tasks');
+            unsubscribeTasks = onSnapshot(tasksRef, (tasksSnapshot) => {
+              projectTasks = tasksSnapshot.docs.map(tDoc => tDoc.data() as Task);
+              handleUpdate();
+            }, (error) => {
+              console.error("Erreur listener tâches publiques:", error);
+            });
+          }
+          
+          handleUpdate();
         } else {
-          callback(null);
+          projectDoc = null;
+          handleUpdate();
         }
       } else {
-        callback(null);
+        projectDoc = null;
+        handleUpdate();
       }
     }, (error) => {
       console.error("Erreur lors de l'écoute du projet public:", error);
       callback(null);
     });
+
+    return () => {
+      unsubscribeProject();
+      if (unsubscribeTasks) unsubscribeTasks();
+    };
   },
 
   /**

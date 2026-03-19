@@ -5,10 +5,13 @@
  * Nécessaire pour GitHub Pages qui sert depuis un sous-dossier
  */
 export const getBasePath = (): string => {
-  // Vérifier si on est sur GitHub Pages
   if (typeof window !== 'undefined') {
-    const isGitHubPages = window.location.hostname === 'clarco-mada-digital.github.io';
-    return isGitHubPages ? '/gestion-projet' : '';
+    const repositoryName = 'gestion-projet';
+    // On vérifie si on est dans un sous-dossier (cas typique de GitHub Pages)
+    if (window.location.pathname.startsWith(`/${repositoryName}`) || 
+        window.location.hostname.includes('github.io')) {
+      return `/${repositoryName}`;
+    }
   }
   return '';
 };
