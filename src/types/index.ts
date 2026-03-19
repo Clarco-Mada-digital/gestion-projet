@@ -372,8 +372,9 @@ export interface ProjectFeedItem {
 
 export type ActivityType =
   | 'project_created'
-  | 'project_updated'
+  | 'project_mention'
   | 'project_discussion'
+  | 'reaction'
   | 'project_archived'
   | 'task_created'
   | 'task_updated'
@@ -399,6 +400,7 @@ export interface Activity {
   replyToId?: string; // ID du message auquel on répond
   replyToName?: string; // Nom de l'auteur du message original
   replyToText?: string; // Extrait du message original
+  emoji?: string;
 }
 
 export interface Notification {

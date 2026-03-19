@@ -258,12 +258,18 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
   };
 
   const handleToggleReaction = async (activity: Activity, emoji: string) => {
-    if (!state.cloudUser) return;
-    setShowEmojiPickerFor(null);
+    if (!state.cloudUser || !activity.id) {
+      console.error("[Reactions] Données manquantes:", { activityId: activity.id, userId: state.cloudUser?.uid });
+      return;
+    }
+    
     try {
-      await activityService.toggleReaction(activity.id, emoji, state.cloudUser.uid);
-    } catch (error) {
-      console.error('Erreur réaction:', error);
+      console.log(`[Reactions] Click emoji ${emoji} sur activity_id: ${activity.id}`);
+      await activityService.toggleReaction(activity.id, emoji, state.cloudUser.uid, projectId);
+      console.log(`[Reactions] Succès toggle pour ${activity.id}`);
+      setShowEmojiPickerFor(null);
+    } catch (error: any) {
+      console.error('[Reactions] ERREUR lors du toggle:', error);
     }
   };
 
@@ -398,10 +404,23 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
               const isDiscussion = activity.type === 'project_discussion';
               const isMe = activity.actorId === state.cloudUser?.uid;
 
+              if (activity.type === 'reaction') return null;
+
               if (isDiscussion) {
                 const isSelected = selectedIds.includes(activity.id);
                 const isEditing = editingId === activity.id;
-                const reactions = activity.reactions || {};
+                
+                // Calculer les réactions agrégées à partir du flux d'activités
+                const reactions: Record<string, string[]> = {};
+                activities.forEach(a => {
+                  if (a.type === 'reaction' && a.targetId === activity.id && a.emoji) {
+                    if (!reactions[a.emoji]) reactions[a.emoji] = [];
+                    if (!reactions[a.emoji].includes(a.actorId)) {
+                      reactions[a.emoji].push(a.actorId);
+                    }
+                  }
+                });
+
                 const hasReactions = Object.keys(reactions).length > 0;
 
                 return (

@@ -44,12 +44,16 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
 
-    // Règles pour les activités (historique)
+    // Règles pour les activités (historique et messages de discussion)
     match /activities/{activityId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      // Seul l'acteur de l'activité peut la modifier ou la supprimer
-      allow update, delete: if isAuthenticated() && resource.data.actorId == request.auth.uid;
+      allow read, create: if isAuthenticated();
+      // On autorise la mise à jour (réactions) si on est l'acteur OU membre du projet
+      allow update: if isAuthenticated() && (
+        resource.data.actorId == request.auth.uid || 
+        (resource.data.projectId != null && 
+         isProjectMember(get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data))
+      );
+      allow delete: if isAuthenticated() && resource.data.actorId == request.auth.uid;
     }
 
     // Règles pour les statuts de lecture (Badges non lus)
@@ -64,6 +68,17 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // Règles pour les RÉACTIONS (système découplé pour éviter les Permission Denied)
+    match /reactions/{reactionId} {
+      // Tout le monde peut lire les réactions
+      allow read: if isAuthenticated();
+      // On peut créer ou supprimer seulement sa propre réaction
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // Pas d'update nécessaire (on delete et re-create si on change d'avis)
+      allow update: if false;
     }
   }
 }
