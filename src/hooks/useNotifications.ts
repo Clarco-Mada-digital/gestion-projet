@@ -33,10 +33,19 @@ export const useNotifications = () => {
 
   const canShowNotifications = useCallback(() => {
     const settings = localStorage.getItem('notificationSettings');
+    // Si pas de settings locaux du tout, bloquer
     if (!settings) return false;
     
-    const notificationSettings = JSON.parse(settings);
-    return state.appSettings?.pushNotifications === true && !!notificationSettings;
+    // Vérifier la permission navigateur directement (source de vérité principale)
+    const browserPermission = typeof Notification !== 'undefined' ? Notification.permission : 'denied';
+    if (browserPermission !== 'granted') return false;
+    
+    // Vérifier le setting applicatif (peut être undefined si pas encore configuré, on laisse passer)
+    const appPushSetting = state.appSettings?.pushNotifications;
+    // Si explicitement désactivé, bloquer. Sinon (true ou undefined), autoriser
+    if (appPushSetting === false) return false;
+    
+    return true;
   }, [state.appSettings]);
 
   const isQuietHours = useCallback(() => {

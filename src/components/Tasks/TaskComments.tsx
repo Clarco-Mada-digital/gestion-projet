@@ -501,10 +501,6 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
       const commentId = await commentService.addComment(commentData);
 
       if (commentId) {
-        // Mettre à jour localement (même si la subscription va le faire, ça assure une transition fluide)
-        const finalComment = { ...commentData, id: commentId, createdAt: new Date().toISOString() };
-        setComments(prev => [...prev, finalComment]);
-
         // Envoyer une notification à l'auteur du commentaire parent
         const parentComment = comments.find(c => c.id === parentId);
         if (parentComment && parentComment.authorId !== currentUser.uid) {
@@ -513,14 +509,45 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
             title: 'Nouvelle réponse',
             message: `${currentUser.displayName || 'Un utilisateur'} a répondu à votre commentaire: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`,
             type: 'reply_added',
-            link: `/projects/${projectId}/tasks/${taskId}`
+            link: `/projects/${projectId}?task=${taskId}`
           });
+        }
+
+        // Envoyer des notifications aux mentions
+        const mentionRegex = /@([a-zA-Z0-9À-ÿ]+(?:[\s\-_'][a-zA-Z0-9À-ÿ]+)*)/g;
+        const foundMentions = content.match(mentionRegex) || [];
+        
+        if (foundMentions.length > 0) {
+          const usersToCheck = projectMembers.length > 0 ? projectMembers : state.users;
+          
+          for (const user of usersToCheck) {
+            if (!user || (user.id || (user as any).uid) === currentUser.uid) continue;
+            
+            const isMentioned = foundMentions.some(mention => {
+              const mentionText = mention.substring(1).trim().toLowerCase();
+              const userName = (user.name || '').toLowerCase();
+              return userName === mentionText || userName.includes(mentionText);
+            });
+            
+            if (isMentioned) {
+              await notificationService.sendNotification({
+                userId: user.id || (user as any).uid,
+                title: 'Vous avez été mentionné',
+                message: `${currentUser.displayName || 'Un utilisateur'} vous a mentionné dans sa réponse : "${content.substring(0, 50)}..."`,
+                type: 'task_comment_mention',
+                link: `/projects/${projectId}?task=${taskId}`,
+                projectId,
+                taskId,
+                projectName: project?.name || 'Projet inconnu'
+              });
+            }
+          }
         }
 
         // Envoyer une activité
         await activityService.logActivity({
           projectId,
-          type: 'reply_added', // Utiliser le bon type d'activité
+          type: 'reply_added',
           actorId: currentUser.uid,
           actorName: currentUser.displayName || 'Anonyme',
           targetId: taskId,
@@ -529,7 +556,7 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
         });
       }
     } catch (error) {
-      // Fail silently
+      console.error('Erreur lors de l\'envois de la réponse:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -643,11 +670,46 @@ export function TaskComments({ taskId, projectId, project, canComment = true }: 
   const handleUpdate = async (commentId: string) => {
     if (!editContent.trim()) return;
     try {
+      const currentUser = state.cloudUser || { uid: 'local-user', displayName: 'Utilisateur local' };
+      
+      // Détecter les mentions dans le contenu mis à jour
+      const mentionRegex = /@([a-zA-Z0-9À-ÿ]+(?:[\s\-_'][a-zA-Z0-9À-ÿ]+)*)/g;
+      const foundMentions = editContent.match(mentionRegex) || [];
+      
+      if (foundMentions.length > 0) {
+        const usersToCheck = projectMembers.length > 0 ? projectMembers : state.users;
+        
+        for (const user of usersToCheck) {
+          if (!user || user.id === currentUser.uid) continue;
+          
+          const isMentioned = foundMentions.some(mention => {
+            const mentionText = mention.substring(1).trim().toLowerCase();
+            const userName = (user.name || '').toLowerCase();
+            return userName === mentionText || userName.includes(mentionText);
+          });
+          
+          if (isMentioned) {
+             // On pourrait vérifier si l'utilisateur était déjà mentionné avant pour éviter les spams, 
+             // mais pour plus de simplicité on envoie quand même la notification
+            await notificationService.sendNotification({
+              userId: user.id,
+              title: 'Vous avez été mentionné (Modifié)',
+              message: `${currentUser.displayName || 'Un utilisateur'} vous a mentionné dans un commentaire modifié : "${editContent.substring(0, 50)}..."`,
+              type: 'task_comment_mention',
+              link: `/projects/${projectId}?task=${taskId}`,
+              projectId,
+              taskId,
+              projectName: project?.name || 'Projet inconnu'
+            });
+          }
+        }
+      }
+
       await commentService.updateComment(commentId, editContent);
       setEditingCommentId(null);
       setEditContent('');
     } catch (error) {
-      // Fail silently
+      console.error('Erreur lors de la mise à jour du commentaire:', error);
     }
   };
 

@@ -48,7 +48,7 @@ export function NotificationCenter() {
     try {
       // Attendre que le Service Worker soit enregistré et actif
       if ('serviceWorker' in navigator) {
-        const registration = await navigator.serviceWorker.ready;
+        await navigator.serviceWorker.ready;
         console.log('Service Worker prêt pour FCM');
 
         // Petite pause pour s'assurer que tout est stable
@@ -65,13 +65,11 @@ export function NotificationCenter() {
           console.log('FCM initialisé avec succès');
           
           // Écouter les messages en avant-plan
+          // IMPORTANT: on utilise showCustomNotification du composant courant, jamais réimporter le hook!
           fcm.onMessage(async (payload) => {
             console.log('Message FCM reçu en avant-plan:', payload);
             
-            // Afficher une notification locale
-            const { useNotifications } = await import('../../hooks/useNotifications');
-            const { showCustomNotification } = useNotifications();
-            
+            // Afficher une notification locale via la variable du composant déjà disponible
             showCustomNotification(
               payload.notification?.title || 'Notification',
               payload.notification?.body || 'Vous avez une nouvelle notification',
@@ -112,30 +110,50 @@ export function NotificationCenter() {
       );
 
       // Envoyer des notifications push pour les nouvelles notifications non lues
+      // On vérifie directement la permission navigateur pour ne pas bloquer les mentions/cloud notifs
+      const browserPermission = typeof Notification !== 'undefined' ? Notification.permission : 'denied';
       newNotifications.forEach(async notification => {
         if (!notification.isRead) {
-          await showCustomNotification(
-            notification.title,
-            notification.message,
-            {
-              tag: `firebase-${notification.id}`,
-              requireInteraction: false,
-              icon: fixPath('/icons/icon-192x192.png'),
-              badge: fixPath('/icons/favicon-32x32.png'),
-              data: {
-                type: 'firebase-notification',
-                notificationId: notification.id,
-                projectId: notification.projectId,
-                taskId: notification.taskId,
-                link: notification.link
-              },
-              onClick: () => {
-                if (notification.link) {
-                  window.location.href = fixPath(notification.link);
+          if (browserPermission === 'granted') {
+            // Afficher via le service push directement (bypasse le check canShowNotifications qui peut bloquer)
+            try {
+              new Notification(notification.title, {
+                body: notification.message,
+                icon: fixPath('/icons/icon-192x192.png'),
+                badge: fixPath('/icons/favicon-32x32.png'),
+                tag: `firebase-${notification.id}`,
+                data: {
+                  type: 'firebase-notification',
+                  notificationId: notification.id,
+                  projectId: notification.projectId,
+                  taskId: notification.taskId,
+                  link: notification.link
                 }
-              }
+              });
+            } catch (err) {
+              // Fallback via le hook
+              await showCustomNotification(
+                notification.title,
+                notification.message,
+                {
+                  tag: `firebase-${notification.id}`,
+                  requireInteraction: false,
+                  icon: fixPath('/icons/icon-192x192.png'),
+                  badge: fixPath('/icons/favicon-32x32.png'),
+                  data: {
+                    type: 'firebase-notification',
+                    notificationId: notification.id,
+                    projectId: notification.projectId,
+                    taskId: notification.taskId,
+                    link: notification.link
+                  }
+                }
+              );
             }
-          );
+          } else {
+            // Si pas de permission, juste logguer (la notif est quand même dans le centre)
+            console.log(`[NotificationCenter] Notification reçue sans permission push: ${notification.title}`);
+          }
         }
       });
     });

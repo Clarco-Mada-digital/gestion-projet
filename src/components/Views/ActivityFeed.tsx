@@ -21,7 +21,7 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
-  const [members, setMembers] = useState<{ uid: string, name: string }[]>([]);
+  const [members, setMembers] = useState<{ uid: string, name: string, email?: string }[]>([]);
   const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [cursorPosition, setCursorPosition] = useState(0);
@@ -46,7 +46,7 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
       const memberDetails = await Promise.all(
         project.members.map(async (uid) => {
           const profile = await firebaseService.getUserProfile(uid);
-          return { uid, name: profile?.displayName || profile?.email || 'Membre' };
+          return { uid, name: profile?.displayName || profile?.email || 'Membre', email: profile?.email || undefined };
         })
       );
       setMembers(memberDetails);
@@ -127,9 +127,41 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
 
     setIsSending(true);
     try {
-      // Détecter les mentions @Nom
-      const mentions = members.filter(m => message.includes(`@${m.name}`));
+      // Détecter les mentions avec une regex robuste (insensible à la casse)
+      const mentionRegex = /@([a-zA-Z0-9À-ÿ]+(?:[\s\-_'][a-zA-Z0-9À-ÿ]+)*)/g;
+      const foundMentions = message.match(mentionRegex) || [];
+      
+      const mentionsToNotify: any[] = [];
+      
+      if (foundMentions.length > 0) {
+        // Utiliser les membres du projet ou à défaut tous les utilisateurs connus
+        const usersToCheck = members.length > 0 ? members : (state.users || []).map(u => ({ uid: u.id, name: u.name, email: u.email }));
+        
+        for (const user of usersToCheck) {
+          if (!user || user.uid === state.cloudUser.uid) continue;
+          
+          const isMentioned = foundMentions.some(mention => {
+            const mentionText = mention.substring(1).trim().toLowerCase();
+            const userName = (user.name || '').toLowerCase();
+            const userEmail = (user.email || '').toLowerCase();
+            
+            // Logique de correspondance identique à TaskComments (très robuste)
+            return userName === mentionText || 
+                   userName.replace(/\s+/g, '') === mentionText.replace(/\s+/g, '') ||
+                   userName.replace(/[\s\-_']/g, '') === mentionText.replace(/[\s\-_']/g, '') ||
+                   userEmail.split('@')[0] === mentionText ||
+                   userName.split(' ')[0] === mentionText ||
+                   userName.includes(mentionText) ||
+                   mentionText.includes(userName.split(' ')[0]);
+          });
+          
+          if (isMentioned) {
+            mentionsToNotify.push(user);
+          }
+        }
+      }
 
+      // Publier l'activité
       await activityService.logActivity({
         projectId,
         type: 'project_discussion',
@@ -139,18 +171,20 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
         details: message.trim()
       });
 
-      // Envoyer des notifications aux personnes mentionnées
-      for (const mention of mentions) {
-        if (mention.uid !== state.cloudUser.uid) {
+      // Envoyer des notifications aux personnes mentionnées (une seule fois par personne)
+      for (const mention of mentionsToNotify) {
+        try {
           await notificationService.sendNotification({
             userId: mention.uid,
-            title: 'Nouvelle mention',
-            message: `${state.cloudUser.displayName || 'Quelqu\'un'} vous a mentionné dans "${project.name}"`,
+            title: `Mention dans ${project.name}`,
+            message: `${state.cloudUser.displayName || 'Quelqu\'un'} vous a mentionné : "${message.trim().substring(0, 50)}${message.length > 50 ? '...' : ''}"`,
             type: 'project_mention',
             projectId: projectId,
             projectName: project.name,
             link: `/projects/${projectId}`
           });
+        } catch (error) {
+          console.error("Erreur d'envoi de notification à", mention.uid, error);
         }
       }
 

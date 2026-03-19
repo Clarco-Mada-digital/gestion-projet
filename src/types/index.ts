@@ -402,7 +402,7 @@ export interface Notification {
   userId: string;
   title: string;
   message: string;
-  type: 'mention' | 'project_mention' | 'task_comment_mention' | 'task_assigned' | 'deadline_approaching' | 'project_update' | 'reply_added' | 'reaction_added';
+  type: 'mention' | 'project_mention' | 'task_comment_mention' | 'task_assigned' | 'deadline_approaching' | 'project_update' | 'reply_added' | 'reaction_added' | 'task_completed';
   link?: string;
   projectId?: string;
   taskId?: string;
