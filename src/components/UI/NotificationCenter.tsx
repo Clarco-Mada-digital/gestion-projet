@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Settings, Check, Trash2, ExternalLink } from 'lucide-react';
+import { Bell, Settings, Check, Trash2, ExternalLink, Reply } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useNotifications } from '../../hooks/useNotifications';
 import { notificationService } from '../../services/collaboration/notificationService';
@@ -552,7 +552,8 @@ export function NotificationCenter() {
                     </button>
                   ) : null}
                   
-                  {n.source === 'cloud' && n.type === 'mention' && !n.isRead && (
+                  {/* Bouton Répondre: disponible pour toutes les notifications cloud liées à un projet */}
+                  {n.source === 'cloud' && n.projectId && (
                     <button
                       onClick={() => {
                         setReplyingToId(replyingToId === n.id ? null : n.id);
@@ -560,7 +561,7 @@ export function NotificationCenter() {
                       }}
                       className="text-xs text-emerald-600 dark:text-emerald-400 font-bold hover:underline flex items-center gap-1"
                     >
-                      <Check className="w-3 h-3" />
+                      <Reply className="w-3 h-3" />
                       Répondre
                     </button>
                   )}

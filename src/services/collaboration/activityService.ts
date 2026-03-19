@@ -107,5 +107,30 @@ export const activityService = {
     } catch (error) {
       console.error("Erreur suppression multiple activités:", error);
     }
+  },
+  /**
+   * Ajoute ou retire une réaction emoji sur un message
+   */
+  async toggleReaction(activityId: string, emoji: string, userId: string): Promise<void> {
+    if (!ensureInitialized() || !auth.currentUser) return;
+    try {
+      const activityRef = doc(db, 'activities', activityId);
+      // On utilise une transaction pour éviter les conflits de lecture/écriture
+      const { getDoc } = await import('firebase/firestore');
+      const snap = await getDoc(activityRef);
+      if (!snap.exists()) return;
+      const data = snap.data();
+      const reactions: Record<string, string[]> = data.reactions || {};
+      const users = reactions[emoji] || [];
+      if (users.includes(userId)) {
+        reactions[emoji] = users.filter(u => u !== userId);
+        if (reactions[emoji].length === 0) delete reactions[emoji];
+      } else {
+        reactions[emoji] = [...users, userId];
+      }
+      await updateDoc(activityRef, { reactions });
+    } catch (error) {
+      console.error('Erreur toggle réaction:', error);
+    }
   }
 };

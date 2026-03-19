@@ -395,6 +395,10 @@ export interface Activity {
   targetName?: string; // Nom de la tâche, du projet, etc.
   details?: string;
   createdAt: string;
+  reactions?: Record<string, string[]>; // emoji -> liste des userIds
+  replyToId?: string; // ID du message auquel on répond
+  replyToName?: string; // Nom de l'auteur du message original
+  replyToText?: string; // Extrait du message original
 }
 
 export interface Notification {

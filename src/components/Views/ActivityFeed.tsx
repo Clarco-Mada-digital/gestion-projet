@@ -1,5 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { Activity as ActivityIcon, CheckCircle2, MessageSquare, X, PlusCircle, UserPlus, Send, Loader2, AtSign, Trash2, Edit2, CheckCircle, Square } from 'lucide-react';
+
+// Emojis pour le picker de la zone de saisie
+const INPUT_EMOJIS = [
+  '😀','😂','😍','🥰','😎','🤔','😅','😭','😡','🥳',
+  '👍','👎','❤️','🔥','✅','⚠️','🎉','💯','🙏','👀',
+  '🚀','💡','📌','📎','🗓️','📊','✍️','💬','🔔','⭐'
+];
+import { Activity as ActivityIcon, CheckCircle2, MessageSquare, X, PlusCircle, UserPlus, Send, Loader2, AtSign, Trash2, Edit2, CheckCircle, Square, Smile, Reply, CornerDownRight } from 'lucide-react';
 import { Activity, ActivityType, Project } from '../../types';
 import { activityService } from '../../services/collaboration/activityService';
 import { notificationService } from '../../services/collaboration/notificationService';
@@ -15,6 +22,9 @@ interface ActivityFeedProps {
 
 import { projectReadService } from '../../services/collaboration/projectReadService';
 
+// Emojis disponibles pour les réactions
+const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥', '👏', '🎉'];
+
 export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps) {
   const { state } = useApp();
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -29,6 +39,12 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
   const [editingText, setEditingText] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+  // Réactions emoji
+  const [showEmojiPickerFor, setShowEmojiPickerFor] = useState<string | null>(null);
+  // Répondre à un message
+  const [replyingTo, setReplyingTo] = useState<Activity | null>(null);
+  // Picker emoji pour la zone de saisie
+  const [showInputEmojiPicker, setShowInputEmojiPicker] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -80,11 +96,21 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
         }
       };
       scroll();
-      // Délai supplémentaire pour le rendu complexe ou ouverture de Drawer
       setTimeout(scroll, 100);
       setTimeout(scroll, 300);
     }
   }, [activities, isLoading]);
+
+  // Fermer les pickers emoji en cliquant ailleurs
+  useEffect(() => {
+    if (!showEmojiPickerFor && !showInputEmojiPicker) return;
+    const handler = () => {
+      setShowEmojiPickerFor(null);
+      setShowInputEmojiPicker(false);
+    };
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [showEmojiPickerFor, showInputEmojiPicker]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
@@ -92,13 +118,11 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
     setMessage(value);
     setCursorPosition(pos);
 
-    // Détecter si on est en train de taper une mention
     const textBeforeCursor = value.slice(0, pos);
     const lastAtSymbol = textBeforeCursor.lastIndexOf('@');
 
     if (lastAtSymbol !== -1) {
       const textAfterAt = textBeforeCursor.slice(lastAtSymbol + 1);
-      // On s'arrête si on rencontre un espace après le @
       if (!textAfterAt.includes(' ')) {
         setMentionQuery(textAfterAt.toLowerCase());
         setShowMentionSuggestions(true);
@@ -112,11 +136,8 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
     const textBeforeAt = message.slice(0, message.lastIndexOf('@', cursorPosition - 1));
     const textAfterMention = message.slice(cursorPosition);
     const newMessage = `${textBeforeAt}@${memberName} ${textAfterMention}`;
-
     setMessage(newMessage);
     setShowMentionSuggestions(false);
-
-    // Remettre le focus
     if (inputRef.current) {
       inputRef.current.focus();
     }
@@ -125,28 +146,27 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
   const handleSendMessage = async () => {
     if (!message.trim() || !state.cloudUser) return;
 
+    // ✅ Vider IMMÉDIATEMENT le champ avant tout traitement async
+    const messageToSend = message.trim();
+    const replyContext = replyingTo;
+    setMessage('');
+    setReplyingTo(null);
     setIsSending(true);
+
     try {
-      // Détecter les mentions avec une regex robuste (insensible à la casse)
       const mentionRegex = /@([a-zA-Z0-9À-ÿ]+(?:[\s\-_'][a-zA-Z0-9À-ÿ]+)*)/g;
-      const foundMentions = message.match(mentionRegex) || [];
-      
+      const foundMentions = messageToSend.match(mentionRegex) || [];
       const mentionsToNotify: any[] = [];
-      
+
       if (foundMentions.length > 0) {
-        // Utiliser les membres du projet ou à défaut tous les utilisateurs connus
         const usersToCheck = members.length > 0 ? members : (state.users || []).map(u => ({ uid: u.id, name: u.name, email: u.email }));
-        
         for (const user of usersToCheck) {
           if (!user || user.uid === state.cloudUser.uid) continue;
-          
           const isMentioned = foundMentions.some(mention => {
             const mentionText = mention.substring(1).trim().toLowerCase();
             const userName = (user.name || '').toLowerCase();
             const userEmail = (user.email || '').toLowerCase();
-            
-            // Logique de correspondance identique à TaskComments (très robuste)
-            return userName === mentionText || 
+            return userName === mentionText ||
                    userName.replace(/\s+/g, '') === mentionText.replace(/\s+/g, '') ||
                    userName.replace(/[\s\-_']/g, '') === mentionText.replace(/[\s\-_']/g, '') ||
                    userEmail.split('@')[0] === mentionText ||
@@ -154,30 +174,35 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
                    userName.includes(mentionText) ||
                    mentionText.includes(userName.split(' ')[0]);
           });
-          
-          if (isMentioned) {
-            mentionsToNotify.push(user);
-          }
+          if (isMentioned) mentionsToNotify.push(user);
         }
       }
 
-      // Publier l'activité
-      await activityService.logActivity({
+      // Préparer les données de réponse si on répond à un message
+      const activityData: any = {
         projectId,
         type: 'project_discussion',
         actorId: state.cloudUser.uid,
         actorName: state.cloudUser.displayName || state.cloudUser.email || 'Anonyme',
         actorAvatar: state.cloudUser.photoURL || undefined,
-        details: message.trim()
-      });
+        details: messageToSend,
+      };
 
-      // Envoyer des notifications aux personnes mentionnées (une seule fois par personne)
+      if (replyContext) {
+        activityData.replyToId = replyContext.id;
+        activityData.replyToName = replyContext.actorName;
+        activityData.replyToText = (replyContext.details || '').substring(0, 60) + ((replyContext.details || '').length > 60 ? '…' : '');
+      }
+
+      await activityService.logActivity(activityData);
+
+      // Notifications pour les mentions
       for (const mention of mentionsToNotify) {
         try {
           await notificationService.sendNotification({
             userId: mention.uid,
             title: `Mention dans ${project.name}`,
-            message: `${state.cloudUser.displayName || 'Quelqu\'un'} vous a mentionné : "${message.trim().substring(0, 50)}${message.length > 50 ? '...' : ''}"`,
+            message: `${state.cloudUser.displayName || 'Quelqu\'un'} vous a mentionné : "${messageToSend.substring(0, 50)}${messageToSend.length > 50 ? '...' : ''}"`,
             type: 'project_mention',
             projectId: projectId,
             projectName: project.name,
@@ -187,10 +212,11 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
           console.error("Erreur d'envoi de notification à", mention.uid, error);
         }
       }
-
-      setMessage('');
     } catch (error) {
       console.error('Erreur lors de l\'envois du message:', error);
+      // Remettre le message en cas d'erreur pour ne pas perdre la saisie
+      setMessage(messageToSend);
+      if (replyContext) setReplyingTo(replyContext);
     } finally {
       setIsSending(false);
     }
@@ -226,9 +252,19 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
   };
 
   const toggleSelect = (id: string) => {
-    setSelectedIds(prev => 
+    setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
+  };
+
+  const handleToggleReaction = async (activity: Activity, emoji: string) => {
+    if (!state.cloudUser) return;
+    setShowEmojiPickerFor(null);
+    try {
+      await activityService.toggleReaction(activity.id, emoji, state.cloudUser.uid);
+    } catch (error) {
+      console.error('Erreur réaction:', error);
+    }
   };
 
   const getActivityIcon = (type: ActivityType) => {
@@ -244,7 +280,6 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
   const getActivityText = (activity: Activity) => {
     const actor = <span className="font-semibold">{activity.actorName}</span>;
     const target = <span className="font-medium text-blue-600">{activity.targetName}</span>;
-
     switch (activity.type) {
       case 'task_completed': return <>{actor} a terminé la tâche {target}</>;
       case 'project_discussion': return <>{actor} a posté une note</>;
@@ -268,7 +303,7 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
       {/* Header compact */}
       <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-white dark:bg-gray-800 transition-colors">
         <div className="flex items-center gap-3">
-          <div 
+          <div
             className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg"
             style={{ backgroundColor: `${project.color}20`, color: project.color }}
           >
@@ -282,7 +317,7 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
             </div>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-3">
           {isSelectionMode ? (
             <div className="flex items-center gap-2">
@@ -318,9 +353,9 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
               </button>
               <div className="flex -space-x-2">
                 {members.slice(0, 3).map((m) => (
-                  <div 
-                    key={m.uid} 
-                    className="w-7 h-7 rounded-full border-2 border-white dark:border-gray-800 bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-[10px] text-white font-bold shadow-sm" 
+                  <div
+                    key={m.uid}
+                    className="w-7 h-7 rounded-full border-2 border-white dark:border-gray-800 bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-[10px] text-white font-bold shadow-sm"
                     title={m.name}
                   >
                     {m.name[0].toUpperCase()}
@@ -363,13 +398,15 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
               const isDiscussion = activity.type === 'project_discussion';
               const isMe = activity.actorId === state.cloudUser?.uid;
 
-                   if (isDiscussion) {
+              if (isDiscussion) {
                 const isSelected = selectedIds.includes(activity.id);
                 const isEditing = editingId === activity.id;
+                const reactions = activity.reactions || {};
+                const hasReactions = Object.keys(reactions).length > 0;
 
                 return (
-                  <div 
-                    key={activity.id} 
+                  <div
+                    key={activity.id}
                     className={`flex flex-col group ${isMe ? 'items-end' : 'items-start'} ${isSelectionMode ? 'cursor-pointer' : ''}`}
                     onClick={() => isSelectionMode && toggleSelect(activity.id)}
                   >
@@ -383,14 +420,14 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
                       {!isMe && (
                         <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 font-bold text-xs shadow-sm mb-1">
                           {activity.actorAvatar ? (
-                             <img src={activity.actorAvatar} alt="" className="w-full h-full rounded-full object-cover" />
+                            <img src={activity.actorAvatar} alt="" className="w-full h-full rounded-full object-cover" />
                           ) : activity.actorName[0].toUpperCase()}
                         </div>
                       )}
-                      
+
                       <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2 px-1">
-                           <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">
+                        <div className={`flex items-center gap-2 px-1 transition-all duration-200 ${isMe ? 'flex-row-reverse group-hover:translate-x-[-100px]' : 'group-hover:translate-x-[100px]'} opacity-100 group-hover:opacity-0`}>
+                          <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">
                             {activity.actorName}
                           </span>
                           <span className="text-[9px] text-gray-400">
@@ -398,12 +435,23 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
                           </span>
                         </div>
 
+                        {/* Contexte de réponse */}
+                        {activity.replyToId && activity.replyToText && (
+                          <div className={`flex items-start gap-1 mb-0.5 px-1 ${isMe ? 'flex-row-reverse' : ''}`}>
+                            <CornerDownRight className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" />
+                            <div className={`text-[10px] text-gray-400 italic truncate max-w-[200px] border-l-2 border-gray-300 dark:border-gray-600 pl-1.5`}>
+                              <span className="font-semibold not-italic text-gray-500">{activity.replyToName}: </span>
+                              {activity.replyToText}
+                            </div>
+                          </div>
+                        )}
+
                         <div className={`relative p-3 rounded-2xl text-sm shadow-sm transition-all group-hover:shadow-md ${
-                          isMe 
-                            ? 'bg-blue-600 text-white rounded-tr-none' 
+                          isMe
+                            ? 'bg-blue-600 text-white rounded-tr-none'
                             : 'bg-white dark:bg-gray-800 dark:text-gray-200 rounded-tl-none border border-gray-100 dark:border-gray-700'
                         } ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
-                          
+
                           {isEditing ? (
                             <div className="space-y-2 min-w-[200px]">
                               <textarea
@@ -431,31 +479,113 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
                             <div className="whitespace-pre-wrap leading-relaxed">{activity.details}</div>
                           )}
 
-                          {/* Actions Hover (Seulement pour mes messages et hors mode sélection) */}
-                          {isMe && !isSelectionMode && !isEditing && (
-                            <div className="absolute top-1/2 -left-12 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-1">
-                               <button 
+                          {/* Actions Hover — barre HORIZONTALE flottante au-dessus de la bulle */}
+                          {!isSelectionMode && !isEditing && (
+                            <div
+                              className={`absolute -top-9 opacity-0 group-hover:opacity-100 transition-all duration-150 flex flex-row items-center gap-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg px-1.5 py-1 z-10 ${
+                                isMe ? 'right-0' : 'left-0'
+                              }`}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {/* Réagir */}
+                              <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setEditingId(activity.id);
-                                  setEditingText(activity.details || '');
+                                  setShowEmojiPickerFor(showEmojiPickerFor === activity.id ? null : activity.id);
                                 }}
-                                className="p-1.5 rounded-lg bg-white dark:bg-gray-700 shadow-sm border border-gray-100 dark:border-gray-600 text-gray-400 hover:text-blue-500 transition-colors"
+                                className="p-1 rounded-lg text-gray-400 hover:text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors"
+                                title="Réagir"
                               >
-                                <Edit2 className="w-3.5 h-3.5" />
+                                <Smile className="w-3.5 h-3.5" />
                               </button>
-                               <button 
+                              {/* Répondre */}
+                              <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleDeleteMessage(activity.id);
+                                  setReplyingTo(activity);
+                                  setTimeout(() => inputRef.current?.focus(), 100);
                                 }}
-                                className="p-1.5 rounded-lg bg-white dark:bg-gray-700 shadow-sm border border-gray-100 dark:border-gray-600 text-gray-400 hover:text-red-500 transition-colors"
+                                className="p-1 rounded-lg text-gray-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+                                title="Répondre"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <Reply className="w-3.5 h-3.5" />
                               </button>
+                              {isMe && (
+                                <>
+                                  {/* Séparateur */}
+                                  <span className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-0.5" />
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingId(activity.id);
+                                      setEditingText(activity.details || '');
+                                    }}
+                                    className="p-1 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                    title="Modifier"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteMessage(activity.id);
+                                    }}
+                                    className="p-1 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                    title="Supprimer"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              )}
                             </div>
                           )}
                         </div>
+
+                        {/* Picker emoji (inline, hors bulle de message) */}
+                        {showEmojiPickerFor === activity.id && (
+                          <div
+                            className={`flex gap-1 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-100 dark:border-gray-700 px-2 py-1.5 mt-1 z-50 animate-in fade-in zoom-in duration-150 ${isMe ? 'self-end' : 'self-start'}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {REACTION_EMOJIS.map(emoji => {
+                              const hasReacted = (reactions[emoji] || []).includes(state.cloudUser?.uid || '');
+                              return (
+                                <button
+                                  key={emoji}
+                                  onClick={() => handleToggleReaction(activity, emoji)}
+                                  className={`text-base hover:scale-125 transition-transform rounded-full p-0.5 ${hasReacted ? 'bg-blue-100 dark:bg-blue-900/40 ring-1 ring-blue-400' : ''}`}
+                                  title={emoji}
+                                >
+                                  {emoji}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Affichage des réactions */}
+                        {hasReactions && (
+                          <div className={`flex flex-wrap gap-1 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                            {Object.entries(reactions).map(([emoji, userIds]) => {
+                              if (!userIds.length) return null;
+                              const iMeReacted = userIds.includes(state.cloudUser?.uid || '');
+                              return (
+                                <button
+                                  key={emoji}
+                                  onClick={(e) => { e.stopPropagation(); handleToggleReaction(activity, emoji); }}
+                                  className={`flex items-center gap-0.5 text-xs px-2 py-0.5 rounded-full border transition-all hover:scale-105 ${
+                                    iMeReacted
+                                      ? 'bg-blue-100 dark:bg-blue-900/40 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300'
+                                      : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+                                  }`}
+                                >
+                                  <span>{emoji}</span>
+                                  <span className="font-semibold">{userIds.length}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -508,16 +638,38 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
           </div>
         )}
 
+        {/* Bandeau de réponse */}
+        {replyingTo && (
+          <div className="flex items-start justify-between gap-2 mb-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800 animate-in slide-in-from-bottom-1 duration-200">
+            <div className="flex items-start gap-2 min-w-0">
+              <CornerDownRight className="w-3.5 h-3.5 text-blue-400 flex-shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 block">
+                  Répondre à {replyingTo.actorName}
+                </span>
+                <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate block">
+                  {(replyingTo.details || '').substring(0, 60)}{(replyingTo.details || '').length > 60 ? '…' : ''}
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => setReplyingTo(null)}
+              className="p-0.5 text-gray-400 hover:text-gray-600 flex-shrink-0"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         <div className="relative bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-gray-100 dark:border-gray-700 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
           <textarea
             ref={inputRef}
             value={message}
             onChange={handleInputChange}
-            placeholder="Écrivez @nom pour mentionner..."
+            placeholder={replyingTo ? `Répondre à ${replyingTo.actorName}...` : "Écrivez @nom pour mentionner..."}
             className="w-full bg-transparent border-none focus:ring-none focus:outline-none text-sm resize-none py-3 px-4 dark:text-gray-200 min-h-[44px] max-h-[120px]"
             rows={1}
             onBlur={() => {
-              // Petit délai pour permettre le clic sur une suggestion
               setTimeout(() => setShowMentionSuggestions(false), 200);
             }}
             onKeyDown={(e) => {
@@ -525,10 +677,14 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
                 e.preventDefault();
                 handleSendMessage();
               }
+              if (e.key === 'Escape' && replyingTo) {
+                setReplyingTo(null);
+              }
             }}
           />
           <div className="flex items-center justify-between px-3 pb-2">
             <div className="flex items-center gap-1">
+              {/* Bouton mention */}
               <button
                 className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                 onClick={() => setMessage(prev => prev + '@')}
@@ -536,6 +692,39 @@ export function ActivityFeed({ projectId, project, onClose }: ActivityFeedProps)
               >
                 <AtSign className="w-4 h-4" />
               </button>
+              {/* Bouton emoji saisie */}
+              <div className="relative">
+                <button
+                  className="p-1.5 text-gray-400 hover:text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors"
+                  onClick={(e) => { e.stopPropagation(); setShowInputEmojiPicker(v => !v); }}
+                  title="Insérer un emoji"
+                >
+                  <Smile className="w-4 h-4" />
+                </button>
+                {showInputEmojiPicker && (
+                  <div
+                    className="absolute bottom-full left-0 mb-2 w-[220px] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 p-2 z-[200] animate-in fade-in zoom-in-95 duration-150"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 px-1">Emojis</p>
+                    <div className="grid grid-cols-6 gap-0.5">
+                      {INPUT_EMOJIS.map(emoji => (
+                        <button
+                          key={emoji}
+                          onClick={() => {
+                            setMessage(prev => prev + emoji);
+                            setShowInputEmojiPicker(false);
+                            inputRef.current?.focus();
+                          }}
+                          className="text-lg w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 hover:scale-125 transition-all"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
             <Button
               onClick={handleSendMessage}
