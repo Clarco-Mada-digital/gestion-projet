@@ -31,6 +31,7 @@ export function NotificationCenter() {
     showCustomNotification
   } = useNotifications();
   const [cloudNotifications, setCloudNotifications] = useState<Notification[]>([]);
+  const [pwaNotifications, setPwaNotifications] = useState<any[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -166,51 +167,108 @@ export function NotificationCenter() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (isOpen) {
+      setPwaNotifications(getRecentNotifications());
+    }
+  }, [isOpen, getRecentNotifications]);
+
   const areNotificationsEnabled = () => {
     return state.appSettings?.pushNotifications === true;
   };
 
-  const unreadCount = cloudNotifications.filter(n => !n.isRead).length;
-  const pwaNotifications = getRecentNotifications();
+  const getProjectSource = (projectId?: string) => {
+    if (!projectId) return null;
+    const p = state.projects.find(p => p.id === projectId);
+    return p ? p.source : null;
+  };
 
-  const handleMarkAsRead = async (id: string, e: React.MouseEvent) => {
+  const filteredPWANotifications = pwaNotifications.filter(n => {
+    const source = getProjectSource(n.projectId);
+    // Si c'est un projet partagé (firebase), on ignore la notification locale
+    if (source === 'firebase') return false;
+    return true;
+  });
+
+  const unreadCount = cloudNotifications.filter(n => !n.isRead).length + filteredPWANotifications.length;
+  
+  const unifiedNotifications = [
+    ...cloudNotifications.map(n => ({
+      id: n.id,
+      source: 'cloud' as const,
+      title: n.title,
+      message: n.message,
+      isRead: n.isRead,
+      timestamp: new Date(n.createdAt).getTime() || 0,
+      projectId: n.projectId,
+      taskId: n.taskId,
+      projectName: n.projectName,
+      link: n.link,
+      type: n.type,
+      original: n
+    })),
+    ...filteredPWANotifications.map(n => ({
+      id: n.id,
+      source: 'local' as const,
+      title: n.title,
+      message: n.body,
+      isRead: false,
+      timestamp: n.timestamp || 0,
+      projectId: n.projectId,
+      taskId: n.taskId,
+      projectName: n.projectName,
+      link: n.link || n.data?.link,
+      type: n.data?.type,
+      original: n
+    }))
+  ];
+
+  unifiedNotifications.sort((a, b) => b.timestamp - a.timestamp);
+
+  const handleMarkAsRead = async (id: string, e: React.MouseEvent, source: 'cloud' | 'local') => {
     e.stopPropagation();
-    console.log('🔔 Tentative de marquage comme lu:', id);
-
-    try {
-      await notificationService.markAsRead(id);
-      console.log('✅ Notification marquée comme lue côté serveur');
-
-      // Mettre à jour l'état local pour rafraîchir l'interface
-      setCloudNotifications(prev => {
-        const updated = prev.map(n => n.id === id ? { ...n, isRead: true } : n);
-        console.log('🔄 État local mis à jour:', updated.find(n => n.id === id)?.isRead);
-        return updated;
-      });
-    } catch (error) {
-      console.error('❌ Erreur lors du marquage comme lu:', error);
+    if (source === 'cloud') {
+      try {
+        await notificationService.markAsRead(id);
+        setCloudNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+      } catch (error) {
+        console.error('❌ Erreur lors du marquage comme lu:', error);
+      }
+    } else {
+      // Local notifications are "marked as read" by deleting them
+      deletePWANotification(id);
+      setPwaNotifications(getRecentNotifications());
     }
   };
 
-  const handleDelete = async (id: string, e: React.MouseEvent) => {
+  const handleDelete = async (id: string, e: React.MouseEvent, source: 'cloud' | 'local') => {
     e.stopPropagation();
-    await notificationService.deleteNotification(id);
-    // Mettre à jour l'état local pour rafraîchir l'interface
-    setCloudNotifications(prev => prev.filter(n => n.id !== id));
+    if (source === 'cloud') {
+      await notificationService.deleteNotification(id);
+      setCloudNotifications(prev => prev.filter(n => n.id !== id));
+    } else {
+      deletePWANotification(id);
+      setPwaNotifications(getRecentNotifications());
+    }
   };
 
   const handleMarkAllAsRead = async () => {
-    if (!state.cloudUser) return;
-    await notificationService.markAllAsRead(cloudNotifications as NotificationType[]);
-    // Mettre à jour l'état local pour rafraîchir l'interface
-    setCloudNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    if (state.cloudUser) {
+      await notificationService.markAllAsRead(cloudNotifications as NotificationType[]);
+      setCloudNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    }
+    // Also clear PWA notifications to mark them as read
+    clearPWANotifications();
+    setPwaNotifications(getRecentNotifications());
   };
 
   const handleClearAll = async () => {
-    if (!state.cloudUser) return;
-    await notificationService.clearAllNotifications(state.cloudUser.uid, cloudNotifications as NotificationType[]);
-    // Mettre à jour l'état local pour rafraîchir l'interface
-    setCloudNotifications([]);
+    if (state.cloudUser) {
+      await notificationService.clearAllNotifications(state.cloudUser.uid, cloudNotifications as NotificationType[]);
+      setCloudNotifications([]);
+    }
+    clearPWANotifications();
+    setPwaNotifications(getRecentNotifications());
   };
 
   const handleNotificationClick = (n: Notification) => {
@@ -309,7 +367,18 @@ export function NotificationCenter() {
     setIsOpen(false);
   };
 
-  const totalNotifications = cloudNotifications.length + pwaNotifications.length;
+  const handleUnifiedClick = (n: typeof unifiedNotifications[0]) => {
+    if (n.source === 'cloud') {
+      handleNotificationClick(n.original);
+    } else {
+      handlePWANotificationClick(n.original);
+      // Delete PWA notification on click so it's marked as read
+      deletePWANotification(n.id);
+      setPwaNotifications(getRecentNotifications());
+    }
+  };
+
+  const totalNotifications = unifiedNotifications.length;
 
   return (
     <div className="relative" ref={containerRef}>
@@ -382,6 +451,7 @@ export function NotificationCenter() {
                   <button
                     onClick={() => {
                       clearPWANotifications();
+                      setPwaNotifications(getRecentNotifications());
                       setShowSettings(false);
                     }}
                     className="w-full px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors"
@@ -413,26 +483,29 @@ export function NotificationCenter() {
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar">
-            {/* Notifications Cloud */}
-            {(showAll ? cloudNotifications : cloudNotifications.slice(0, 5)).map((n) => (
+            {/* Unified Notifications list */}
+            {(showAll ? unifiedNotifications : unifiedNotifications.slice(0, 5)).map((n) => (
               <div
-                key={n.id}
+                key={`${n.source}-${n.id}`}
                 className={`p-4 border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors relative group ${!n.isRead ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
+                onClick={() => handleUnifiedClick(n)}
               >
                 <div className="flex justify-between items-start mb-1">
-                  <h4 className={`text-sm font-semibold truncate pr-12 ${!n.isRead ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
-                    {n.title}
+                  <h4 className={`text-sm font-semibold truncate pr-12 cursor-pointer ${!n.isRead ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
+                    {n.source === 'local' && '🔔 '}{n.title}
                   </h4>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                    {!n.isRead && (
+                      <button
+                        onClick={(e) => handleMarkAsRead(n.id, e, n.source)}
+                        className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        title="Marquer comme lu"
+                      >
+                        <Check className="w-3 h-3" />
+                      </button>
+                    )}
                     <button
-                      onClick={(e) => handleMarkAsRead(n.id, e)}
-                      className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                      title="Marquer comme lu"
-                    >
-                      <Check className="w-3 h-3" />
-                    </button>
-                    <button
-                      onClick={(e) => handleDelete(n.id, e)}
+                      onClick={(e) => handleDelete(n.id, e, n.source)}
                       className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
                       title="Supprimer"
                     >
@@ -440,7 +513,7 @@ export function NotificationCenter() {
                     </button>
                   </div>
                 </div>
-                <p className={`text-sm mb-2 ${!n.isRead ? 'text-gray-700 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                <p className={`text-sm mb-2 cursor-pointer ${!n.isRead ? 'text-gray-700 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>
                   {n.message}
                 </p>
                 {n.projectName && (
@@ -450,10 +523,10 @@ export function NotificationCenter() {
                   </div>
                 )}
                 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
                   {n.link || n.projectId ? (
                     <button
-                      onClick={() => handleNotificationClick(n)}
+                      onClick={() => handleUnifiedClick(n)}
                       className="text-xs text-blue-600 dark:text-blue-400 font-bold hover:underline flex items-center gap-1"
                     >
                       <ExternalLink className="w-3 h-3" />
@@ -461,7 +534,7 @@ export function NotificationCenter() {
                     </button>
                   ) : null}
                   
-                  {n.type === 'mention' && !n.isRead && (
+                  {n.source === 'cloud' && n.type === 'mention' && !n.isRead && (
                     <button
                       onClick={() => {
                         setReplyingToId(replyingToId === n.id ? null : n.id);
@@ -473,11 +546,16 @@ export function NotificationCenter() {
                       Répondre
                     </button>
                   )}
+                  {n.timestamp > 0 && (
+                    <span className="text-[10px] text-gray-400 ml-auto">
+                      {new Date(n.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
                 </div>
 
                 {/* Zone de réponse rapide */}
-                {replyingToId === n.id && (
-                  <div className="mt-3 space-y-2 animate-in slide-in-from-top-1 duration-200">
+                {replyingToId === n.id && n.source === 'cloud' && (
+                  <div className="mt-3 space-y-2 animate-in slide-in-from-top-1 duration-200" onClick={e => e.stopPropagation()}>
                     <textarea
                       autoFocus
                       className="w-full p-2 text-xs bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-1 focus:ring-blue-500 outline-none resize-none dark:text-white"
@@ -495,7 +573,7 @@ export function NotificationCenter() {
                         Annuler
                       </button>
                       <button
-                        onClick={() => handleSendReply(n)}
+                        onClick={() => handleSendReply(n.original)}
                         className="px-2 py-1 text-[10px] bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
                         disabled={isSendingReply || !replyMessage.trim()}
                       >
@@ -507,83 +585,21 @@ export function NotificationCenter() {
               </div>
             ))}
 
-            {/* Notifications PWA récentes */}
-            {pwaNotifications.length > 0 && (
-              <div className="p-4 border-t border-gray-100 dark:border-gray-800">
-                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  🔔 Notifications locales ({pwaNotifications.length})
-                </h4>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {pwaNotifications.map((notification, _index) => (
-                    <div
-                      key={notification.id}
-                      onClick={() => handlePWANotificationClick(notification)}
-                      className="p-2 border border-gray-100 dark:border-gray-800 rounded hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer group relative"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1 min-w-0">
-                          <h5 className="font-medium text-gray-900 dark:text-white text-sm truncate">
-                            {notification.title}
-                          </h5>
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
-                            {notification.body}
-                          </p>
-                          {notification.projectName && (
-                            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                              📁 {notification.projectName}
-                            </p>
-                          )}
-                          <div className="mt-2 flex items-center gap-2">
-                             <button
-                                onClick={() => handlePWANotificationClick(notification)}
-                                className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                              >
-                                <ExternalLink className="w-3 h-3" />
-                                Voir
-                              </button>
-                              <span className="text-[10px] text-gray-400">
-                                {new Date(notification.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                          </div>
-                        </div>
-                        <div className="flex gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deletePWANotification(notification.id);
-                            }}
-                            className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors text-red-500"
-                            title="Supprimer"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {cloudNotifications.length === 0 && pwaNotifications.length === 0 && (
+            {unifiedNotifications.length === 0 && (
               <div className="flex flex-col items-center justify-center py-8 text-gray-500">
                 <Bell className="w-6 h-6 text-gray-300 mb-2" />
                 <p className="text-sm text-gray-500 italic mb-2">Aucune notification</p>
-                <p className="text-xs text-gray-400 text-center px-4">
-                  💡 Les notifications locales (PWA) apparaissent directement dans votre navigateur 
-                  et sont maintenant listées ici avec les notifications cloud.
-                </p>
               </div>
             )}
           </div>
 
-          {cloudNotifications.length > 5 && (
+          {unifiedNotifications.length > 5 && (
             <div className="p-4 border-t border-gray-100 dark:border-gray-800">
               <button
                 onClick={() => setShowAll(!showAll)}
                 className="w-full text-sm text-blue-600 dark:text-blue-400 hover:underline"
               >
-                {showAll ? 'Afficher moins' : `Voir toutes les notifications (${cloudNotifications.length})`}
+                {showAll ? 'Afficher moins' : `Voir toutes les notifications (${unifiedNotifications.length})`}
               </button>
             </div>
           )}
