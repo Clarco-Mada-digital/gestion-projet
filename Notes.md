@@ -5,10 +5,13 @@
 ### Points Forts
 
 - Architecture moderne avec React et TypeScript
-- Interface utilisateur réactive et intuitive
-- Gestion d'état avec Context API
-- Fonctionnalités complètes (gestion de tâches, projets, rapports)
-- Support du mode hors ligne avec localStorage
+- Interface utilisateur réactive et intuitive (Glassmorphism)
+- Gestion d'état robuste avec Context API & Reducer
+- **Nexus IA** : Assistant contextuel intégré
+- **Assistant Vision (BETA)** : Génération stratégique de dossiers de projets
+- **Exports Professionnels** (PDF Audit, HTML Standalone, MD)
+- Support du mode hors ligne & Persistance locale (LocalStorage)
+- Synchronisation Cloud Hybride (Firebase pour le collaboratif, Local pour le stratégique)
 
 ### Points à Améliorer
 
@@ -210,11 +213,11 @@ Suggestion : Réorganiser la structure des dossiers.
 1. Application Mobile
 Suggestion : Développer une application mobile.
 2. Intégrations
-Suggestion : Ajouter des intégrations avec d'autres outils.
-3. Fonctionnalités d'IA
-Suggestion : Développer des fonctionnalités avancées d'IA.
+Suggestion : Ajouter des intégrations avec d'autres outils (Trello, Slack).
+3. IA Générative 2.0 (Réalisé en BETA)
+Accomplissement : Assistant Vision pour la stratégie et Nexus IA pour l'aide contextuelle.
 Priorisation
 Court terme : Améliorer la gestion d'état et optimiser les performances.
-Moyen terme : Développer les nouvelles fonctionnalités.
-Long terme : Explorer l'application mobile et les fonctionnalités avancées
+Moyen terme : Collaboration étendue et synchronisation cloud avancée.
+Réalisé : IA Assistant Vision, Exports Pro, Persistance Locale.
 ___

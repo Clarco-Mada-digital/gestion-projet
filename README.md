@@ -8,11 +8,12 @@ Un tableau de bord moderne de gestion de projet construit avec Astro, React et T
 - 📊 Tableaux Kanban pour une visualisation claire des tâches
 - ☁️ **Collaboration en temps réel** (Synchronisation Cloud via Firebase)
 - 👥 **Gestion d'équipe** (Partage de projets et membres)
-- 🤖 **Intelligence Artificielle** (Génération de tâches automatique via GPT)
-- 🏷️ Étiquetage et catégorisation des tâches
-- 📅 Suivi des échéances
-- ✨ Interface utilisateur moderne et réactive
+- 🤖 **Nexus IA** : Assistant personnel pour la navigation et l'analyse (Context-aware)
+- 📝 **Assistant Vision IA (BETA)** : Générateur de dossiers stratégiques (Vision, Tech, Planning, Roadmap)
+- 📄 **Exports Professionnels** : Rapports au format PDF Premium, HTML Standalone et Markdown
+- 💾 **Persistance Locale Sécurisée** : Vos dossiers de vision restent sur votre machine (LocalStorage)
 - 🌗 Mode sombre/clair (selon les préférences du système)
+- ✨ Interface utilisateur moderne, réactive et fluide (Glassmorphism & Framer Motion)
 
 ## 🛠️ Technologies Utilisées
 
