@@ -3,14 +3,14 @@
 ## 📋 Table des matières
 1. [Présentation du Projet](#-présentation-du-projet)
 2. [Fonctionnalités](#-fonctionnalités)
-3. [Structure du Projet](#-structure-du-projet)
-4. [Installation et Configuration](#-installation-et-configuration)
-5. [Guide d'Utilisation](#-guide-dutilisation)
-6. [Développement](#-développement)
-7. [Déploiement](#-déploiement)
-8. [Dépannage](#-dépannage)
-9. [Contributions](#-contributions)
-10. [Licence](#-licence)
+4. [Assistant Vision IA (BETA)](#-assistant-vision-ia-beta)
+5. [Installation et Configuration](#-installation-et-configuration)
+6. [Guide d'Utilisation](#-guide-dutilisation)
+7. [Développement](#-développement)
+8. [Déploiement](#-déploiement)
+9. [Dépannage](#-dépannage)
+10. [Contributions](#-contributions)
+11. [Licence](#-licence)
 
 ## 🌟 Présentation du Projet
 
@@ -46,40 +46,37 @@ Gestion de Projet est une application web moderne conçue pour vous aider à org
 - **Synchronisation hybride** : Gardez vos projets personnels en local et partagez les autres
 - Export/import des données au format JSON
 
-## 🤖 Intelligence Artificielle
+### Les deux piliers de l'IA dans l'application
 
-L'application intègre une assistance IA pour vous aider dans la gestion de vos projets et tâches. Cette fonctionnalité utilise des modèles de langage avancés pour fournir des réponses contextuelles et des suggestions pertinentes.
+1. **Nexus IA (Assistant Contextuel)** : Un assistant présent en bas à droite pour répondre à vos questions sur l'application, analyser votre charge de travail ou chercher des informations dans vos projets existants.
+2. **Assistant Vision (Stratégie)** : Un module spécialisé pour transformer une idée floue en un dossier de projet structuré et professionnel.
 
-### Configuration de l'IA
+## 📝 Assistant Vision IA (BETA)
 
-L'IA peut être configurée via les paramètres de l'application pour utiliser différents fournisseurs :
-- **OpenAI** : Nécessite une clé API valide
-- **OpenRouter** : Fonctionne en mode anonyme ou avec une clé API pour des fonctionnalités avancées
+Ce module est conçu pour les créateurs qui ont une idée mais ne savent pas par où commencer. Il génère un document complet et exportable.
 
-### Contexte Fourni à l'IA
+### Le Processus de Génération (5 étapes)
+- **Étape 1 : Visions & Objectifs** - Analyse stratégique de la valeur métier et des cibles.
+- **Étape 2 : Fonctionnalités & UX** - Définition du parcours utilisateur et des modules clés.
+- **Étape 3 : Architecture & Stack** - Recommandations techniques personnalisées (Cloud, Tech, Langages).
+- **Étape 4 : Budget & Planning** - Estimations réalistes des coûts et des temps de développement.
+- **Étape 5 : Roadmap & Prochaines Étapes** - Plan d'action concret pour lancer le projet.
 
-Pour fournir des réponses pertinentes, l'IA a accès aux informations suivantes :
-- Liste des projets actifs et leur statut
-- Tâches en cours et leurs échéances
-- Informations sur les membres de l'équipe
-- Préférences utilisateur et paramètres de l'application
+### Synthèse Rapide & Extraction Dynamique
+À la fin de la génération, l'IA produit une **Synthèse Rapide** (Bandeau de droite) qui extrait automatiquement :
+- La complexité du projet (Faible, Moyenne, Haute).
+- La stack technologique recommandée.
+- La durée approximative.
+- Le budget prévisionnel (basé sur les chiffres cités dans le rapport).
 
-### Exemples d'Utilisation
+### Exportations Professionnelles
+L'application propose des formats d'exportation soignés :
+- **PDF Premium** : Mise en page de type "Rapport d'Audit" utilisant un système d'impression isolé pour un rendu professionnel sans interface web.
+- **HTML Standalone** : Un fichier HTML autonome et stylisé (Tailwind CSS) lisible dans n'importe quel navigateur, même hors ligne.
+- **Markdown** : Fichier brut pour documentation technique ou GitHub.
 
-L'IA peut vous aider à :
-- Générer des sous-tâches pour un projet
-- Donner des estimations de temps pour les tâches
-- Fournir des suggestions d'organisation
-- Répondre à des questions sur vos projets et tâches
-- Proposer des améliorations pour votre flux de travail
-
-### Bonnes Pratiques
-
-Pour des réponses optimales :
-- Soyez précis dans vos demandes
-- Mentionnez le contexte (projet, tâche spécifique)
-- Utilisez des mots-clés pertinents
-- N'hésitez pas à reformuler si la réponse ne correspond pas à vos attentes
+### Confidentialité et Stockage
+Contrairement aux projets partagés, les **Dossiers de Vision** sont stockés **uniquement en local** sur votre navigateur (`LocalStorage`). Ils ne sont jamais envoyés sur le Cloud, garantissant une confidentialité totale pour vos idées de projets naissants.
 
 ## 🗂️ Structure du Projet
 
