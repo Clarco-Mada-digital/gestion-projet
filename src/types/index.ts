@@ -180,7 +180,7 @@ export interface User {
 
 export type TeamMember = User;
 
-export type ViewMode = 'today' | 'projects' | 'kanban' | 'calendar' | 'settings' | 'reports';
+export type ViewMode = 'today' | 'projects' | 'kanban' | 'calendar' | 'settings' | 'reports' | 'about' | 'vision';
 
 // Types pour Redux
 export interface ProjectsState {
@@ -441,4 +441,23 @@ export interface ExternalEvent {
   calendarId?: string;
   taskListId?: string;
   status?: string;
+}
+
+export interface VisionDossier {
+  id: string;
+  projectName: string;
+  description: string;
+  objectives: string;
+  targetAudience: string;
+  features: string;
+  constraints: string;
+  logo?: string;
+  fullContent: string;
+  summaryData: {
+    complexity: string;
+    techStack: string;
+    duration: string;
+    budget: string;
+  };
+  createdAt: string;
 }

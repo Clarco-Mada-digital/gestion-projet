@@ -642,8 +642,9 @@ ${appDataInfo}
     }
   }
 
-  static async generateAiText(settings: AISettings, prompt: string): Promise<string> {
+  static async generateAiText(settings: AISettings, prompt: string, verbose: boolean = false): Promise<string> {
     try {
+      // ... (rest of the code remains the same but use verbose in the prompt)
       // Utiliser OpenRouter par défaut avec des modèles gratuits
       const effectiveProvider = settings.provider || 'openrouter';
 
@@ -692,11 +693,11 @@ ${appDataInfo}
             },
             {
               role: 'user',
-              content: `${prompt} (Réponds de manière concise en moins de 300 mots)`
+              content: `${prompt}${verbose ? ' (Sois très détaillé et complet)' : ' (Réponds de manière concise en moins de 300 mots)'}`
             }
           ],
           temperature: settings.temperature || 0.5,
-          max_tokens: settings.maxTokens || 1000,
+          max_tokens: verbose ? 2500 : (settings.maxTokens || 1000),
         }),
       });
 

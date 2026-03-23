@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { Project, Task, ReportEntry, User, UserSettings, ViewMode, Theme, EmailSettings, AppSettings, DEFAULT_AI_SETTINGS, FontSize, AISettings } from '../types';
+import { Project, Task, ReportEntry, User, UserSettings, ViewMode, Theme, EmailSettings, AppSettings, DEFAULT_AI_SETTINGS, FontSize, AISettings, VisionDossier } from '../types';
 import { firebaseService } from '../services/collaboration/firebaseService';
 import { EncryptionService } from '../services/security/encryptionService';
 import { User as FirebaseUser } from 'firebase/auth';
@@ -25,6 +25,7 @@ export interface AppState {
   targetProjectId?: string | null;
   targetTaskId?: string | null;
   reports: ReportEntry[];
+  visionDossiers: VisionDossier[];
   // L'utilisateur principal est le premier utilisateur du tableau users
 }
 
@@ -59,6 +60,8 @@ type AppAction =
   | { type: 'ADD_REPORT'; payload: ReportEntry }
   | { type: 'DELETE_REPORT'; payload: string }
   | { type: 'UPDATE_REPORT'; payload: ReportEntry }
+  | { type: 'ADD_VISION_DOSSIER'; payload: VisionDossier }
+  | { type: 'DELETE_VISION_DOSSIER'; payload: string }
   | { type: 'SET_ACCENT_COLOR'; payload: string }
   | { type: 'UPDATE_BRANDING'; payload: any }
   | { type: 'NAVIGATE_TO_TASK'; payload: { projectId: string; taskId: string } }
@@ -169,7 +172,8 @@ const initialState: AppState = {
   selectedProject: null,
   targetProjectId: null,
   targetTaskId: null,
-  reports: []
+  reports: [],
+  visionDossiers: []
 };
 
 // Fonction utilitaire pour extraire toutes les tâches des projets
@@ -406,11 +410,12 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
     case 'SET_ERROR':
       return { ...state, error: action.payload };
     case 'INIT_STATE': {
-      const { users, reports, ...rest } = action.payload;
+      const { users, reports, visionDossiers, ...rest } = action.payload;
       // S'assurer qu'il y a toujours au moins un utilisateur et des rapports valides
       const validUsers = users && users.length > 0 ? users : [defaultUser];
       const validReports = reports || [];
-      return { ...state, ...rest, users: validUsers, reports: validReports };
+      const validVisionDossiers = visionDossiers || [];
+      return { ...state, ...rest, users: validUsers, reports: validReports, visionDossiers: validVisionDossiers };
     }
     case 'SET_ACCENT_COLOR':
       return {
@@ -431,6 +436,16 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
             accentColor: action.payload
           } as UserSettings
         }))
+      };
+    case 'ADD_VISION_DOSSIER':
+      return {
+        ...state,
+        visionDossiers: [action.payload, ...state.visionDossiers]
+      };
+    case 'DELETE_VISION_DOSSIER':
+      return {
+        ...state,
+        visionDossiers: state.visionDossiers.filter(d => d.id !== action.payload)
       };
     case 'UPDATE_BRANDING':
       return {
@@ -638,7 +653,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // 2. Préparer les valeurs par défaut
         let emailSettings = { ...initialEmailSettings };
         let appSettings = { ...initialAppSettings };
-        let mainData = { projects: [] as Project[], users: [defaultUser], reports: [] as ReportEntry[] };
+        let mainData = { projects: [] as Project[], users: [defaultUser], reports: [] as ReportEntry[], visionDossiers: [] as VisionDossier[] };
 
         // 3. Charger les paramètres email (Priorité à la clé dédiée)
         if (savedEmailSettings) {
@@ -744,11 +759,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...dataToSave,
         notifications: [] // On ne persiste pas les notifications
       }));
-      console.log('[Persistence] Données principales sauvegardées (projets + rapports)');
+      console.log('[Persistence] Données principales sauvegardées (projets + rapports + vision)');
     } catch (error) {
       console.error('Erreur lors de la sauvegarde locale:', error);
     }
-  }, [state.projects, state.users, state.theme, state.currentView, state.selectedProject, state.reports, state.isLoading]);
+  }, [state.projects, state.users, state.theme, state.currentView, state.selectedProject, state.reports, state.visionDossiers, state.isLoading]);
 
   // ─── Effet 2 : Synchronisation Cloud Firebase ────────────────────────────
   // Séparé de la sauvegarde locale pour éviter de bloquer le thread sur les gros projets

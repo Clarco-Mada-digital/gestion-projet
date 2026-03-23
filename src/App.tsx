@@ -10,6 +10,7 @@ import { CalendarView } from './components/Views/CalendarView';
 import { SettingsView } from './components/Views/SettingsView';
 import { ReportView } from './components/Views/ReportView';
 import { AboutView } from './components/Views/AboutView';
+import { VisionView } from './components/Views/VisionView';
 import Chatbot from './components/Chatbot';
 import { motion, AnimatePresence } from 'framer-motion';
 import { matchesShortcut } from './utils/keyboardUtils';
@@ -168,6 +169,7 @@ function AppContent() {
       case 'kanban': return <KanbanView />;
       case 'calendar': return <CalendarView />;
       case 'reports': return <ReportView />;
+      case 'vision': return <VisionView />;
       case 'settings': return <SettingsView />;
       case 'about': return <AboutView />;
       default: return <TodayView />;
