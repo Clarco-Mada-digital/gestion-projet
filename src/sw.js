@@ -66,8 +66,9 @@ messaging.onBackgroundMessage((payload) => {
     actions: []
   };
 
-  // Ajouter l'action de réponse pour les mentions
-  if (type === 'mention') {
+  // Ajouter l'action de réponse pour les notifications de type message
+  const messageTypes = ['mention', 'project_mention', 'task_comment_mention', 'reply_added'];
+  if (messageTypes.includes(type)) {
     notificationOptions.actions.push({
       action: 'reply',
       title: 'Répondre',

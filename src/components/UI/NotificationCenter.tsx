@@ -552,8 +552,10 @@ export function NotificationCenter() {
                     </button>
                   ) : null}
                   
-                  {/* Bouton Répondre: disponible pour toutes les notifications cloud liées à un projet */}
-                  {n.source === 'cloud' && n.projectId && (
+                  {/* Bouton Répondre: disponible pour les notifications cloud de type message liées à un projet */}
+                  {n.source === 'cloud' && 
+                   n.projectId && 
+                   ['mention', 'project_mention', 'task_comment_mention', 'reply_added'].includes(n.type as string) && (
                     <button
                       onClick={() => {
                         setReplyingToId(replyingToId === n.id ? null : n.id);
