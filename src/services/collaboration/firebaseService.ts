@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, deleteDoc, onSnapshot } from 'firebase/firestore';
-import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, User as FirebaseUser, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, signInAnonymously, User as FirebaseUser, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { firebaseConfig, isFirebaseConfigured } from '../../lib/firebaseConfig';
 import { Project, Task } from '../../types';
 import { EncryptionService } from '../security/encryptionService';
@@ -542,16 +542,37 @@ export const firebaseService = {
   },
 
   /**
+   * Connexion anonyme pour permettre l'accès aux ressources publiques Firestore
+   * sans nécessiter que l'utilisateur soit connecté avec un compte Google.
+   */
+  async ensurePublicAccess(): Promise<void> {
+    if (!isFirebaseConfigured()) return;
+    await ensureInitialized();
+    // Si aucun utilisateur (même anonyme) n'est connecté, on connecte anonymement
+    if (!auth.currentUser) {
+      try {
+        await signInAnonymously(auth);
+        console.log('[PublicView] Connexion anonyme Firebase établie pour accès public');
+      } catch (error) {
+        // L'accès anonyme peut être désactivé dans la console Firebase.
+        // Dans ce cas on continue quand même — les règles Firestore
+        // basées sur isPublic==true peuvent parfois fonctionner sans auth.
+        console.warn('[PublicView] Connexion anonyme échouée (peut-être désactivée):', error);
+      }
+    }
+  },
+
+  /**
    * Écoute les mises à jour en temps réel d'un projet public
    */
   onPublicProjectUpdate: (projectId: string, callback: (project: Project | null) => void) => {
     if (!isFirebaseConfigured()) return () => { };
 
-    ensureInitialized();
-
+    let unsubscribeProject: (() => void) | null = null;
     let unsubscribeTasks: (() => void) | null = null;
     let projectDoc: Project | null = null;
     let projectTasks: Task[] = [];
+    let cancelled = false;
 
     const handleUpdate = () => {
       if (projectDoc) {
@@ -565,39 +586,60 @@ export const firebaseService = {
       }
     };
 
-    const unsubscribeProject = onSnapshot(doc(db, 'projects', projectId), (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data() as Project;
-        if (data.isPublic) {
-          projectDoc = data;
-          
-          // Si le projet utilise la version 2 de sync, on écoute aussi les tâches
-          if (data.syncVersion >= 2 && !unsubscribeTasks) {
-            const tasksRef = collection(db, 'projects', projectId, 'tasks');
-            unsubscribeTasks = onSnapshot(tasksRef, (tasksSnapshot) => {
-              projectTasks = tasksSnapshot.docs.map(tDoc => tDoc.data() as Task);
-              handleUpdate();
-            }, (error) => {
-              console.error("Erreur listener tâches publiques:", error);
-            });
+    const startListening = () => {
+      if (cancelled) return;
+
+      unsubscribeProject = onSnapshot(doc(db, 'projects', projectId), (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data() as Project;
+          if (data.isPublic) {
+            projectDoc = data;
+
+            // Si le projet utilise la version 2 de sync, on écoute aussi les tâches
+            if (data.syncVersion >= 2 && !unsubscribeTasks) {
+              const tasksRef = collection(db, 'projects', projectId, 'tasks');
+              unsubscribeTasks = onSnapshot(tasksRef, (tasksSnapshot) => {
+                projectTasks = tasksSnapshot.docs.map(tDoc => tDoc.data() as Task);
+                handleUpdate();
+              }, (error) => {
+                console.error("Erreur listener tâches publiques:", error);
+              });
+            }
+
+            handleUpdate();
+          } else {
+            projectDoc = null;
+            handleUpdate();
           }
-          
-          handleUpdate();
         } else {
           projectDoc = null;
           handleUpdate();
         }
+      }, (error) => {
+        console.error("Erreur lors de l'écoute du projet public:", error);
+        callback(null);
+      });
+    };
+
+    // On s'assure d'avoir une identité Firebase (même anonyme) avant d'écouter
+    ensureInitialized().then(() => {
+      if (cancelled) return;
+      if (!auth.currentUser) {
+        signInAnonymously(auth)
+          .then(() => startListening())
+          .catch(() => {
+            // Même si la connexion anonyme échoue, on tente quand même
+            console.warn('[PublicView] Connexion anonyme échouée, tentative sans auth...');
+            startListening();
+          });
       } else {
-        projectDoc = null;
-        handleUpdate();
+        startListening();
       }
-    }, (error) => {
-      console.error("Erreur lors de l'écoute du projet public:", error);
-      callback(null);
     });
 
     return () => {
-      unsubscribeProject();
+      cancelled = true;
+      if (unsubscribeProject) unsubscribeProject();
       if (unsubscribeTasks) unsubscribeTasks();
     };
   },

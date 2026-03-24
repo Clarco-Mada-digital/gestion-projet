@@ -203,11 +203,10 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                   // @ts-ignore - On gère l'ouverture via le state local de ProjectsView
                   window.dispatchEvent(new CustomEvent('openProjectFeed', { detail: project }));
                 }}
-                className={`p-2 mr-1 rounded-xl transition-all duration-200 relative ${
-                  isUnread 
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-none animate-pulse' 
-                    : 'hover:bg-blue-50 dark:hover:bg-blue-900/40 text-blue-600'
-                }`}
+                className={`p-2 mr-1 rounded-xl transition-all duration-200 relative ${isUnread
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-none animate-pulse'
+                  : 'hover:bg-blue-50 dark:hover:bg-blue-900/40 text-blue-600'
+                  }`}
               >
                 <MessageSquare className="w-5 h-5" />
                 {isUnread && (
@@ -805,7 +804,7 @@ export function ProjectsView() {
   useEffect(() => {
     if (state.cloudUser?.uid) {
       const unsubscribe = projectReadService.subscribeToAllReadStatuses(
-        state.cloudUser.uid, 
+        state.cloudUser.uid,
         (statuses) => setReadStatuses(statuses)
       );
       return () => unsubscribe();
@@ -1591,7 +1590,7 @@ export function ProjectsView() {
           </Button>
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-6">
         <Card className="p-6 text-center" hover gradient>
           <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
             <span className="text-2xl font-bold text-white">
@@ -1682,19 +1681,19 @@ export function ProjectsView() {
                 return isActive && (showUnfollowed || isFollowed);
               })
               .map(project => (
-                  <ProjectCard
-                    key={project.id}
-                    project={project}
-                    onEdit={handleEditProject}
-                    onArchive={handleArchiveProject}
-                    onDelete={(p) => {
-                      setProjectToDelete(p);
-                      setShowDeleteConfirm(true);
-                    }}
-                    onManageMembers={handleManageMembers}
-                    getProjectStats={getProjectStats}
-                    isUnread={!!project.lastActivityAt && project.lastActivityBy !== state.cloudUser?.uid && (!readStatuses[project.id] || project.lastActivityAt > readStatuses[project.id])}
-                  />
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  onEdit={handleEditProject}
+                  onArchive={handleArchiveProject}
+                  onDelete={(p) => {
+                    setProjectToDelete(p);
+                    setShowDeleteConfirm(true);
+                  }}
+                  onManageMembers={handleManageMembers}
+                  getProjectStats={getProjectStats}
+                  isUnread={!!project.lastActivityAt && project.lastActivityBy !== state.cloudUser?.uid && (!readStatuses[project.id] || project.lastActivityAt > readStatuses[project.id])}
+                />
               ))}
           </div>
         ) : showActive ? (
@@ -3218,9 +3217,9 @@ export function ProjectsView() {
         className="dark:bg-gray-900 border-l dark:border-gray-800"
       >
         {activeProjectFeed && (
-          <ActivityFeed 
-            projectId={activeProjectFeed.id} 
-            project={activeProjectFeed} 
+          <ActivityFeed
+            projectId={activeProjectFeed.id}
+            project={activeProjectFeed}
             onClose={() => setActiveProjectFeed(null)}
           />
         )}

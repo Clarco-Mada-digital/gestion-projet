@@ -29,7 +29,9 @@ service cloud.firestore {
 
       // Règles pour les tâches du projet (Nouvelle version de synchronisation)
       match /tasks/{taskId} {
-        allow read: if (isAuthenticated() && isProjectMember(get(/databases/$(database)/documents/projects/$(projectId)).data)) || get(/databases/$(database)/documents/projects/$(projectId)).data.isPublic == true;
+        // Lecture : membre authentifié OU projet public (accès anonyme inclus)
+        allow read: if isAuthenticated() && isProjectMember(get(/databases/$(database)/documents/projects/$(projectId)).data)
+                    || get(/databases/$(database)/documents/projects/$(projectId)).data.get('isPublic', false) == true;
         allow write: if isAuthenticated() && isProjectMember(get(/databases/$(database)/documents/projects/$(projectId)).data);
       }
     }
