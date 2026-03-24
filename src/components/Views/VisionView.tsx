@@ -37,6 +37,7 @@ interface VisionData {
   targetAudience: string;
   features: string;
   constraints: string;
+  complementaryInfo?: string; 
   logo?: string; // Base64 or URL
 }
 
@@ -56,7 +57,8 @@ export function VisionView() {
     objectives: '',
     targetAudience: '',
     features: '',
-    constraints: ''
+    constraints: '',
+    complementaryInfo: ''
   });
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [generationSteps, setGenerationSteps] = useState<GenerationStep[]>([
@@ -88,6 +90,22 @@ export function VisionView() {
       reader.readAsDataURL(file);
     }
   };
+  
+  const handleComplementaryFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const text = event.target?.result as string;
+        setFormData(prev => ({ 
+          ...prev, 
+          complementaryInfo: (prev.complementaryInfo ? prev.complementaryInfo + "\n\n" : "") + "--- CONTENU IMPORTÉ ---\n" + text 
+        }));
+        message.success("Document importé et ajouté aux informations !");
+      };
+      reader.readAsText(file);
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -111,11 +129,18 @@ export function VisionView() {
     try {
       // Étape 1 : Stratégie
       updateStepStatus('strategy', 'loading');
-      const strategyPrompt = `Analyse stratégique pour le projet "${formData.projectName}". 
+      const strategyPrompt = `Analyse stratégique professionnelle pour le projet "${formData.projectName}". 
       Description: ${formData.description}
       Objectifs: ${formData.objectives}
       Cible: ${formData.targetAudience}
-      Structure la réponse avec : Vision globale, Analyse du besoin, Facteurs clés de succès.`;
+      ${formData.complementaryInfo ? `RECHERCHES / ANALYSES COMPLÉMENTAIRES À INTÉGRER : ${formData.complementaryInfo}` : ''}
+      
+      CONSIGNES DE RÉDACTION :
+      1. Adopte un ton de consultant stratégique bienveillant. 
+      2. Évite le jargon technique.
+      3. Utilise un TABLEAU pour l'Analyse du Besoin (Problème | Solution | Bénéfice Client).
+      4. Présente les "Facteurs clés de succès" sous forme de liste structurée et visuelle.
+      5. Ajoute une section "Vision à long terme" pour inspirer le client.`;
 
       const strategyResult = await AIService.generateAiText(state.appSettings.aiSettings, strategyPrompt, true);
       updateStepStatus('strategy', 'completed', strategyResult);
@@ -133,33 +158,50 @@ export function VisionView() {
 
       // Étape 3 : Technique
       updateStepStatus('tech', 'loading');
-      const techPrompt = `Recommandation technique pour le projet "${formData.projectName}". 
+      const techPrompt = `Recommandation technologique VULGARISÉE pour le projet "${formData.projectName}". 
       Fonctionnalités: ${formData.features}
       Contraintes: ${formData.constraints}
-      Recommande une Stack Technique (Frontend, Backend, BDD, Hébergement) et explique pourquoi ce sont les meilleurs choix.`;
+      ${formData.complementaryInfo ? `PRENDRE EN COMPTE CES RECHERCHES : ${formData.complementaryInfo}` : ''}
+      
+      CONSIGNES :
+      1. Explique les choix technologiques pour un CLIENT NON-TECHNICIEN (Pourquoi ce choix le rassure/l'aide).
+      2. Utilise un TABLEAU pour la Stack (Composant | Technologie | Pourquoi ce choix pour VOUS).
+      3. Explique les avantages en termes de : Sécurité, Évolutivité et Rapidité.
+      4. Utilise des métaphores simples si nécessaire.`;
 
       const techResult = await AIService.generateAiText(state.appSettings.aiSettings, techPrompt, true);
       updateStepStatus('tech', 'completed', techResult);
-      fullContent += `## 3. Architecture & Stack Technique\n${techResult}\n\n`;
+      fullContent += `## 3. Architecture & Guide Technique Simplifié\n${techResult}\n\n`;
 
       // Étape 4 : Planning & Budget
       updateStepStatus('planning', 'loading');
       const planningPrompt = `Estimation de temps et de budget pour le projet "${formData.projectName}". 
+      Description: ${formData.description}
       Fonctionnalités: ${formData.features}
-      Donne : Estimation du temps de développement global, Découpage par phases majeures, Fourchette de budget approximative (Min - Max) basée sur les tarifs du marché.`;
+      
+      CONSIGNES IMPÉRATIVES :
+      1. Présente le Découpage par phases dans un TABLEAU (Phase | Durée estimée | Livrable clé pour vous).
+      2. Donne une fourchette de budget (Min - Max) claire.
+      3. Explique ce qui fait varier le prix de manière simple (ex: complexité des designs, nombre de fonctionnalités).
+      4. Ajoute une note sur le ROI (Retour sur investissement) potentiel.`;
 
       const planningResult = await AIService.generateAiText(state.appSettings.aiSettings, planningPrompt, true);
       updateStepStatus('planning', 'completed', planningResult);
-      fullContent += `## 4. Planning & Budget Prévisionnel\n${planningResult}\n\n`;
+      fullContent += `## 4. Planning Stratégique & Budget Prévisionnel\n${planningResult}\n\n`;
 
       // Étape 5 : Roadmap
       updateStepStatus('roadmap', 'loading');
-      const roadmapPrompt = `Roadmap détaillée et prochaines étapes pour le projet "${formData.projectName}". 
-      Comment passer de l'idée à la réalité ? Détaille les étapes : MVP (Minimum Viable Product), Phase de test, Lancement.`;
+      const roadmapPrompt = `Le chemin vers la réussite (Roadmap) pour le projet "${formData.projectName}". 
+      
+      CONSIGNES :
+      1. Détaille les étapes pour passer de l'idée au lancement.
+      2. Utilise un TABLEAU "Le Chemin à Suivre" (Étape | Objectif | Actions Immédiates).
+      3. Distingue clairement le MVP (Version 1 simple) des évolutions futures.
+      4. Termine par une section "Conseils du consultant" pour rassurer le client sur le démarrage.`;
 
       const roadmapResult = await AIService.generateAiText(state.appSettings.aiSettings, roadmapPrompt, true);
       updateStepStatus('roadmap', 'completed', roadmapResult);
-      fullContent += `## 5. Roadmap & Prochaines Étapes\n${roadmapResult}\n\n`;
+      fullContent += `## 5. Roadmap Détaillée : Le Chemin à Suivre\n${roadmapResult}\n\n`;
 
       // Nouvelle étape : Génération de la synthèse cohérente
       const finalSummaryPrompt = `Basé STRICTEMENT sur le document suivant, remplis les champs JSON demandés.
@@ -171,38 +213,42 @@ export function VisionView() {
       
       const summaryResult = await AIService.generateAiText(state.appSettings.aiSettings, finalSummaryPrompt);
       // Tentative de parsing du JSON plus robuste
+      let finalSummaryData = { ...summaryData };
+
+      // Tentative de parsing du JSON pour la synthèse
       try {
         const jsonMatch = summaryResult.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
-          const newSummary = {
+          finalSummaryData = {
             complexity: parsed.complexity || 'Moyenne',
             techStack: parsed.techStack || 'Standards Web',
             duration: parsed.duration || 'À estimer',
             budget: parsed.budget || 'À définir'
           };
-          setSummaryData(newSummary);
-          
-          // Sauvegarder dans l'historique avec la bonne synthèse
-          const newDossier = {
-            id: uuidv4(),
-            projectName: formData.projectName,
-            description: formData.description,
-            objectives: formData.objectives,
-            targetAudience: formData.targetAudience,
-            features: formData.features,
-            constraints: formData.constraints,
-            logo: formData.logo,
-            fullContent,
-            summaryData: newSummary,
-            createdAt: new Date().toISOString()
-          };
-          
-          dispatch({ type: 'ADD_VISION_DOSSIER', payload: newDossier });
+          setSummaryData(finalSummaryData);
         }
       } catch (e) {
-        console.warn("Erreur parsing synthèse IA:", e);
+        console.warn("Erreur parsing synthèse IA (utilisation des valeurs par défaut):", e);
       }
+
+      // SAUVEGARDE SYSTÉMATIQUE DANS L'HISTORIQUE
+      const newDossier: VisionDossier = {
+        id: uuidv4(),
+        projectName: formData.projectName,
+        description: formData.description,
+        objectives: formData.objectives,
+        targetAudience: formData.targetAudience,
+        features: formData.features,
+        constraints: formData.constraints,
+        complementaryInfo: formData.complementaryInfo,
+        logo: formData.logo,
+        fullContent,
+        summaryData: finalSummaryData,
+        createdAt: new Date().toISOString()
+      };
+
+      dispatch({ type: 'ADD_VISION_DOSSIER', payload: newDossier });
 
       setFinalDocument(fullContent);
       setStep(4);
@@ -335,6 +381,7 @@ export function VisionView() {
       targetAudience: dossier.targetAudience || '',
       features: dossier.features || '',
       constraints: dossier.constraints || '',
+      complementaryInfo: dossier.complementaryInfo || '',
       logo: dossier.logo
     });
 
@@ -655,6 +702,27 @@ export function VisionView() {
                       placeholder="Avez-vous des restrictions ? (Ex: Petit budget, doit être prêt en 2 mois, utiliser uniquement du React...)"
                       className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
                       rows={3}
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
+                        Informations Complémentaires & Recherches (ChatGPT, Claude...)
+                      </label>
+                      <label className="flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-lg cursor-pointer hover:bg-blue-100 transition-all text-[10px] font-black uppercase">
+                        <Plus className="w-3 h-3" />
+                        Importer un .txt / .md
+                        <input type="file" accept=".txt,.md" className="hidden" onChange={handleComplementaryFileUpload} />
+                      </label>
+                    </div>
+                    <textarea
+                      name="complementaryInfo"
+                      value={formData.complementaryInfo}
+                      onChange={handleInputChange}
+                      placeholder="Collez ici les analyses venant de ChatGPT ou Claude pour que l'assistant les intègre dans sa génération..."
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white font-mono text-xs"
+                      rows={5}
                     />
                   </div>
                 </div>

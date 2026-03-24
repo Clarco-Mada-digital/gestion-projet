@@ -414,7 +414,21 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       // S'assurer qu'il y a toujours au moins un utilisateur et des rapports valides
       const validUsers = users && users.length > 0 ? users : [defaultUser];
       const validReports = reports || [];
-      const validVisionDossiers = visionDossiers || [];
+      const validVisionDossiers = (visionDossiers || []).map((d: any) => ({
+        ...d,
+        description: d.description || '',
+        objectives: d.objectives || '',
+        targetAudience: d.targetAudience || '',
+        features: d.features || '',
+        constraints: d.constraints || '',
+        complementaryInfo: d.complementaryInfo || '',
+        summaryData: d.summaryData || {
+          complexity: 'Moyenne',
+          techStack: 'Standards Web',
+          duration: 'À estimer',
+          budget: 'À définir'
+        }
+      }));
       return { ...state, ...rest, users: validUsers, reports: validReports, visionDossiers: validVisionDossiers };
     }
     case 'SET_ACCENT_COLOR':
