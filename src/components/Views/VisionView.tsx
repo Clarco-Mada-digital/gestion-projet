@@ -62,11 +62,11 @@ export function VisionView() {
   });
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [generationSteps, setGenerationSteps] = useState<GenerationStep[]>([
-    { id: 'strategy', label: 'Analyse Stratégique & Vision', status: 'pending' },
+    { id: 'strategy', label: 'Visions & Objectifs', status: 'pending' },
     { id: 'branding', label: 'Charte Graphique & Identité', status: 'pending' },
-    { id: 'tech', label: 'Architecture & Stack Technique', status: 'pending' },
-    { id: 'planning', label: 'Planning & Budget Prévisionnel', status: 'pending' },
-    { id: 'roadmap', label: 'Roadmap Détaillée & Prochaines Étapes', status: 'pending' }
+    { id: 'tech', label: 'Architecture & Stack', status: 'pending' },
+    { id: 'planning', label: 'Planning & Budget', status: 'pending' },
+    { id: 'roadmap', label: 'Roadmap & Étapes', status: 'pending' }
   ]);
   const [finalDocument, setFinalDocument] = useState<string>('');
   const [summaryData, setSummaryData] = useState({
@@ -121,15 +121,21 @@ export function VisionView() {
   const generateFullDocument = async () => {
     if (!formData.description) return;
 
+    // Réinitialisation complète des étapes pour éviter l'affichage de l'ancienne génération
+    setGenerationSteps(prev => prev.map(s => ({ ...s, status: 'pending', content: undefined })));
     setStep(3);
 
     let fullContent = `# Dossier de Vision de Projet : ${formData.projectName || 'Nouveau Projet'}\n\n`;
     fullContent += `> **NOTE BETA** : Ce document est une proposition générée par IA. Il ne remplace pas l'expertise d'une agence de développement ou d'un consultant professionnel. Utilisez-le comme guide pour vos discussions avec des experts.\n\n`;
 
+    let currentStepId = 'strategy';
+
     try {
       // Étape 1 : Stratégie
+      currentStepId = 'strategy';
       updateStepStatus('strategy', 'loading');
       const strategyPrompt = `Analyse stratégique professionnelle pour le projet "${formData.projectName}". 
+      Ce document s'adresse à un client non-expert (lambda). Évite tout terme trop complexe ou technique sans l'expliquer.
       Description: ${formData.description}
       Objectifs: ${formData.objectives}
       Cible: ${formData.targetAudience}
@@ -137,26 +143,35 @@ export function VisionView() {
       
       CONSIGNES DE RÉDACTION :
       1. Adopte un ton de consultant stratégique bienveillant. 
-      2. Évite le jargon technique.
+      2. Évite le jargon technique et sois extrêmement pédagogique.
       3. Utilise un TABLEAU pour l'Analyse du Besoin (Problème | Solution | Bénéfice Client).
       4. Présente les "Facteurs clés de succès" sous forme de liste structurée et visuelle.
-      5. Ajoute une section "Vision à long terme" pour inspirer le client.`;
+      5. Ajoute une section "Vision à long terme" pour inspirer le client et lui donner confiance.`;
 
       const strategyResult = await AIService.generateAiText(state.appSettings.aiSettings, strategyPrompt, true);
       updateStepStatus('strategy', 'completed', strategyResult);
       fullContent += `## 1. Vision & Stratégie\n${strategyResult}\n\n`;
 
       // Étape 2 : Branding (Charte Graphique)
+      currentStepId = 'branding';
       updateStepStatus('branding', 'loading');
       const brandingPrompt = `Propose une charte graphique et une identité visuelle pour le projet "${formData.projectName}". 
       Description: ${formData.description}
-      Donne : Palette de couleurs (avec codes HEX), Typographies (Titres et Corps), Univers visuel (ambiance, style d'icônes).`;
+      
+      CONSIGNES :
+      1. Palette de couleurs : Liste 3-4 couleurs avec leur code HEX (ex: #1e40af). 
+         IMPORTANT : Pour chaque couleur, insère impérativement le tag [COL_HEX] juste après le code pour que je puisse afficher l'aperçu. 
+         Exemple : "Bleu Royal : #1e40af [COL_1e40af]"
+      2. Typographies (Titres et Corps). Explique pourquoi ces polices correspondent au projet.
+      3. Univers visuel (ambiance, style d'icônes).
+      4. Conseil sur l'iconographie pour un rendu professionnel.`;
 
       const brandingResult = await AIService.generateAiText(state.appSettings.aiSettings, brandingPrompt, true);
       updateStepStatus('branding', 'completed', brandingResult);
       fullContent += `## 2. Charte Graphique & Identité\n${brandingResult}\n\n`;
 
       // Étape 3 : Technique
+      currentStepId = 'tech';
       updateStepStatus('tech', 'loading');
       const techPrompt = `Recommandation technologique VULGARISÉE pour le projet "${formData.projectName}". 
       Fonctionnalités: ${formData.features}
@@ -174,22 +189,26 @@ export function VisionView() {
       fullContent += `## 3. Architecture & Guide Technique Simplifié\n${techResult}\n\n`;
 
       // Étape 4 : Planning & Budget
+      currentStepId = 'planning';
       updateStepStatus('planning', 'loading');
       const planningPrompt = `Estimation de temps et de budget pour le projet "${formData.projectName}". 
       Description: ${formData.description}
       Fonctionnalités: ${formData.features}
+      Contraintes client : ${formData.constraints || 'Aucune spécifiée'}
       
-      CONSIGNES IMPÉRATIVES :
-      1. Présente le Découpage par phases dans un TABLEAU (Phase | Durée estimée | Livrable clé pour vous).
-      2. Donne une fourchette de budget (Min - Max) claire.
-      3. Explique ce qui fait varier le prix de manière simple (ex: complexité des designs, nombre de fonctionnalités).
-      4. Ajoute une note sur le ROI (Retour sur investissement) potentiel.`;
+      CONSIGNES IMPÉRATIVES POUR LE CLIENT :
+      1. Si les contraintes (temps ou budget) semblent impossibles, NE DIS PAS juste que c'est impossible. 
+         PROPOSE une solution ou une démarche : "Pour respecter votre délai de 2 mois, nous pourrions lancer une Phase 1 (MVP) avec X et Y, puis faire le reste en Phase 2."
+      2. Présente le Découpage par phases dans un TABLEAU (Phase | Durée estimée | Livrable clé pour vous).
+      3. Donne une fourchette de budget (Min - Max) claire et explique les variables.
+      4. Ajoute une note sur le ROI (Retour sur investissement) attendu.`;
 
       const planningResult = await AIService.generateAiText(state.appSettings.aiSettings, planningPrompt, true);
       updateStepStatus('planning', 'completed', planningResult);
       fullContent += `## 4. Planning Stratégique & Budget Prévisionnel\n${planningResult}\n\n`;
 
       // Étape 5 : Roadmap
+      currentStepId = 'roadmap';
       updateStepStatus('roadmap', 'loading');
       const roadmapPrompt = `Le chemin vers la réussite (Roadmap) pour le projet "${formData.projectName}". 
       
@@ -254,6 +273,8 @@ export function VisionView() {
       setStep(4);
     } catch (error) {
       console.error('Erreur lors de la génération du document:', error);
+      updateStepStatus(currentStepId, 'error');
+      message.error("Une erreur réseau ou IA est survenue. Veuillez vérifier votre connexion et réessayer.");
     }
   };
 
@@ -298,19 +319,104 @@ export function VisionView() {
       <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
       <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
       <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: ${isForPrint ? 'white' : '#f8fafc'}; color: #1e293b; -webkit-print-color-adjust: exact; line-height: 1.6; }
-        .prose h1 { color: #1e40af; font-weight: 800; border-bottom: 4px solid #3b82f6; padding-bottom: 0.75rem; margin-top: 3rem; }
-        .prose h2 { color: #0f172a; font-weight: 700; border-left: 6px solid #1e40af; padding-left: 1.25rem; margin-top: 2.5rem; margin-bottom: 1.25rem; background: #f1f5f9; padding-top: 0.5rem; padding-bottom: 0.5rem; border-radius: 0 0.5rem 0.5rem 0; }
-        .prose h3 { color: #2563eb; font-weight: 600; margin-top: 1.75rem; }
-        .page-header { background: linear-gradient(135deg, #0f172a 0%, #1e40af 100%); color: white; padding: 6rem 2rem; border-radius: 0 0 4rem 4rem; margin-bottom: 5rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); }
-        .content-card { background: white; border-radius: 2.5rem; padding: 5rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1); margin-top: -4rem; border: 1px solid #f1f5f9; }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap');
+        
+        body { 
+          font-family: 'Plus Jakarta Sans', sans-serif; 
+          background-color: ${isForPrint ? 'white' : '#f8fafc'}; 
+          color: #1e293b; 
+          -webkit-print-color-adjust: exact; 
+          line-height: 1.7; 
+          letter-spacing: -0.01em;
+        }
+
+        h1, h2, h3, h4, h5, h6, .font-heading { 
+          font-family: 'Outfit', sans-serif; 
+          letter-spacing: -0.02em;
+        }
+
+        .prose h1 { 
+          color: #1e40af; 
+          font-weight: 900; 
+          border-bottom: 4px solid #3b82f6; 
+          padding-bottom: 0.75rem; 
+          margin-top: 3rem; 
+          font-family: 'Outfit', sans-serif;
+          text-transform: uppercase;
+          letter-spacing: -0.03em;
+        }
+
+        .prose h2 { 
+          color: #0f172a; 
+          font-weight: 800; 
+          border-left: 6px solid #1e40af; 
+          padding-left: 1.25rem; 
+          margin-top: 3rem; 
+          margin-bottom: 1.5rem; 
+          background: #f1f5f9; 
+          padding-top: 0.75rem; 
+          padding-bottom: 0.75rem; 
+          border-radius: 0 0.75rem 0.75rem 0; 
+          font-family: 'Outfit', sans-serif;
+        }
+
+        .prose h3 { 
+          color: #2563eb; 
+          font-weight: 700; 
+          margin-top: 2rem; 
+          font-family: 'Outfit', sans-serif;
+        }
+
+        .prose p, .prose li {
+          font-weight: 400;
+          color: #334155;
+        }
+
+        .prose strong {
+          color: #0f172a;
+          font-weight: 700;
+        }
+
+        .page-header { 
+          background: linear-gradient(135deg, #0f172a 0%, #1e40af 100%); 
+          color: white; 
+          padding: 7rem 2rem; 
+          border-radius: 0 0 5rem 5rem; 
+          margin-bottom: 6rem; 
+          box-shadow: 0 30px 40px -10px rgba(0, 0, 0, 0.3); 
+          position: relative;
+          overflow: hidden;
+        }
+
+        .page-header::before {
+          content: "";
+          position: absolute;
+          top: -50%;
+          left: -10%;
+          width: 60%;
+          height: 200%;
+          background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+          transform: rotate(-15deg);
+        }
+
+        .content-card { 
+          background: white; 
+          border-radius: 3rem; 
+          padding: 6rem; 
+          box-shadow: 0 40px 60px -15px rgba(0, 0, 0, 0.08); 
+          margin-top: -5rem; 
+          border: 1px solid rgba(241, 245, 249, 0.8);
+          position: relative;
+          z-index: 10;
+        }
+
         @media print {
-          body { background: white; }
+          body { background: white; font-size: 11pt; }
           .content-card { box-shadow: none; border: none; margin-top: 0; padding: 0.5cm; }
-          .page-header { border-radius: 0; margin-bottom: 2rem; padding: 3rem; background: #0f172a !important; }
+          .page-header { border-radius: 0; margin-bottom: 2rem; padding: 4rem; background: #0f172a !important; }
           .no-print { display: none; }
           @page { margin: 1.5cm; }
+          .prose h1, .prose h2 { break-after: avoid; }
         }
       </style>
     </head>
@@ -340,7 +446,13 @@ export function VisionView() {
       </main>
 
       <script>
-        const markdown = \`${finalDocument.replace(/`/g, '\\`').replace(/\$/g, '&#36;')}\`;
+        let markdown = \`${finalDocument.replace(/`/g, '\\`').replace(/\$/g, '&#36;')}\`;
+        
+        // Remplacement des tags de couleur [COL_HEX] par des pastilles visuelles
+        markdown = markdown.replace(/\\[COL_([a-fA-F0-9]{3,6})\\]/g, (match, hex) => {
+          return \`<span style="display:inline-block;width:16px;height:16px;background-color:#\${hex};border-radius:4px;margin-left:6px;vertical-align:middle;border:1px solid rgba(0,0,0,0.1);box-shadow: 0 1px 2px rgba(0,0,0,0.1);"></span>\`;
+        });
+
         document.getElementById('content').innerHTML = marked.parse(markdown);
         ${isForPrint ? 'window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 500); }' : ''}
       </script>
@@ -766,7 +878,8 @@ export function VisionView() {
                       <div className="flex items-center gap-3">
                         <div className={`p-2 rounded-lg ${s.status === 'completed' ? 'bg-green-100 dark:bg-green-900/30 text-green-600' :
                           s.status === 'loading' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' :
-                            'bg-gray-100 dark:bg-gray-800 text-gray-400'
+                            s.status === 'error' ? 'bg-red-100 dark:bg-red-900/30 text-red-600' :
+                              'bg-gray-100 dark:bg-gray-800 text-gray-400'
                           }`}>
                           {index === 0 ? <Target className="w-4 h-4" /> :
                             index === 1 ? <Layout className="w-4 h-4" /> :
@@ -779,6 +892,7 @@ export function VisionView() {
 
                       {s.status === 'loading' && <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />}
                       {s.status === 'completed' && <CheckCircle2 className="w-4 h-4 text-green-500" />}
+                      {s.status === 'error' && <AlertCircle className="w-4 h-4 text-red-500" />}
                       {s.status === 'pending' && <div className="w-4 h-4 rounded-full border-2 border-gray-200 dark:border-gray-700" />}
                     </div>
                   ))}
@@ -834,8 +948,67 @@ export function VisionView() {
                           </div>
                           {s.label}
                         </h3>
-                        <div className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed print:text-black">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        <div className="text-gray-700 dark:text-gray-300 leading-relaxed print:text-black">
+                          <ReactMarkdown 
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              p: ({ children }) => {
+                                // Traiter les enfants pour détecter les tags de couleur [COL_HEX]
+                                const processChildren = (child: any): any => {
+                                  if (typeof child === 'string') {
+                                    const parts = child.split(/(\[COL_[a-fA-F0-9]{3,6}\])/g);
+                                    return parts.map((part, i) => {
+                                      const match = part.match(/\[COL_([a-fA-F0-9]{3,6})\]/);
+                                      if (match) {
+                                        return (
+                                          <span
+                                            key={i}
+                                            className="inline-block w-4 h-4 rounded-md border border-gray-200 dark:border-gray-700 mx-1 align-middle shadow-sm"
+                                            style={{ backgroundColor: `#${match[1]}` }}
+                                            title={`#${match[1]}`}
+                                          />
+                                        );
+                                      }
+                                      return part;
+                                    });
+                                  }
+                                  if (Array.isArray(child)) {
+                                    return child.map(processChildren);
+                                  }
+                                  return child;
+                                };
+
+                                return <p className="mb-4">{processChildren(children)}</p>;
+                              },
+                              li: ({ children }) => {
+                                // Même logique pour les listes
+                                const processChildren = (child: any): any => {
+                                  if (typeof child === 'string') {
+                                    const parts = child.split(/(\[COL_[a-fA-F0-9]{3,6}\])/g);
+                                    return parts.map((part, i) => {
+                                      const match = part.match(/\[COL_([a-fA-F0-9]{3,6})\]/);
+                                      if (match) {
+                                        return (
+                                          <span
+                                            key={i}
+                                            className="inline-block w-4 h-4 rounded-md border border-gray-200 dark:border-gray-700 mx-1 align-middle shadow-sm"
+                                            style={{ backgroundColor: `#${match[1]}` }}
+                                            title={`#${match[1]}`}
+                                          />
+                                        );
+                                      }
+                                      return part;
+                                    });
+                                  }
+                                  if (Array.isArray(child)) {
+                                    return child.map(processChildren);
+                                  }
+                                  return child;
+                                };
+                                return <li className="mb-2">{processChildren(children)}</li>;
+                              }
+                            }}
+                          >
                             {s.content || ''}
                           </ReactMarkdown>
                         </div>
