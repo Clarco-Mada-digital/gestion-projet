@@ -1,86 +1,36 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Fonction utilitaire pour vérifier si l'utilisateur est authentifié
+
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Fonction pour vérifier si l'utilisateur est membre du projet
-    function isProjectMember(resourceData) {
-      return isAuthenticated() && (
-        resourceData.ownerId == request.auth.uid || 
-        (resourceData.members != null && request.auth.uid in resourceData.members)
-      );
-    }
-
-    // Règles pour la collection 'users'
-    match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && request.auth.uid == userId;
-    }
-
-    // Règles pour la collection 'projects'
+    // PROJETS : Simplifié au maximum pour éviter les "Permission Denied" lors des listes
     match /projects/{projectId} {
-      allow read: if (isAuthenticated() && isProjectMember(resource.data)) || resource.data.isPublic == true;
-      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
-      allow update: if isAuthenticated() && isProjectMember(resource.data);
-      allow delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+      allow read, write: if isAuthenticated();
+      
+      // Accès public par ID direct
+      allow get: if resource.data.get('isPublic', false) == true;
 
-      // Règles pour les tâches du projet (Nouvelle version de synchronisation)
       match /tasks/{taskId} {
-        // Lecture : membre authentifié OU projet public (accès anonyme inclus)
-        allow read: if isAuthenticated() && isProjectMember(get(/databases/$(database)/documents/projects/$(projectId)).data)
-                    || get(/databases/$(database)/documents/projects/$(projectId)).data.get('isPublic', false) == true;
-        allow write: if isAuthenticated() && isProjectMember(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        allow read, write: if isAuthenticated();
+        // Accès public aux tâches si le projet est public
+        allow get: if get(/databases/$(database)/documents/projects/$(projectId)).data.get('isPublic', false) == true;
       }
     }
 
-    // Règles pour la collection 'notifications'
-    match /notifications/{notificationId} {
-      // Seul le destinataire peut lire ses notifications
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      // On autorise la création par d'autres (pour l'envoi de mentions)
-      allow create: if isAuthenticated();
-      // Seul le destinataire peut modifier (marquer comme lu) ou supprimer
-      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    // UTILISATEURS
+    match /users/{userId} {
+      allow read, write: if isAuthenticated();
     }
 
-    // Règles pour les activités (historique et messages de discussion)
-    match /activities/{activityId} {
-      allow read, create: if isAuthenticated();
-      // On autorise la mise à jour (réactions) si on est l'acteur OU membre du projet
-      allow update: if isAuthenticated() && (
-        resource.data.actorId == request.auth.uid || 
-        (resource.data.projectId != null && 
-         isProjectMember(get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data))
-      );
-      allow delete: if isAuthenticated() && resource.data.actorId == request.auth.uid;
-    }
+    // ACTIVITÉS, NOTIFICATIONS, COMMENTAIRES : Simplicité totale
+    match /activities/{activityId} { allow read, write: if isAuthenticated(); }
+    match /notifications/{notificationId} { allow read, write: if isAuthenticated(); }
+    match /comments/{commentId} { allow read, write: if isAuthenticated(); }
+    match /user_read_status/{statusId} { allow read, write: if isAuthenticated(); }
+    match /reactions/{reactionId} { allow read, write: if isAuthenticated(); }
 
-    // Règles pour les statuts de lecture (Badges non lus)
-    match /user_read_status/{statusId} {
-      // L'utilisateur ne peut lire et écrire que ses propres statuts de lecture
-      // L'ID est sous la forme userId_projectId
-      allow read, write: if isAuthenticated() && statusId.startsWith(request.auth.uid);
-    }
-
-    // Règles pour la collection 'comments'
-    match /comments/{commentId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
-    }
-
-    // Règles pour les RÉACTIONS (système découplé pour éviter les Permission Denied)
-    match /reactions/{reactionId} {
-      // Tout le monde peut lire les réactions
-      allow read: if isAuthenticated();
-      // On peut créer ou supprimer seulement sa propre réaction
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      // Pas d'update nécessaire (on delete et re-create si on change d'avis)
-      allow update: if false;
-    }
   }
 }

@@ -3,25 +3,25 @@ import { defaultUser } from './initialState';
 
 /**
  * Normalise une sous-tâche ancienne ou incomplète vers le format actuel.
- * Rétrocompatibilité : les anciennes SubTask n'avaient pas updatedAt, createdAt, etc.
+ * IMPORTANT: on part de {...st} pour préserver TOUS les champs, même ceux inconnus.
  */
 const migrateSubTask = (st: any): SubTask => {
   const now = new Date().toISOString();
   return {
+    // Préserver tous les champs existants d'abord
+    ...st,
+    // Puis normaliser/corriger les champs obligatoires ou mal typés
     id: st.id || `subtask-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     title: st.title || st.name || '',
-    completed: st.completed ?? st.done ?? false,
+    completed: typeof st.completed === 'boolean' ? st.completed : (st.done ?? false),
     createdAt: st.createdAt || now,
     updatedAt: st.updatedAt || st.createdAt || now,
-    completedAt: st.completedAt,
-    notes: st.notes,
-    group: st.group,
   };
 };
 
 /**
  * Normalise une tâche ancienne ou incomplète vers le format actuel.
- * Rétrocompatibilité : les anciens formats pouvaient manquer de champs ou avoir des structures différentes.
+ * IMPORTANT: on part de {...task} pour préserver TOUS les champs, même ceux inconnus.
  */
 const migrateTask = (task: any): Task => {
   const now = new Date().toISOString();
@@ -40,41 +40,40 @@ const migrateTask = (task: any): Task => {
   }
 
   return {
+    // Préserver TOUS les champs existants d'abord (custom fields inclus)
+    ...task,
+    // Puis normaliser/corriger uniquement les champs obligatoires manquants
     id: task.id || `task-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     title: task.title || task.name || '',
     description: task.description || '',
     status: task.status || 'todo',
     priority: task.priority || 'medium',
     startDate: task.startDate || task.start_date || today,
-    dueDate: task.dueDate || task.due_date || task.endDate || today,
+    dueDate: task.dueDate || task.due_date || today,
     assignees: Array.isArray(task.assignees) ? task.assignees : [],
     projectId: task.projectId || task.project_id || '',
     createdAt: task.createdAt || task.created_at || now,
     updatedAt: task.updatedAt || task.updated_at || now,
-    completedAt: task.completedAt || task.completed_at,
     tags: Array.isArray(task.tags) ? task.tags : [],
-    subTasks,
-    notes: task.notes || '',
-    estimatedHours: typeof task.estimatedHours === 'number' ? task.estimatedHours : 0,
-    endDate: task.endDate,
+    subTasks, // toujours un tableau (migré)
     attachments: Array.isArray(task.attachments) ? task.attachments : [],
-    // Champs supplémentaires optionnels à préserver
-    ...(task.source ? { source: task.source } : {}),
   };
 };
 
 /**
  * Normalise un projet et toutes ses tâches vers le format actuel.
+ * IMPORTANT: on part de {...project} pour préserver TOUS les champs, même ceux inconnus.
  */
 const migrateProject = (project: any): Project => {
   const tasks = Array.isArray(project.tasks)
     ? project.tasks.map(migrateTask)
     : [];
   return {
+    // Préserver tous les champs existants d'abord
     ...project,
     tasks,
-    // S'assurer que les champs obligatoires sont présents
-    description: project.description || '',
+    // Normaliser uniquement les champs obligatoires manquants
+    description: project.description ?? '',
     color: project.color || '#0EA5E9',
     status: project.status || 'active',
     createdAt: project.createdAt || new Date().toISOString(),

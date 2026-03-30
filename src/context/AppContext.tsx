@@ -140,26 +140,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       document.documentElement.classList.remove('dark');
     }
 
-    // Gestion de la police
-    const fontName = state.appSettings.fontFamily || 'Inter';
+    // Gestion de la police et taille
+    const fontName = state.appSettings?.fontFamily || 'Inter';
+    const fontSize = state.appSettings?.fontSize || 'medium';
+    
+    let fontBase = '16px';
+    if (fontSize === 'small') fontBase = '14px';
+    if (fontSize === 'large') fontBase = '18px';
+
+    const styleContent = `
+      @import url('https://fonts.googleapis.com/css2?family=${fontName.replace(/ /g, '+')}:wght@300;400;500;600;700;800&display=swap');
+      
+      html {
+        font-size: ${fontBase} !important;
+      }
+      
+      body, button, input, select, textarea, .font-sans {
+        font-family: "${fontName}", sans-serif !important;
+      }
+    `;
+
     const existingStyle = document.getElementById('dynamic-font-style');
     if (existingStyle) {
-      existingStyle.innerHTML = `
-        * {
-          font-family: "${fontName}", sans-serif !important;
-        }
-      `;
+      existingStyle.innerHTML = styleContent;
     } else {
       const style = document.createElement('style');
       style.id = 'dynamic-font-style';
-      style.innerHTML = `
-        * {
-          font-family: "${fontName}", sans-serif !important;
-        }
-      `;
+      style.innerHTML = styleContent;
       document.head.appendChild(style);
     }
-  }, [state.theme, state.appSettings.fontFamily]);
+  }, [state.theme, state.appSettings?.fontFamily, state.appSettings?.fontSize]);
 
   const value = React.useMemo(() => ({ state, dispatch }), [state]);
 

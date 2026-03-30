@@ -513,12 +513,16 @@ export const firebaseService = {
 
         projectsMap.set(projectId, projectData);
 
-        // Configurer listener de tâches UNE SEULE FOIS par projet
-        // NB: updateCombined() sera appelé par le listener de tâches lors des mises à jour,
-        // et une fois globalement à la fin du forEach, donc PAS ici pour éviter le double-appel
         this.setupTaskListener(projectId, (tasks) => {
           const project = projectsMap.get(projectId);
           if (project) {
+            // PROTECTION CRITIQUE RÉTROCOMPATIBILITÉ (v1) :
+            // Si la sous-collection renvoie 0 tâches, mais que le projet possède déjà des tâches
+            // (venues du document principal "data.tasks"), on ne les écrase SURTOUT PAS.
+            if (tasks.length === 0 && project.tasks && project.tasks.length > 0) {
+              return; // Ignorer cet update vide, on garde les tâches v1
+            }
+            // Mettre à jour avec les tâches de la sous-collection
             projectsMap.set(projectId, { ...project, tasks });
             updateCombined();
           }
