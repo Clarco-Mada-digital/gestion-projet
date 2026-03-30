@@ -1479,16 +1479,22 @@ export function ProjectsView() {
     }
 
     if (editingProject) {
-      // Mise à jour du projet existant
+      // Récupérer les tâches les plus récentes du store global pour ce projet
+      // pour éviter d'écraser des modifications récentes faites dans les modales
+      const latestTasks = state.tasks.filter(t => t.projectId === editingProject.id);
+
+      // Mise à jour du projet existant avec les dernières tâches
       const updatedProject: Project = {
         ...editingProject,
         ...newProject,
+        tasks: latestTasks, // Injecter systématiquement les tâches les plus à jour
         aiSettings: {
           ...aiSettings,
           enabled: true
         } as any,
         updatedAt: new Date().toISOString(),
       };
+      
       dispatch({ type: 'UPDATE_PROJECT', payload: updatedProject });
 
       // Sauvegarder dans Firebase si c'est un projet cloud

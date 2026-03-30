@@ -428,7 +428,12 @@ export const appReducer = (state: AppState, action: AppAction): AppState => {
             return {
               ...incoming,
               ...local,
-              tasks: local.tasks // Primauté aux tâches locales en cas de doute
+              // Gérer de façon intelligente la fusion des tâches locales vs cloud
+              // Si on a plus de tâches localement qu'en cloud (ex: création hors-ligne/bloquée), on garde les locales !
+              // Sinon, on garde celles du cloud si disponibles, sinon on fallback.
+              tasks: (local.tasks && incoming.tasks && local.tasks.length > incoming.tasks.length) 
+                ? local.tasks 
+                : (incoming.tasks && incoming.tasks.length > 0 ? incoming.tasks : local.tasks)
             };
           }
         }

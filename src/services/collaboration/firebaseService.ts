@@ -483,8 +483,9 @@ export const firebaseService = {
       
       debounceTimer = setTimeout(() => {
         const projects = Array.from(projectsMap.values()).map(p => {
-          // Utiliser le cache des tâches si disponible
-          if (projectTasksCache[p.id]) {
+          // Utiliser le cache des tâches si disponible, MAIS SEULEMENT s'il n'est pas vide
+          // pour préserver la rétrocompatibilité v1 (tâches dans p.tasks)
+          if (projectTasksCache[p.id] && projectTasksCache[p.id].length > 0) {
             return { ...p, tasks: projectTasksCache[p.id] };
           }
           return p;
