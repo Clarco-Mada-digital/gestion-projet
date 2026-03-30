@@ -29,6 +29,7 @@ import { message } from 'antd';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { VisionDossier } from '../../types';
 
 interface VisionData {
   projectName: string;
@@ -498,14 +499,15 @@ export function VisionView() {
     });
 
     // 2. Essayer de découper le fullContent pour recréer les steps
-    // On cherche les titres de niveau 2 pour s'aligner sur la structure habituelle
-    const sections = dossier.fullContent.split(/## \d+\. /).filter(Boolean);
+    // Le fullContent commence par un préambule (Titre + NOTE BETA) avant le premier "## 1."
+    // En splittant, le préambule se retrouve dans parts[0]. On utilise donc à partir de parts[1].
+    const parts = dossier.fullContent.split(/## \d+\. /);
     const mockSteps: GenerationStep[] = [
-      { id: 'vision', label: 'Visions & Objectifs', status: 'completed', content: sections[0] || '' },
-      { id: 'features', label: 'Fonctionnalités & UX', status: 'completed', content: sections[1] || '' },
-      { id: 'stack', label: 'Architecture & Stack', status: 'completed', content: sections[2] || '' },
-      { id: 'planning', label: 'Planning & Budget', status: 'completed', content: sections[3] || '' },
-      { id: 'roadmap', label: 'Roadmap & Étapes', status: 'completed', content: sections[4] || '' },
+      { id: 'vision', label: 'Visions & Objectifs', status: 'completed', content: parts[1] || '' },
+      { id: 'features', label: 'Fonctionnalités & UX', status: 'completed', content: parts[2] || '' },
+      { id: 'stack', label: 'Architecture & Stack', status: 'completed', content: parts[3] || '' },
+      { id: 'planning', label: 'Planning & Budget', status: 'completed', content: parts[4] || '' },
+      { id: 'roadmap', label: 'Roadmap & Étapes', status: 'completed', content: parts[5] || '' },
     ];
     setGenerationSteps(mockSteps);
     
@@ -930,6 +932,13 @@ export function VisionView() {
                     <div className="hidden print:block mb-8 border-b-2 border-blue-600 pb-6">
                       <h1 className="text-4xl font-bold text-blue-800 mb-2 uppercase tracking-tighter">{formData.projectName}</h1>
                       <p className="text-gray-600">Dossier de Vision de Projet - Généré par Assistant Vision IA</p>
+                    </div>
+
+                    {/* Avertissement visible sur le web au-dessus des étapes */}
+                    <div className="bg-blue-50/80 dark:bg-blue-900/20 border-l-4 border-blue-500 p-5 rounded-r-2xl print:hidden mb-8">
+                      <p className="text-sm text-blue-800 dark:text-blue-300">
+                        <strong>NOTE BETA :</strong> Ce document est une proposition générée par IA. Il ne remplace pas l'expertise d'une agence de développement ou d'un consultant professionnel. Utilisez-le comme guide pour vos discussions avec des experts.
+                      </p>
                     </div>
 
                     {generationSteps.map((s, index) => (
