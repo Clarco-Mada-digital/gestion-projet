@@ -372,6 +372,7 @@ export interface ProjectFeedItem {
 
 export type ActivityType =
   | 'project_created'
+  | 'project_updated'
   | 'project_mention'
   | 'project_discussion'
   | 'reaction'
@@ -460,4 +461,74 @@ export interface VisionDossier {
     budget: string;
   };
   createdAt: string;
+}
+export type AppAction =
+  | { type: 'SET_PROJECTS'; payload: Project[] }
+  | { type: 'ADD_PROJECT'; payload: Project }
+  | { type: 'UPDATE_PROJECT'; payload: Project }
+  | { type: 'DELETE_PROJECT'; payload: string }
+  | { type: 'ADD_TASK'; payload: { projectId: string; task: Task } }
+  | { type: 'UPDATE_TASK'; payload: Task }
+  | { type: 'DELETE_TASK'; payload: { projectId: string; taskId: string } }
+  | { type: 'SET_VIEW'; payload: ViewMode }
+  | { type: 'SET_THEME'; payload: Theme }
+  | { type: 'SET_SELECTED_PROJECT'; payload: string | null }
+  | { type: 'UPDATE_USER'; payload: Partial<User> }
+  | { type: 'ADD_USER'; payload: User }
+  | { type: 'REMOVE_USER'; payload: string }
+  | { type: 'UPDATE_EMAIL_SETTINGS'; payload: Partial<EmailSettings> }
+  | { type: 'UPDATE_APP_SETTINGS'; payload: Partial<AppSettings> }
+  | { type: 'UPDATE_USER_SETTINGS'; payload: Partial<UserSettings> }
+  | { type: 'SET_FONT_SIZE'; payload: FontSize }
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_ERROR'; payload: string | null }
+  | { type: 'INIT_STATE'; payload: any }
+  | { type: 'IMPORT_DATA'; payload: any }
+  | { type: 'EXPORT_DATA' }
+  | { type: 'SET_CLOUD_USER'; payload: any | null }
+  | { type: 'SET_GOOGLE_TOKEN'; payload: { token: string; timestamp: number } | string | undefined }
+  | { type: 'SET_CALENDAR_EMAIL'; payload: string | undefined }
+  | { type: 'CLEAR_GOOGLE_SESSION' }
+  | { type: 'SYNC_PROJECTS'; payload: Project[] }
+  | { type: 'ADD_REPORT'; payload: ReportEntry }
+  | { type: 'DELETE_REPORT'; payload: string }
+  | { type: 'UPDATE_REPORT'; payload: ReportEntry }
+  | { type: 'ADD_VISION_DOSSIER'; payload: VisionDossier }
+  | { type: 'DELETE_VISION_DOSSIER'; payload: string }
+  | { type: 'SET_ACCENT_COLOR'; payload: string }
+  | { type: 'UPDATE_BRANDING'; payload: any }
+  | { type: 'NAVIGATE_TO_TASK'; payload: { projectId: string; taskId: string } }
+  | { type: 'CLEAR_NAVIGATION_REQUEST' };
+export interface AppState {
+  projects: Project[];
+  tasks: Task[];
+  users: User[];
+  cloudUser: any | null; // Pour éviter la circularité as Firebase
+  googleAccessToken?: string;
+  googleTokenTimestamp?: number;
+  calendarEmail?: string;
+  theme: 'light' | 'dark';
+  currentView: string;
+  emailSettings: EmailSettings;
+  appSettings: AppSettings & {
+    aiSettings: AISettings;
+  };
+  notifications: any[];
+  isLoading: boolean;
+  error: string | null;
+  selectedProject: string | null;
+  targetProjectId?: string | null;
+  targetTaskId?: string | null;
+  reports: ReportEntry[];
+  visionDossiers: VisionDossier[];
+}
+
+export interface ExportableData {
+  projects: Project[];
+  users: User[];
+  theme: 'light' | 'dark';
+  emailSettings: EmailSettings;
+  appSettings: AppSettings;
+  version: string;
+  exportedAt: string;
 }

@@ -307,8 +307,8 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                   {(!project.source || project.source === 'local') ? 'Partager / Sync' : 'Copie locale'}
                 </button>
 
-                {/* Option Gérer l'équipe (visible seulement pour les projets cloud dont on est propriétaire) */}
-                {project.source === 'firebase' && (state.cloudUser?.uid === project.ownerId) && (
+                {/* Option Gérer l'équipe (visible pour les propriétaires et admins des projets cloud) */}
+                {project.source === 'firebase' && (state.cloudUser?.uid === project.ownerId || project.memberRoles?.[state.cloudUser?.uid || ''] === 'admin') && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -498,6 +498,7 @@ const MembersModal = ({ isOpen, onClose, project }: { isOpen: boolean; onClose: 
     setLoading(true);
     try {
       const { firebaseService } = await import('../../services/collaboration/firebaseService');
+      
       const updatedProject = {
         ...project,
         memberRoles: {
@@ -507,8 +508,10 @@ const MembersModal = ({ isOpen, onClose, project }: { isOpen: boolean; onClose: 
         updatedAt: new Date().toISOString()
       };
 
-      await firebaseService.syncProject(updatedProject);
+      // Dispatch local immédiat pour la réactivité UI
       dispatch({ type: 'UPDATE_PROJECT', payload: updatedProject });
+      
+      await firebaseService.syncProject(updatedProject);
       message.success("Rôle mis à jour");
     } catch (err) {
       message.error("Erreur lors de la mise à jour du rôle");
@@ -575,8 +578,10 @@ const MembersModal = ({ isOpen, onClose, project }: { isOpen: boolean; onClose: 
             updatedAt: new Date().toISOString()
           };
 
-          await firebaseService.syncProject(updatedProject);
+          // Dispatch local immédiat
           dispatch({ type: 'UPDATE_PROJECT', payload: updatedProject });
+          
+          await firebaseService.syncProject(updatedProject);
           setSuccess(`Utilisateur ${user.displayName || emailToInvite} ajouté avec succès !`);
           setEmail('');
         }
@@ -797,8 +802,13 @@ const MemberListItem = ({
 export function ProjectsView() {
   const { state, dispatch } = useApp();
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [managingMembersProject, setManagingMembersProject] = useState<Project | null>(null);
-  const [readStatuses, setReadStatuses] = useState<Record<string, string>>({});
+  const [managingMembersProjectId, setManagingMembersProjectId] = useState<string | null>(null);
+  const [readStatuses, setReadStatuses] = useState<Record<string, string>>({})
+
+  // Toujours dériver le project le plus récent depuis le store (évite les données stale)
+  const managingMembersProject = managingMembersProjectId
+    ? state.projects.find(p => p.id === managingMembersProjectId) || null
+    : null;
 
   // Écouter les changements de lecture
   useEffect(() => {
@@ -825,6 +835,19 @@ export function ProjectsView() {
     window.addEventListener('openProjectFeed', handleOpenFeed);
     return () => window.removeEventListener('openProjectFeed', handleOpenFeed);
   }, []);
+
+  // Marquer le projet comme lu dès qu'il est ouvert/affiché dans le flux
+  useEffect(() => {
+    if (activeProjectFeed?.id && state.cloudUser?.uid) {
+      projectReadService.markAsRead(activeProjectFeed.id);
+      
+      // Mise à jour instantanée du state local pour arrêter le clignotement immédiatement
+      setReadStatuses(prev => ({
+        ...prev,
+        [activeProjectFeed.id]: new Date().toISOString()
+      }));
+    }
+  }, [activeProjectFeed?.id, state.cloudUser?.uid]);
 
   // Synchroniser editingProject avec le store global quand les tâches sont modifiées
   useEffect(() => {
@@ -1148,22 +1171,8 @@ export function ProjectsView() {
     }
   };
 
-  const toggleTaskStatus = (taskId: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
+  const doToggleTaskStatus = (taskId: string, task: Task) => {
     if (!editingProject) return;
-
-    const task = editingProject.tasks?.find(t => t.id === taskId);
-    if (!task) return;
-
-    // Vérifier les sous-tâches avant de marquer comme terminé
-    if (task.status !== 'done' && task.subTasks && task.subTasks.length > 0) {
-      const incompleteSubTasks = task.subTasks.filter(st => !st.completed);
-      if (incompleteSubTasks.length > 0) {
-        const message = `Impossible de marquer cette tâche comme terminée car ${incompleteSubTasks.length} sous-tâche(s) ne sont pas terminée(s) :\n\n${incompleteSubTasks.map(st => `• ${st.title}`).join('\n')}`;
-        alert(message);
-        return;
-      }
-    }
 
     const newStatus = task.status === 'done' ? 'todo' : 'done';
     const updatedTask = {
@@ -1173,27 +1182,13 @@ export function ProjectsView() {
       updatedAt: new Date().toISOString()
     };
 
-    // Mettre à jour la tâche dans le store global immédiatement
-    dispatch({
-      type: 'UPDATE_TASK',
-      payload: updatedTask
-    });
+    dispatch({ type: 'UPDATE_TASK', payload: updatedTask });
 
     const updatedTasks = editingProject.tasks?.map(t => t.id === taskId ? updatedTask : t) || [];
-    const updatedProject = {
-      ...editingProject,
-      tasks: updatedTasks,
-      updatedAt: new Date().toISOString()
-    };
-
+    const updatedProject = { ...editingProject, tasks: updatedTasks, updatedAt: new Date().toISOString() };
     setEditingProject(updatedProject);
+    dispatch({ type: 'UPDATE_PROJECT', payload: updatedProject });
 
-    dispatch({
-      type: 'UPDATE_PROJECT',
-      payload: updatedProject
-    });
-
-    // Journaliser le changement de statut si c'est un projet Firebase
     if (updatedProject.source === 'firebase' && state.cloudUser) {
       activityService.logActivity({
         projectId: updatedProject.id,
@@ -1204,11 +1199,37 @@ export function ProjectsView() {
         targetId: task.id,
         targetName: task.title
       });
-
-      // Sync cloud
       firebaseService.syncProject(updatedProject).catch(console.error);
     }
   };
+
+  const toggleTaskStatus = (taskId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!editingProject) return;
+
+    const task = editingProject.tasks?.find(t => t.id === taskId);
+    if (!task) return;
+
+    // Avertir (sans bloquer) si des sous-tâches sont incomplètes
+    if (task.status !== 'done' && task.subTasks && task.subTasks.length > 0) {
+      const incompleteSubTasks = task.subTasks.filter(st => !st.completed);
+      if (incompleteSubTasks.length > 0) {
+        import('antd').then(({ Modal }) => {
+          Modal.confirm({
+            title: '⚠️ Sous-tâches incomplètes',
+            content: `${incompleteSubTasks.length} sous-tâche(s) ne sont pas encore terminées. Voulez-vous quand même marquer cette tâche comme terminée ?`,
+            okText: 'Terminer quand même',
+            cancelText: 'Annuler',
+            onOk: () => doToggleTaskStatus(taskId, task),
+          });
+        });
+        return;
+      }
+    }
+
+    doToggleTaskStatus(taskId, task);
+  };
+
 
   const createProject = () => {
     if (!newProject.name.trim()) return;
@@ -1273,7 +1294,7 @@ export function ProjectsView() {
           if (state.cloudUser) {
             activityService.logActivity({
               projectId: updatedProject.id,
-              type: 'project_updated',
+              type: 'task_updated',
               actorId: state.cloudUser.uid,
               actorName: state.cloudUser.displayName || state.cloudUser.email || 'Anonyme',
               actorAvatar: state.cloudUser.photoURL || undefined,
@@ -1517,7 +1538,7 @@ export function ProjectsView() {
   };
 
   const handleManageMembers = (project: Project) => {
-    setManagingMembersProject(project);
+    setManagingMembersProjectId(project.id);
   };
 
   const currentUserRole = editingProject?.memberRoles?.[state.cloudUser?.uid || ''] || 'member';
@@ -1678,7 +1699,9 @@ export function ProjectsView() {
               .filter(project => {
                 const isActive = project.status === 'active';
                 const isFollowed = state.appSettings.followedProjects?.includes(project.id) ?? true;
-                return isActive && (showUnfollowed || isFollowed);
+                // Exclure les projets partagés (Firebase dont on n'est pas propriétaire) — ils ont leur propre section
+                const isSharedWithMe = project.source === 'firebase' && project.ownerId && project.ownerId !== state.cloudUser?.uid;
+                return isActive && (showUnfollowed || isFollowed) && !isSharedWithMe;
               })
               .map(project => (
                 <ProjectCard
@@ -1701,6 +1724,71 @@ export function ProjectsView() {
             Aucun projet actif pour le moment
           </div>
         ) : null}
+
+        {/* Projets partagés avec moi (Firebase projets dont je suis membre mais pas propriétaire) */}
+        {state.cloudUser && (() => {
+          const sharedFiltered = state.projects.filter(p => {
+            if (!(p.source === 'firebase' && p.ownerId && p.ownerId !== state.cloudUser?.uid)) return false;
+            const isFollowed = state.appSettings.followedProjects?.includes(p.id) ?? true;
+            return showUnfollowed || isFollowed;
+          });
+          return sharedFiltered.length > 0 ? (
+          <div className="mt-10">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-indigo-600 rounded-lg text-white">
+                <FolderOpen className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className={`font-bold text-gray-800 dark:text-white ${
+                  state.appSettings?.fontSize === 'small' ? 'text-lg' :
+                  state.appSettings?.fontSize === 'large' ? 'text-2xl' : 'text-xl'
+                }`}>
+                  Partagés avec moi
+                </h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Projets auxquels vous avez été invité</p>
+              </div>
+              <span className="ml-auto text-sm font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-full">
+                {state.projects.filter(p => {
+                  if (!(p.source === 'firebase' && p.ownerId && p.ownerId !== state.cloudUser?.uid)) return false;
+                  const isFollowed = state.appSettings.followedProjects?.includes(p.id) ?? true;
+                  return showUnfollowed || isFollowed;
+                }).length} projet(s)
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {state.projects
+                .filter(p => {
+                  const isSharedWithMe = p.source === 'firebase' && p.ownerId && p.ownerId !== state.cloudUser?.uid;
+                  if (!isSharedWithMe) return false;
+                  // Appliquer le même filtre de suivi que pour les projets propres
+                  const isFollowed = state.appSettings.followedProjects?.includes(p.id) ?? true;
+                  return showUnfollowed || isFollowed;
+                })
+                .map(project => (
+                  <div key={project.id} className="relative group">
+                    <div className="absolute -top-3 -left-2 z-[50] pointer-events-none transform transition-transform group-hover:scale-110">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-extrabold bg-indigo-600 text-white uppercase tracking-widest shadow-lg border border-indigo-400/30">
+                        Partagé
+                      </span>
+                    </div>
+                    <ProjectCard
+                      project={project}
+                      onEdit={handleEditProject}
+                      onArchive={handleArchiveProject}
+                      onDelete={(p) => {
+                        setProjectToDelete(p);
+                        setShowDeleteConfirm(true);
+                      }}
+                      onManageMembers={handleManageMembers}
+                      getProjectStats={getProjectStats}
+                      isUnread={!!project.lastActivityAt && project.lastActivityBy !== state.cloudUser?.uid && (!readStatuses[project.id] || project.lastActivityAt > readStatuses[project.id])}
+                    />
+                  </div>
+                ))}
+            </div>
+          </div>
+          ) : null;
+        })()}
       </div>
 
       {/* Aucun projet */}
@@ -3105,8 +3193,8 @@ export function ProjectsView() {
 
       {/* Modal de gestion des membres */}
       <MembersModal
-        isOpen={!!managingMembersProject}
-        onClose={() => setManagingMembersProject(null)}
+        isOpen={!!managingMembersProjectId}
+        onClose={() => setManagingMembersProjectId(null)}
         project={managingMembersProject}
       />
 

@@ -12,16 +12,36 @@ let auth: any = null;
 
 // Registre des listeners de tâches pour éviter les fuites de mémoire et doublons
 const projectTaskListeners: Record<string, () => void> = {};
-const projectTasksCache: Record<string, Task[]> = {};
+let projectTasksCache: Record<string, Task[]> = {};
+
+// Charger le cache depuis localStorage au démarrage
+try {
+  const savedCache = localStorage.getItem('firebase_tasks_cache');
+  if (savedCache) {
+    projectTasksCache = JSON.parse(savedCache);
+    console.log(`[Firebase Service] ${Object.keys(projectTasksCache).length} projets chargés depuis le cache de tâches local.`);
+  }
+} catch (e) {
+  console.warn("Impossible de charger le cache des tâches:", e);
+}
+
+const saveTasksCache = () => {
+  try {
+    localStorage.setItem('firebase_tasks_cache', JSON.stringify(projectTasksCache));
+  } catch (e) {
+    console.warn("Impossible de sauvegarder le cache des tâches:", e);
+  }
+};
 
 // Initialisation immédiate si possible
 if (isFirebaseConfigured()) {
   try {
-    app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
-    auth = getAuth(app);
-    // Note: setPersistence est asynchrone, on le laisse dans ensureInitialized ou on l'appelle sans attendre
-    setPersistence(auth, browserLocalPersistence).catch(console.error);
+    if (!app) {
+      app = initializeApp(firebaseConfig);
+      db = getFirestore(app);
+      auth = getAuth(app);
+      setPersistence(auth, browserLocalPersistence).catch(console.error);
+    }
   } catch (error) {
     console.error("Erreur d'initialisation immédiate Firebase:", error);
   }
@@ -64,13 +84,13 @@ export const firebaseService = {
   /**
    * Vérifie si Firebase est prêt à l'emploi
    */
-  isReady: () => ensureInitialized(),
+  isReady: () => isFirebaseConfigured() && !!app && !!db && !!auth,
 
   /**
    * Sauvegarde le profil utilisateur dans Firestore pour permettre la recherche par email
    */
   async saveUserProfile(user: FirebaseUser): Promise<void> {
-    if (!ensureInitialized()) return;
+    if (!(await ensureInitialized())) return;
     try {
       await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
@@ -88,7 +108,7 @@ export const firebaseService = {
    * Recherche un utilisateur par email (pour inviter des membres)
    */
   async findUserByEmail(email: string): Promise<{ uid: string; displayName: string | null; photoURL: string | null } | null> {
-    if (!ensureInitialized()) return null;
+    if (!(await ensureInitialized())) return null;
     try {
       const q = query(collection(db, 'users'), where('email', '==', email.toLowerCase()));
       const querySnapshot = await getDocs(q);
@@ -112,7 +132,7 @@ export const firebaseService = {
    * Connexion avec Google pour Firebase (Authentification de l'application)
    */
   async login(): Promise<{ user: FirebaseUser }> {
-    if (!ensureInitialized()) throw new Error("Firebase n'est pas configuré");
+    if (!(await ensureInitialized())) throw new Error("Firebase n'est pas configuré");
     const provider = new GoogleAuthProvider();
 
     try {
@@ -133,7 +153,7 @@ export const firebaseService = {
    * Vérifie si l'utilisateur est déjà connecté à l'agenda
    */
   async isCalendarLoggedIn(): Promise<boolean> {
-    if (!ensureInitialized()) return false;
+    if (!(await ensureInitialized()) || !calendarAuth) return false;
 
     try {
       const currentUser = await calendarAuth.currentUser;
@@ -149,7 +169,7 @@ export const firebaseService = {
    * @param forceConsent Si vrai, force l'affichage de l'écran de sélection de compte et de consentement
    */
   async loginCalendar(forceConsent: boolean = false): Promise<{ accessToken: string; email: string; expiresIn: number; timestamp: number }> {
-    if (!ensureInitialized()) throw new Error("Firebase n'est pas configuré");
+    if (!(await ensureInitialized())) throw new Error("Firebase n'est pas configuré");
     const provider = new GoogleAuthProvider();
 
     // Accès complet au calendrier (lecture, écriture, suppression) et accès aux tâches
@@ -201,7 +221,7 @@ export const firebaseService = {
    * Déconnexion
    */
   async logout(): Promise<void> {
-    if (!ensureInitialized()) return;
+    if (!auth) return;
     await signOut(auth);
   },
 
@@ -209,7 +229,10 @@ export const firebaseService = {
    * Écouteur d'état d'authentification
    */
   onAuthStateChange(callback: (user: FirebaseUser | null) => void) {
-    if (!ensureInitialized()) return () => { };
+    if (!auth || !auth.onAuthStateChanged) {
+      console.warn("[Firebase] Auth not ready for listener");
+      return () => { };
+    }
     return onAuthStateChanged(auth, callback);
   },
 
@@ -217,7 +240,7 @@ export const firebaseService = {
    * Récupère l'utilisateur actuellement connecté
    */
   async getCurrentUser(): Promise<FirebaseUser | null> {
-    if (!ensureInitialized()) return null;
+    if (!auth) return null;
     return auth.currentUser;
   },
 
@@ -225,7 +248,7 @@ export const firebaseService = {
    * Récupère le profil d'un utilisateur par son ID
    */
   async getUserProfile(uid: string): Promise<{ uid: string; displayName: string | null; photoURL: string | null; email: string | null } | null> {
-    if (!ensureInitialized()) return null;
+    if (!(await ensureInitialized())) return null;
     try {
       const userDoc = await getDoc(doc(db, 'users', uid));
       if (userDoc.exists()) {
@@ -248,7 +271,7 @@ export const firebaseService = {
    * Sauvegarde ou met à jour un projet dans le Cloud (avec E2EE si activé)
    */
   async syncProject(project: Project): Promise<void> {
-    if (!ensureInitialized() || !auth.currentUser) return;
+    if (!(await ensureInitialized()) || !auth || !auth.currentUser) return;
 
     try {
       let projectToSync = JSON.parse(JSON.stringify(project));
@@ -326,7 +349,7 @@ export const firebaseService = {
    * Synchronise une tâche individuelle dans la sous-collection du projet
    */
   async syncTask(projectId: string, task: Task, encryptionKey?: string): Promise<void> {
-    if (!ensureInitialized() || !auth.currentUser) return;
+    if (!(await ensureInitialized()) || !auth || !auth.currentUser) return;
 
     try {
       let taskToSync = { ...task };
@@ -350,7 +373,7 @@ export const firebaseService = {
    * Supprime une tâche du Cloud
    */
   async deleteCloudTask(projectId: string, taskId: string): Promise<void> {
-    if (!ensureInitialized() || !auth.currentUser) return;
+    if (!(await ensureInitialized()) || !auth || !auth.currentUser) return;
     try {
       const taskRef = doc(db, 'projects', projectId, 'tasks', taskId);
       await deleteDoc(taskRef);
@@ -396,16 +419,25 @@ export const firebaseService = {
    * Récupère les projets partagés avec l'utilisateur connecté
    */
   async getSharedProjects(): Promise<Project[]> {
-    if (!ensureInitialized() || !auth.currentUser) return [];
+    if (!(await ensureInitialized()) || !auth || !auth.currentUser) return [];
 
     try {
-      const q = query(
-        collection(db, 'projects'),
-        where('members', 'array-contains', auth.currentUser.uid)
-      );
+      // Pour être sûr de tout récupérer sur un nouveau navigateur,
+      // on fait deux requêtes (Owner OR Member) car Firestore ne supporte pas l'opérateur OR sur des champs différents simplement
+      const qOwner = query(collection(db, 'projects'), where('ownerId', '==', auth.currentUser.uid));
+      const qMember = query(collection(db, 'projects'), where('members', 'array-contains', auth.currentUser.uid));
 
-      const querySnapshot = await getDocs(q);
-      const projects = await Promise.all(querySnapshot.docs.map(async doc => {
+      const [snapOwner, snapMember] = await Promise.all([getDocs(qOwner), getDocs(qMember)]);
+      
+      // Fusionner les résultats sans doublons
+      const allDocs = [...snapOwner.docs];
+      snapMember.docs.forEach(mDoc => {
+        if (!allDocs.find(oDoc => oDoc.id === mDoc.id)) {
+          allDocs.push(mDoc);
+        }
+      });
+
+      const projects = await Promise.all(allDocs.map(async doc => {
         const data = doc.data({ serverTimestamps: 'estimate' });
         const projectId = doc.id;
 
@@ -436,34 +468,92 @@ export const firebaseService = {
    * Écoute les mises à jour en temps réel de tous les projets partagés avec l'utilisateur
    */
   onSharedProjectsUpdate(uid: string, callback: (projects: Project[]) => void) {
-    if (!ensureInitialized()) return () => { };
+    if (!db || !auth) {
+      console.warn("[Firebase] Not ready for shared projects update");
+      return () => { };
+    }
 
-    const q = query(
-      collection(db, 'projects'),
-      where('members', 'array-contains', uid)
-    );
+    const projectsMap = new Map<string, Project>();
+    let debounceTimer: any = null;
 
-    const unsubscribeProjects = onSnapshot(q, (snapshot) => {
-      snapshot.docs.forEach(doc => {
-        const projectId = doc.id;
+    const updateCombined = () => {
+      // Regrouper les mises à jour pour éviter de bombarder le context (Flood protection)
+      // Debounce de 2500ms pour drastiquement réduire les appels et préserver le quota Firebase
+      if (debounceTimer) clearTimeout(debounceTimer);
+      
+      debounceTimer = setTimeout(() => {
+        const projects = Array.from(projectsMap.values()).map(p => {
+          // Utiliser le cache des tâches si disponible
+          if (projectTasksCache[p.id]) {
+            return { ...p, tasks: projectTasksCache[p.id] };
+          }
+          return p;
+        });
 
-        // Mise à jour de la liste des listeners de tâches pour ce snapshot
-        this.setupTaskListener(projectId, () => {
-          // Quand les tâches d'un projet changent, on déclenche une nouvelle mise à jour globale
-          this.triggerProjectsUpdate(snapshot, callback);
+        // Sécurité : Ne pas envoyer de liste vide si on sait qu'on a des projets
+        if (projects.length > 0 || projectsMap.size === 0) {
+          callback(projects);
+        }
+      }, 2500); // Attendre 2500ms de calme avant de notifier l'UI (réduit les appels Firebase)
+    };
+
+    const handleSnapshot = (snapshot: any) => {
+      // Ignorer les snapshots vides venant du cache (pas de données réelles)
+      if (snapshot.metadata.fromCache && snapshot.docs.length === 0) return;
+
+      snapshot.docs.forEach((docSnap: any) => {
+        const projectId = docSnap.id;
+        const projectData = this.mapProjectDoc(docSnap);
+        
+        // Garder les tâches existantes si le nouveau doc n'en a pas (v2 sync)
+        const existing = projectsMap.get(projectId);
+        if (existing && (!projectData.tasks || projectData.tasks.length === 0)) {
+           projectData.tasks = existing.tasks;
+        }
+
+        projectsMap.set(projectId, projectData);
+
+        // Configurer listener de tâches UNE SEULE FOIS par projet
+        // NB: updateCombined() sera appelé par le listener de tâches lors des mises à jour,
+        // et une fois globalement à la fin du forEach, donc PAS ici pour éviter le double-appel
+        this.setupTaskListener(projectId, (tasks) => {
+          const project = projectsMap.get(projectId);
+          if (project) {
+            projectsMap.set(projectId, { ...project, tasks });
+            updateCombined();
+          }
         });
       });
+      // UN SEUL appel updateCombined() après avoir traité tous les documents du snapshot
+      updateCombined();
+    };
 
-      this.triggerProjectsUpdate(snapshot, callback);
-    }, (error) => {
-      console.error("Erreur lors de l'écoute des projets partagés:", error);
+    const qOwner = query(collection(db, 'projects'), where('ownerId', '==', uid));
+    const qMember = query(collection(db, 'projects'), where('members', 'array-contains', uid));
+
+    const unsubOwner = onSnapshot(qOwner, handleSnapshot, (err) => {
+       console.error("Error owner snapshot", err);
+       // SÉCURITÉ : Si on a un dépassement de quota, on ne vide SURTOUT PAS l'interface
+       // On laisse les données actuelles (locales/cache) pour que l'utilisateur puisse travailler
+       if (err.code !== 'resource-exhausted' && err.code !== 'permission-denied') {
+         if (projectsMap.size > 0) updateCombined();
+         else callback([]);
+       }
+    });
+
+    const unsubMember = onSnapshot(qMember, handleSnapshot, (err) => {
+       console.error("Error member snapshot", err);
+       // Même sécurité pour les projets partagés
+       if (err.code !== 'resource-exhausted' && err.code !== 'permission-denied') {
+         if (projectsMap.size > 0) updateCombined();
+       }
     });
 
     return () => {
-      unsubscribeProjects();
-      // Nettoyage de tous les listeners de tâches
-      Object.values(projectTaskListeners).forEach(unsub => unsub());
-      for (const key in projectTaskListeners) delete projectTaskListeners[key];
+      if (debounceTimer) clearTimeout(debounceTimer);
+      unsubOwner();
+      unsubMember();
+      // On garde les listeners de tâches actifs pour le cache mais on nettoie si nécessaire
     };
   },
 
@@ -503,12 +593,13 @@ export const firebaseService = {
    * Configure un listener pour la sous-collection de tâches d'un projet
    */
   setupTaskListener(projectId: string, onTasksUpdate: (tasks: Task[]) => void) {
-    if (projectTaskListeners[projectId]) return;
+    if (!db || projectTaskListeners[projectId]) return;
 
     const tasksRef = collection(db, 'projects', projectId, 'tasks');
     projectTaskListeners[projectId] = onSnapshot(tasksRef, (snapshot) => {
       const tasks = snapshot.docs.map(doc => doc.data() as Task);
       projectTasksCache[projectId] = tasks;
+      saveTasksCache(); // Persister le cache
       onTasksUpdate(tasks);
     }, (error) => {
       console.error(`Erreur listener tâches projet ${projectId}:`, error);
@@ -519,7 +610,7 @@ export const firebaseService = {
    * Récupère un projet public par son ID (sans authentification nécessaire)
    */
   async getPublicProject(projectId: string): Promise<Project | null> {
-    if (!ensureInitialized()) return null;
+    if (!(await ensureInitialized())) return null;
 
     try {
       const projectDoc = await getDoc(doc(db, 'projects', projectId));
@@ -566,7 +657,7 @@ export const firebaseService = {
    * Écoute les mises à jour en temps réel d'un projet public
    */
   onPublicProjectUpdate: (projectId: string, callback: (project: Project | null) => void) => {
-    if (!isFirebaseConfigured()) return () => { };
+    if (!isFirebaseConfigured() || !db) return () => { };
 
     let unsubscribeProject: (() => void) | null = null;
     let unsubscribeTasks: (() => void) | null = null;
@@ -596,7 +687,7 @@ export const firebaseService = {
             projectDoc = data;
 
             // Si le projet utilise la version 2 de sync, on écoute aussi les tâches
-            if (data.syncVersion >= 2 && !unsubscribeTasks) {
+            if ((data.syncVersion ?? 0) >= 2 && !unsubscribeTasks) {
               const tasksRef = collection(db, 'projects', projectId, 'tasks');
               unsubscribeTasks = onSnapshot(tasksRef, (tasksSnapshot) => {
                 projectTasks = tasksSnapshot.docs.map(tDoc => tDoc.data() as Task);
@@ -648,8 +739,8 @@ export const firebaseService = {
    * Supprime un projet du Cloud
    */
   deleteProject: async (projectId: string): Promise<void> => {
-    if (!ensureInitialized()) throw new Error("Firebase n'est pas initialisé");
-    if (!auth.currentUser) throw new Error("Vous devez être connecté pour supprimer un projet Cloud");
+    if (!(await ensureInitialized())) throw new Error("Firebase n'est pas initialisé");
+    if (!auth || !auth.currentUser) throw new Error("Vous devez être connecté pour supprimer un projet Cloud");
 
     try {
       // On récupère le projet pour vérifier le propriétaire
@@ -677,8 +768,8 @@ export const firebaseService = {
    * Quitte un projet partagé (se retire de la liste des membres)
    */
   leaveProject: async (projectId: string): Promise<void> => {
-    if (!ensureInitialized()) throw new Error("Firebase n'est pas initialisé");
-    if (!auth.currentUser) throw new Error("Vous devez être connecté");
+    if (!(await ensureInitialized())) throw new Error("Firebase n'est pas initialisé");
+    if (!auth || !auth.currentUser) throw new Error("Vous devez être connecté");
 
     try {
       const projectDoc = await getDoc(doc(db, 'projects', projectId));
