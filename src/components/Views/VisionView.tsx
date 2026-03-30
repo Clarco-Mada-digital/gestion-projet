@@ -498,16 +498,35 @@ export function VisionView() {
       logo: dossier.logo
     });
 
-    // 2. Essayer de découper le fullContent pour recréer les steps
-    // Le fullContent commence par un préambule (Titre + NOTE BETA) avant le premier "## 1."
-    // En splittant, le préambule se retrouve dans parts[0]. On utilise donc à partir de parts[1].
-    const parts = dossier.fullContent.split(/## \d+\. /);
+    // 2. Découper le fullContent en se basant STRICTEMENT sur les en-têtes exacts
+    // pour éviter de couper le texte si l'IA a généré ses propres "## 1." ou "## 2." à l'intérieur.
+    const markers = [
+      '## 1. Vision & Stratégie',
+      '## 2. Charte Graphique & Identité',
+      '## 3. Architecture & Guide Technique Simplifié',
+      '## 4. Planning Stratégique & Budget Prévisionnel',
+      '## 5. Roadmap Détaillée : Le Chemin à Suivre'
+    ];
+
+    const extractedContents = markers.map((marker, index) => {
+      const startIndex = dossier.fullContent.indexOf(marker);
+      if (startIndex === -1) return '';
+      
+      const nextMarkerIndex = index < markers.length - 1 
+        ? dossier.fullContent.indexOf(markers[index + 1]) 
+        : dossier.fullContent.length;
+        
+      const endIndex = nextMarkerIndex !== -1 ? nextMarkerIndex : dossier.fullContent.length;
+      
+      return dossier.fullContent.substring(startIndex + marker.length, endIndex).trim();
+    });
+
     const mockSteps: GenerationStep[] = [
-      { id: 'vision', label: 'Visions & Objectifs', status: 'completed', content: parts[1] || '' },
-      { id: 'features', label: 'Fonctionnalités & UX', status: 'completed', content: parts[2] || '' },
-      { id: 'stack', label: 'Architecture & Stack', status: 'completed', content: parts[3] || '' },
-      { id: 'planning', label: 'Planning & Budget', status: 'completed', content: parts[4] || '' },
-      { id: 'roadmap', label: 'Roadmap & Étapes', status: 'completed', content: parts[5] || '' },
+      { id: 'vision', label: 'Visions & Objectifs', status: 'completed', content: extractedContents[0] },
+      { id: 'features', label: 'Fonctionnalités & UX', status: 'completed', content: extractedContents[1] },
+      { id: 'stack', label: 'Architecture & Stack', status: 'completed', content: extractedContents[2] },
+      { id: 'planning', label: 'Planning & Budget', status: 'completed', content: extractedContents[3] },
+      { id: 'roadmap', label: 'Roadmap & Étapes', status: 'completed', content: extractedContents[4] },
     ];
     setGenerationSteps(mockSteps);
     

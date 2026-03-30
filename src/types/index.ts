@@ -453,6 +453,7 @@ export interface VisionDossier {
   features: string;
   constraints: string;
   logo?: string;
+  complementaryInfo?: string;
   fullContent: string;
   summaryData: {
     complexity: string;
