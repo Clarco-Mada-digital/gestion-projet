@@ -364,6 +364,16 @@ export const firebaseService = {
       // Sauvegarde dans projects/{projectId}/tasks/{taskId}
       const taskRef = doc(db, 'projects', projectId, 'tasks', task.id);
       await setDoc(taskRef, taskToSync, { merge: true });
+
+      // CORRECTION CRITIQUE : mettre à jour le updatedAt du document projet.
+      // Sans ça, SYNC_PROJECTS compare les dates et croit que Firebase est plus récent,
+      // écrasant les modifications locales (tâches éditées, sous-tâches cochées, etc.)
+      setDoc(doc(db, 'projects', projectId), {
+        updatedAt: taskToSync.updatedAt,
+        lastSyncedAt: taskToSync.updatedAt
+      }, { merge: true }).catch(e =>
+        console.warn(`[syncTask] Impossible de bumper updatedAt projet ${projectId}:`, e)
+      );
     } catch (error) {
       console.error(`Erreur lors de la synchronisation de la tâche ${task.id}:`, error);
     }

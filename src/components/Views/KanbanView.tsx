@@ -496,6 +496,18 @@ export function KanbanView() {
       payload: { projectId: newTask.projectId, task: task },
     });
 
+    // CORRECTION BUG SYNC : Syncer la nouvelle tâche vers Firebase immédiatement
+    // (sans ça, la tâche n'apparaît pas sur un autre appareil tant que le projet n'est pas sauvegardé)
+    if (project?.source === 'firebase' && state.cloudUser) {
+      import('../../services/collaboration/firebaseService').then(({ firebaseService }) => {
+        firebaseService.syncTask(
+          newTask.projectId,
+          task,
+          (project as any).encryptionKey
+        ).catch(e => console.error('[KanbanView AddTask Sync]', e));
+      });
+    }
+
     setAddingTaskColumnId(null);
   };
 

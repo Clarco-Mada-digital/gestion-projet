@@ -12,6 +12,7 @@ import { localAttachmentService } from '../../services/localAttachmentService';
 import { TaskComments } from './TaskComments';
 import { matchesShortcut } from '../../utils/keyboardUtils';
 import { calculateDuration, isMultiDayTask } from '../../utils/dateUtils';
+import AIService from '../../services/aiService';
 
 // Fonction pour nettoyer le markdown mal formé
 const cleanMarkdown = (text: string): string => {
@@ -109,17 +110,29 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
       };
 
       // Sauvegarde immédiate (Ajax-like) pour ne pas perdre les données
-      // On utilise un timeout pour éviter de bloquer le rendu et s'assurer que c'est traité hors du cycle de rendu immédiat
+      // On utilise un timeout pour éviter de bloquer le rendu
       setTimeout(() => {
         dispatch({
           type: 'UPDATE_TASK',
           payload: updated
         });
+
+        // CORRECTION BUG SYNC : Syncer vers Firebase dès le toggle d'une sous-tâche
+        // (sinon le changement n'apparaît pas sur un autre appareil)
+        if (project.source === 'firebase') {
+          import('../../services/collaboration/firebaseService').then(({ firebaseService }) => {
+            firebaseService.syncTask(
+              project.id,
+              updated,
+              (project as any).encryptionKey
+            ).catch(e => console.warn('[SubTask Sync]', e));
+          });
+        }
       }, 0);
 
       return updated;
     });
-  }, [dispatch]);
+  }, [dispatch, project]);
 
   // Mode édition/visualisation
   const [isEditing, setIsEditing] = useState(false);
@@ -230,6 +243,18 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
         type: 'UPDATE_TASK',
         payload: updatedTask
       });
+
+      // CORRECTION BUG SYNC : Syncer la tâche vers Firebase immédiatement après la sauvegarde
+      // (sans ça, les modifications ne sont visibles que sur l'appareil courant)
+      if (project.source === 'firebase') {
+        import('../../services/collaboration/firebaseService').then(({ firebaseService }) => {
+          firebaseService.syncTask(
+            project.id,
+            updatedTask,
+            (project as any).encryptionKey
+          ).catch(e => console.error('[Task Save Sync]', e));
+        });
+      }
 
       // Passer en mode visualisation au lieu de fermer
       setIsEditing(false);

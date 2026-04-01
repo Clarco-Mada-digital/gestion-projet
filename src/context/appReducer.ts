@@ -428,12 +428,13 @@ export const appReducer = (state: AppState, action: AppAction): AppState => {
             return {
               ...incoming,
               ...local,
-              // Gérer de façon intelligente la fusion des tâches locales vs cloud
-              // Si on a plus de tâches localement qu'en cloud (ex: création hors-ligne/bloquée), on garde les locales !
-              // Sinon, on garde celles du cloud si disponibles, sinon on fallback.
-              tasks: (local.tasks && incoming.tasks && local.tasks.length > incoming.tasks.length) 
-                ? local.tasks 
-                : (incoming.tasks && incoming.tasks.length > 0 ? incoming.tasks : local.tasks)
+              // CORRECTION CRITIQUE : La comparaison par count était fausse.
+              // Elle écrasait les modifications de CONTENU (ex: toggle sous-tâche, edit tâche)
+              // qui ont le même nombre de tâches mais un contenu différent.
+              // Règle simple : si la version locale est plus récente → on garde TOUJOURS ses tâches.
+              tasks: local.tasks && local.tasks.length > 0
+                ? local.tasks
+                : (incoming.tasks || [])
             };
           }
         }

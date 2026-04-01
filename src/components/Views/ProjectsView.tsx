@@ -1124,6 +1124,16 @@ export function ProjectsView() {
       payload: updatedProject
     });
 
+    // CORRECTION BUG SYNC : Syncer la nouvelle tâche vers Firebase immédiatement
+    // (sans ça, si l'utilisateur ne clique pas "Enregistrer le projet", la tâche est invisible sur d'autres appareils)
+    if (editingProject.source === 'firebase' && state.cloudUser) {
+      firebaseService.syncTask(
+        editingProject.id,
+        task,
+        editingProject.encryptionKey
+      ).catch(e => console.error('[ProjectsView AddTask Sync]', e));
+    }
+
     // Réinitialiser le formulaire de tâche
     setNewTask({
       title: '',
