@@ -311,8 +311,11 @@ export const firebaseService = {
         projectToSync.members = [...(projectToSync.members || []), auth.currentUser.uid];
       }
 
+      // NETTOYAGE CRITIQUE : Firestore rejette les 'undefined'
+      const cleanedProject = this.cleanData(projectToSync);
+
       // 1. Sauvegarde du document principal du projet
-      await setDoc(doc(db, 'projects', project.id), projectToSync, { merge: true });
+      await setDoc(doc(db, 'projects', project.id), cleanedProject, { merge: true });
 
       // 2. IMPORTANT : On NE DOIT SURTOUT PAS synchroniser (écraser) chaque tâche dans la sous-collection ici !
       // Les tâches V2 ont leur propre cycle de vie (via syncTask indépendamment).
@@ -343,6 +346,23 @@ export const firebaseService = {
   },
 
   /**
+   * Nettoie un objet pour supprimer les champs 'undefined' (non supportés par Firestore)
+   */
+  cleanData(obj: any): any {
+    const clean: any = {};
+    Object.keys(obj).forEach(key => {
+      const val = obj[key];
+      if (val === undefined) return;
+      if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
+        clean[key] = this.cleanData(val);
+      } else {
+        clean[key] = val;
+      }
+    });
+    return clean;
+  },
+
+  /**
    * Synchronise une tâche individuelle dans la sous-collection du projet
    */
   async syncTask(projectId: string, task: Task, encryptionKey?: string): Promise<void> {
@@ -358,13 +378,14 @@ export const firebaseService = {
 
       taskToSync.updatedAt = new Date().toISOString();
       
+      // NETTOYAGE CRITIQUE : Firestore rejette les 'undefined'
+      const cleanedTask = this.cleanData(taskToSync);
+      
       // Sauvegarde dans projects/{projectId}/tasks/{taskId}
       const taskRef = doc(db, 'projects', projectId, 'tasks', task.id);
-      await setDoc(taskRef, taskToSync, { merge: true });
+      await setDoc(taskRef, cleanedTask, { merge: true });
 
-      // CORRECTION CRITIQUE : mettre à jour le updatedAt du document projet.
-      // Sans ça, SYNC_PROJECTS compare les dates et croit que Firebase est plus récent,
-      // écrasant les modifications locales (tâches éditées, sous-tâches cochées, etc.)
+      // On met à jour le updatedAt du document projet pour trigger les listeners
       setDoc(doc(db, 'projects', projectId), {
         updatedAt: taskToSync.updatedAt,
         lastSyncedAt: taskToSync.updatedAt
