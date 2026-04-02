@@ -524,17 +524,25 @@ export const firebaseService = {
 
         projectsMap.set(projectId, projectData);
 
-        this.setupTaskListener(projectId, (tasks) => {
+        this.setupTaskListener(projectId, (tasksFromSub) => {
           const project = projectsMap.get(projectId);
           if (project) {
-            // PROTECTION CRITIQUE RÉTROCOMPATIBILITÉ (v1) :
-            // Si la sous-collection renvoie 0 tâches, mais que le projet possède déjà des tâches
-            // (venues du document principal "data.tasks"), on ne les écrase SURTOUT PAS.
-            if (tasks.length === 0 && project.tasks && project.tasks.length > 0) {
-              return; // Ignorer cet update vide, on garde les tâches v1
+            // Fusionner v1 (document principal) et v2 (sous-collection)
+            const mergedTasksMap = new Map();
+            
+            // 1. Charger les tâches v1 d'origine (sauvegardées lors du mapProjectDoc)
+            const v1Tasks = (project as any)._v1Tasks || [];
+            if (Array.isArray(v1Tasks)) {
+              v1Tasks.forEach(t => mergedTasksMap.set(t.id, t));
             }
-            // Mettre à jour avec les tâches de la sous-collection
-            projectsMap.set(projectId, { ...project, tasks });
+            
+            // 2. Écraser/Ajouter avec les tâches v2 de la sous-collection (plus récentes)
+            tasksFromSub.forEach(t => mergedTasksMap.set(t.id, t));
+            
+            const mergedTasks = Array.from(mergedTasksMap.values());
+            
+            // Mettre à jour avec les tâches mergées
+            projectsMap.set(projectId, { ...project, tasks: mergedTasks });
             updateCombined();
           }
         });
@@ -580,16 +588,23 @@ export const firebaseService = {
     const projectId = doc.id;
     
     // On récupère les tâches depuis le cache (sous-collection v2) 
-    // ou on utilise celles du document principal (v1)
-    const tasksFromSubcollection = projectTasksCache[projectId];
-    const tasks = (tasksFromSubcollection && tasksFromSubcollection.length > 0) 
-      ? tasksFromSubcollection 
-      : (data.tasks || []);
+    const tasksFromSubcollection = projectTasksCache[projectId] || [];
+    // et depuis le document principal (v1)
+    const v1Tasks = data.tasks || [];
+
+    // Fusion des deux sources pour garantir la rétrocompatibilité 
+    // (si on a ajouté une seule tâche v2, on ne veut pas perdre les 10 tâches v1)
+    const mergedTasksMap = new Map();
+    v1Tasks.forEach((t: Task) => mergedTasksMap.set(t.id, t));
+    tasksFromSubcollection.forEach((t: Task) => mergedTasksMap.set(t.id, t));
+    
+    const tasks = Array.from(mergedTasksMap.values());
 
     return {
       ...data,
       id: projectId,
       tasks: tasks,
+      _v1Tasks: v1Tasks, // Conserver pour la fusion lors des mises à jour temps réel
       source: 'firebase',
       lastActivityAt: data.lastActivityAt?.toDate ? data.lastActivityAt.toDate().toISOString() : data.lastActivityAt,
       updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt
