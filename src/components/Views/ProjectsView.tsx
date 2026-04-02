@@ -1173,6 +1173,16 @@ export function ProjectsView() {
         type: 'UPDATE_PROJECT',
         payload: updatedProject
       });
+
+      // CORRECTION: Synchronisation de la suppression sur Firebase
+      if (editingProject.source === 'firebase') {
+        import('../../services/collaboration/firebaseService').then(({ firebaseService }) => {
+          // 1. Supprimer de la sous-collection V2
+          firebaseService.deleteCloudTask(editingProject.id, taskId).catch(e => console.error('[Delete Task V2]', e));
+          // 2. Mettre à jour le document V1 pour essuyer la tâche des anciennes listes et bumper updatedAt
+          firebaseService.syncProject(updatedProject).catch(e => console.error('[Delete Task V1 Sync]', e));
+        });
+      }
     } else {
       setNewProject({
         ...newProject,

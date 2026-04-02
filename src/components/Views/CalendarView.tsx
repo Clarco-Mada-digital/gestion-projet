@@ -87,6 +87,7 @@ export function CalendarView() {
   const [externalEvents, setExternalEvents] = useState<ExternalEvent[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Récupérer les tâches de tous les projets actifs et appliquer les filtres
   const filteredTasks = React.useMemo(() => showProjects ? (state.projects as Project[])
@@ -259,7 +260,7 @@ export function CalendarView() {
     };
 
     loadEvents();
-  }, [showExternalCalendar, state.googleAccessToken, currentDate, viewMode]);
+  }, [showExternalCalendar, state.googleAccessToken, currentDate, viewMode, refreshTrigger]);
 
 
   const getItemsForDate = (date: Date) => {
@@ -368,6 +369,17 @@ export function CalendarView() {
     };
 
     dispatch({ type: 'UPDATE_TASK', payload: updatedTask });
+
+    // CORRECTION SYNC : Mettre à jour Firebase lorsqu'on modifie la date depuis le calendrier
+    if (state.cloudUser && project.source === 'firebase') {
+      import('../../services/collaboration/firebaseService').then(({ firebaseService }) => {
+        firebaseService.syncTask(
+          project.id,
+          updatedTask,
+          (project as any).encryptionKey
+        ).catch(e => console.error('[CalendarView Drop Sync]', e));
+      });
+    }
   };
 
   const weekDays: string[] = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
@@ -424,8 +436,8 @@ export function CalendarView() {
                               if (result) {
                                 dispatch({ type: 'SET_GOOGLE_TOKEN', payload: { token: result.accessToken, timestamp: result.timestamp } });
                                 setSyncError(null);
-                                // On recharge les événements
-                                setTimeout(() => fetchRealGoogleEvents(), 100);
+                                // On recharge les événements en incrémentant le trigger
+                                setRefreshTrigger(prev => prev + 1);
                               }
                             } catch (err) {
                               console.error("Échec reconnexion rapide:", err);
@@ -457,7 +469,7 @@ export function CalendarView() {
                             dispatch({ type: 'SET_GOOGLE_TOKEN', payload: { token: result.accessToken, timestamp: result.timestamp } });
                             dispatch({ type: 'SET_CALENDAR_EMAIL', payload: result.email });
                             setSyncError(null);
-                            setTimeout(() => fetchRealGoogleEvents(), 100);
+                            setRefreshTrigger(prev => prev + 1);
                           }
                         } catch (err) {
                           setSyncError("Échec connexion");
@@ -517,7 +529,7 @@ export function CalendarView() {
                       if (result) {
                         dispatch({ type: 'SET_GOOGLE_TOKEN', payload: { token: result.accessToken, timestamp: result.timestamp } });
                         dispatch({ type: 'SET_CALENDAR_EMAIL', payload: result.email });
-                        setTimeout(() => fetchRealGoogleEvents(), 100);
+                        setRefreshTrigger(prev => prev + 1);
                       }
                     } catch (err) {
                       dispatch({ type: 'SET_VIEW', payload: 'settings' });

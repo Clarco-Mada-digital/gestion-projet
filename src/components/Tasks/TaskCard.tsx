@@ -168,6 +168,17 @@ const TaskCardComponent: React.FC<TaskCardProps> = ({ task, project, className, 
       payload: updatedTask
     });
 
+    // CORRECTION SYNC : Mettre à jour Firebase lorsqu'on change le statut depuis la carte
+    if (project?.source === 'firebase') {
+      import('../../services/collaboration/firebaseService').then(({ firebaseService }) => {
+        firebaseService.syncTask(
+          project.id,
+          updatedTask,
+          project.encryptionKey
+        ).catch(e => console.error('[TaskCard Sync]', e));
+      });
+    }
+
     // Afficher une notification si la tâche est marquée comme terminée
     if (newStatus === 'done' && task.status !== 'done') {
       showTaskCompleted(updatedTask);
@@ -177,7 +188,7 @@ const TaskCardComponent: React.FC<TaskCardProps> = ({ task, project, className, 
     if (!navigator.onLine) {
       saveTaskOffline(updatedTask);
     }
-  }, [dispatch, task, isViewer, saveTaskOffline, showTaskCompleted]);
+  }, [dispatch, task, project, isViewer, saveTaskOffline, showTaskCompleted]);
 
   const handleEdit = useCallback(() => {
     try {

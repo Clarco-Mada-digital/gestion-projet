@@ -581,7 +581,21 @@ export function KanbanView() {
     setColumns(newColumns);
     saveKanbanSettings(customColumns, columnOrder, currentTaskOrder);
     dispatch({ type: 'UPDATE_TASK', payload: movedTask });
-  }, [dispatch, columns, customColumns, columnOrder, selectedProjectIds, state.projects, state.appSettings.kanbanSettings, saveKanbanSettings]);
+
+    // CORRECTION SYNC : Mettre à jour Firebase lorsqu'on déplace une tâche dans le Kanban
+    if (state.cloudUser) {
+      const project = state.projects.find(p => p.id === movedTask.projectId);
+      if (project && project.source === 'firebase') {
+        import('../../services/collaboration/firebaseService').then(({ firebaseService }) => {
+          firebaseService.syncTask(
+            project.id,
+            movedTask,
+            (project as any).encryptionKey
+          ).catch(e => console.error('[KanbanView Move Sync]', e));
+        });
+      }
+    }
+  }, [dispatch, columns, customColumns, columnOrder, selectedProjectIds, state.projects, state.appSettings.kanbanSettings, saveKanbanSettings, state.cloudUser]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-5rem)] md:h-[calc(100vh-8rem)] overflow-hidden">
