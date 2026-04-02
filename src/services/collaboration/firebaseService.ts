@@ -349,15 +349,19 @@ export const firebaseService = {
    * Nettoie un objet pour supprimer les champs 'undefined' (non supportés par Firestore)
    */
   cleanData(obj: any): any {
+    if (obj === null || typeof obj !== 'object') return obj;
+
+    if (Array.isArray(obj)) {
+      return obj
+        .filter(item => item !== undefined)
+        .map(item => this.cleanData(item));
+    }
+
     const clean: any = {};
     Object.keys(obj).forEach(key => {
       const val = obj[key];
       if (val === undefined) return;
-      if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
-        clean[key] = this.cleanData(val);
-      } else {
-        clean[key] = val;
-      }
+      clean[key] = this.cleanData(val);
     });
     return clean;
   },
