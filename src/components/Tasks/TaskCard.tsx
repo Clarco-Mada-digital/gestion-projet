@@ -219,7 +219,9 @@ const TaskCardComponent: React.FC<TaskCardProps> = ({ task, project, className, 
     }
   }, [openModal, closeModal, task, state.projects, isViewer]);
 
-  const handleDelete = useCallback(() => {
+  const handleDelete = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    
     if (isViewer) {
       alert("Vous n'avez pas les droits pour supprimer cette tâche.");
       return;
@@ -233,8 +235,27 @@ const TaskCardComponent: React.FC<TaskCardProps> = ({ task, project, className, 
           taskId: task.id
         }
       });
+
+      // Synchroniser avec Firebase si le projet est lié
+      const project = state.projects.find(p => p.id === task.projectId);
+      if (project && project.source === 'firebase') {
+        const updatedProject = {
+          ...project,
+          tasks: project.tasks?.filter(t => t.id !== task.id) || [],
+          updatedAt: new Date().toISOString()
+        };
+        
+        import('../../services/collaboration/firebaseService').then(({ firebaseService }) => {
+          firebaseService.deleteCloudTask(project.id, task.id).catch(err => 
+            console.error('[TaskCard] Erreur suppression Cloud Task (V2):', err)
+          );
+          firebaseService.syncProject(updatedProject).catch(err => 
+            console.error('[TaskCard] Erreur synchronisation suppression projet (V1):', err)
+          );
+        });
+      }
     }
-  }, [dispatch, task.id, task.projectId, isViewer]);
+  }, [dispatch, task.id, task.projectId, isViewer, state.projects]);
 
   return (
     <Card
@@ -308,7 +329,7 @@ const TaskCardComponent: React.FC<TaskCardProps> = ({ task, project, className, 
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDelete();
+                          handleDelete(e);
                           setShowMenu(false);
                         }}
                         className="flex w-full items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/50"

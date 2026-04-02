@@ -423,18 +423,48 @@ export const appReducer = (state: AppState, action: AppAction): AppState => {
             incoming = { ...incoming, tasks: local.tasks };
           }
 
-          // Résolution de conflit par date uniquement si on n'est pas dans un cas de "vidage" Cloud
+          // RÉSOLUTION GRANULAIRE DES CONFLITS POUR LES TÂCHES :
+          
+          // SÉCURITÉ ANTI-PERTE DE DONNÉES (Rappel du bug V1/V2):
+          // Si incoming a MOINS de tâches que local, cela peut être dû à un retard de lecture de la sous-collection V2.
+          // Si c'était une vraie suppression par un collègue, la date incoming.updatedAt SERAIT supérieure à local.updatedAt.
+          // Si incoming.updatedAt n'est PAS supérieure, c'est purement un fail réseau/cache, on fusionne directement avec local.tasks au lieu de les supprimer.
+          const isCacheMiss = (incoming.tasks || []).length < (local.tasks || []).length && 
+                              new Date(incoming.updatedAt).getTime() <= new Date(local.updatedAt).getTime();
+
+          const mergedTasksMap = new Map();
+          
+          if (isCacheMiss) {
+            // C'est un raté du réseau V2, on garde absolument les tâches locales comme base
+            (local.tasks || []).forEach(t => mergedTasksMap.set(t.id, t));
+            (incoming.tasks || []).forEach(t => mergedTasksMap.set(t.id, t)); // on écrase avec les updates cloud réussis
+          } else {
+            // C'est une vraie mise à jour du Cloud, on utilise la logique stricte
+            (incoming.tasks || []).forEach(t => mergedTasksMap.set(t.id, t));
+            
+            (local.tasks || []).forEach(localTask => {
+              const incomingTask = mergedTasksMap.get(localTask.id);
+              if (!incomingTask) {
+                const isLocallyCreatedRecently = (new Date().getTime() - new Date(localTask.createdAt).getTime()) < 300000;
+                if (isLocallyCreatedRecently) {
+                  mergedTasksMap.set(localTask.id, localTask);
+                }
+              } else {
+                if (new Date(localTask.updatedAt).getTime() > new Date(incomingTask.updatedAt).getTime() + 100) {
+                  mergedTasksMap.set(localTask.id, localTask);
+                }
+              }
+            });
+          }
+          
+          incoming.tasks = Array.from(mergedTasksMap.values());
+
+          // On applique les méta-données locales si elles sont globalement plus récentes pour le reste du projet
           if (new Date(local.updatedAt) > new Date(incoming.updatedAt)) {
             return {
               ...incoming,
               ...local,
-              // CORRECTION CRITIQUE : La comparaison par count était fausse.
-              // Elle écrasait les modifications de CONTENU (ex: toggle sous-tâche, edit tâche)
-              // qui ont le même nombre de tâches mais un contenu différent.
-              // Règle simple : si la version locale est plus récente → on garde TOUJOURS ses tâches.
-              tasks: local.tasks && local.tasks.length > 0
-                ? local.tasks
-                : (incoming.tasks || [])
+              tasks: incoming.tasks
             };
           }
         }
