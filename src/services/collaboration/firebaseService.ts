@@ -314,13 +314,10 @@ export const firebaseService = {
       // 1. Sauvegarde du document principal du projet
       await setDoc(doc(db, 'projects', project.id), projectToSync, { merge: true });
 
-      // 2. Si syncVersion >= 2, on synchronise aussi chaque tâche individuellement dans la sous-collection
-      // Cela permet d'éviter les conflits lors de modifications simultanées
-      if (projectToSync.syncVersion >= 2 && project.tasks) {
-        await Promise.all(project.tasks.map(task => 
-          this.syncTask(project.id, task, project.encryptionKey)
-        ));
-      }
+      // 2. IMPORTANT : On NE DOIT SURTOUT PAS synchroniser (écraser) chaque tâche dans la sous-collection ici !
+      // Les tâches V2 ont leur propre cycle de vie (via syncTask indépendamment).
+      // Si on boucle et re-upload toutes les tâches locales lors d'un "Enregistrer Projet", 
+      // on écrase silencieusement le travail de nos collègues si on avait un vieux cache !
     } catch (error) {
       console.error("Erreur lors de la synchronisation du projet:", error);
       throw error;
@@ -486,26 +483,41 @@ export const firebaseService = {
     const projectsMap = new Map<string, Project>();
     let debounceTimer: any = null;
 
-    const updateCombined = () => {
+    const updateCombined = async () => {
       // Regrouper les mises à jour pour éviter de bombarder le context (Flood protection)
-      // Debounce de 2500ms pour drastiquement réduire les appels et préserver le quota Firebase
+      // Debounce réduit à 500ms pour plus de réactivité tout en protégeant le quota
       if (debounceTimer) clearTimeout(debounceTimer);
       
-      debounceTimer = setTimeout(() => {
-        const projects = Array.from(projectsMap.values()).map(p => {
-          // Utiliser le cache des tâches si disponible, MAIS SEULEMENT s'il n'est pas vide
-          // pour préserver la rétrocompatibilité v1 (tâches dans p.tasks)
+      debounceTimer = setTimeout(async () => {
+        const rawProjects = Array.from(projectsMap.values()).map(p => {
           if (projectTasksCache[p.id] && projectTasksCache[p.id].length > 0) {
             return { ...p, tasks: projectTasksCache[p.id] };
           }
           return p;
         });
 
-        // Sécurité : Ne pas envoyer de liste vide si on sait qu'on a des projets
-        if (projects.length > 0 || projectsMap.size === 0) {
-          callback(projects);
+        // Déchiffrement automatique avant envoi au context
+        const decryptedProjects = await Promise.all(rawProjects.map(async (p) => {
+          if (p.isEncryptionEnabled) {
+            // On cherche la clé : soit dans l'objet, soit dans le stockage local
+            let key = (p as any).encryptionKey;
+            
+            if (!key) {
+               const { EncryptionService } = await import('../security/encryptionService');
+               key = EncryptionService.getProjectKey(p.id);
+            }
+
+            if (key) {
+              return await this.decryptProject(p, key);
+            }
+          }
+          return p;
+        }));
+
+        if (decryptedProjects.length > 0 || projectsMap.size === 0) {
+          callback(decryptedProjects);
         }
-      }, 2500); // Attendre 2500ms de calme avant de notifier l'UI (réduit les appels Firebase)
+      }, 500); 
     };
 
     const handleSnapshot = (snapshot: any) => {

@@ -101,38 +101,63 @@ export function EditTaskForm({ task, onClose, project, canEdit: canEditProp }: E
 
   // Gérer les changements des sous-tâches
   const handleSubTasksChange = useCallback((newSubTasks: SubTask[]) => {
-    // Mise à jour de l'état local
-    setEditedTask(prev => {
-      const updated = {
-        ...prev,
-        subTasks: newSubTasks,
+    // Mise à jour de l'état local immédiat
+    const now = new Date().toISOString();
+    const updated = validateTaskData({
+      ...editedTask,
+      subTasks: newSubTasks,
+      updatedAt: now
+    });
+    
+    setEditedTask(updated);
+
+    // Propagation immédiate au store et au cloud
+    dispatch({
+      type: 'UPDATE_TASK',
+      payload: updated
+    });
+
+    if (project.source === 'firebase') {
+      import('../../services/collaboration/firebaseService').then(({ firebaseService }) => {
+        firebaseService.syncTask(
+          project.id,
+          updated,
+          (project as any).encryptionKey
+        ).catch(e => console.warn('[SubTask Sync]', e));
+      });
+    }
+  }, [dispatch, project, editedTask]);
+
+  // Sync automatique pour le titre et la description (Debounced)
+  useEffect(() => {
+    // On ne sync que si des changements ont été faits par rapport à l'original "task"
+    if (editedTask.title === task.title && editedTask.description === task.description) return;
+    
+    const timer = setTimeout(() => {
+      // On met à jour l'état local et le store avec une nouvelle date
+      const syncedTask = {
+        ...editedTask,
         updatedAt: new Date().toISOString()
       };
-
-      // Sauvegarde immédiate (Ajax-like) pour ne pas perdre les données
-      // On utilise un timeout pour éviter de bloquer le rendu
-      setTimeout(() => {
-        dispatch({
-          type: 'UPDATE_TASK',
-          payload: updated
+      
+      if (project.source === 'firebase') {
+        import('../../services/collaboration/firebaseService').then(({ firebaseService }) => {
+          firebaseService.syncTask(
+            project.id,
+            syncedTask,
+            (project as any).encryptionKey
+          ).catch(e => console.warn('[Auto-sync Task]', e));
         });
+      }
+      
+      dispatch({
+        type: 'UPDATE_TASK',
+        payload: syncedTask
+      });
+    }, 2000); // 2 secondes de calme avant de sync
 
-        // CORRECTION BUG SYNC : Syncer vers Firebase dès le toggle d'une sous-tâche
-        // (sinon le changement n'apparaît pas sur un autre appareil)
-        if (project.source === 'firebase') {
-          import('../../services/collaboration/firebaseService').then(({ firebaseService }) => {
-            firebaseService.syncTask(
-              project.id,
-              updated,
-              (project as any).encryptionKey
-            ).catch(e => console.warn('[SubTask Sync]', e));
-          });
-        }
-      }, 0);
-
-      return updated;
-    });
-  }, [dispatch, project]);
+    return () => clearTimeout(timer);
+  }, [editedTask.title, editedTask.description, project.id, project.source]);
 
   // Mode édition/visualisation
   const [isEditing, setIsEditing] = useState(false);

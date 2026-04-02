@@ -459,12 +459,13 @@ export const appReducer = (state: AppState, action: AppAction): AppState => {
           
           incoming.tasks = Array.from(mergedTasksMap.values());
 
-          // On applique les méta-données locales si elles sont globalement plus récentes pour le reste du projet
+          // On applique les méta-données locales (nom, membres, settings) 
+          // uniquement si elles sont plus récentes, mais on GARDE les tâches fusionnées plus haut.
           if (new Date(local.updatedAt) > new Date(incoming.updatedAt)) {
             return {
               ...incoming,
               ...local,
-              tasks: incoming.tasks
+              tasks: incoming.tasks // Priorité au merge granulaire des tâches
             };
           }
         }
