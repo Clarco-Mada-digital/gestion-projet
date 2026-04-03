@@ -1,7 +1,6 @@
-import { AISettings, Project, Task, SubTask } from '../types';
+import { AISettings, Project, Task, SubTask, AppState } from '../types';
 import { loadDocumentation } from '../utils/documentationLoader';
 import { getAppDataSummary, formatAppDataForAI } from './appDataService';
-import { AppState } from '../context/AppContext';
 
 export interface GeneratedSubTask {
   title: string;
@@ -12,15 +11,6 @@ export interface GeneratedSubTask {
 export type AIMessage = {
   role: 'user' | 'assistant' | 'system';
   content: string;
-};
-
-type AIResponse = {
-  choices: {
-    message: {
-      content: string;
-      reasoning?: string;
-    };
-  }[];
 };
 
 export class AIService {
@@ -115,6 +105,10 @@ export class AIService {
   private static sanitizeModel(provider: string, model: string | undefined | null): string {
     if (provider === 'openai') {
       return model || 'gpt-3.5-turbo';
+    }
+
+    if (provider === 'gemini') {
+      return model || 'gemini-1.5-flash';
     }
 
     // Liste des modèles OpenRouter obsolètes ou problématiques
@@ -236,23 +230,35 @@ ${appDataInfo}
       const effectiveProvider = aiSettings.provider || 'openrouter';
       const apiKey = effectiveProvider === 'openai'
         ? aiSettings.openaiApiKey?.trim()
-        : aiSettings.openrouterApiKey?.trim();
+        : effectiveProvider === 'gemini'
+          ? aiSettings.geminiApiKey?.trim()
+          : aiSettings.openrouterApiKey?.trim();
 
       // Pour OpenRouter, permettre l'utilisation sans clé API (accès limité)
       if (effectiveProvider === 'openrouter' && !apiKey) {
         // Utilisation sans clé API
       } else if (effectiveProvider === 'openai' && !apiKey) {
         throw new Error('Clé API OpenAI requise pour utiliser OpenAI');
+      } else if (effectiveProvider === 'gemini' && !apiKey) {
+        throw new Error('Clé API Gemini requise pour utiliser Google Gemini');
       }
 
       // Utiliser un modèle adapté
       const model = effectiveProvider === 'openai'
         ? (aiSettings.openaiModel || 'gpt-3.5-turbo')
-        : AIService.sanitizeModel(effectiveProvider, aiSettings.openrouterModel);
+        : effectiveProvider === 'gemini'
+          ? (aiSettings.geminiModel || 'gemini-1.5-flash')
+          : AIService.sanitizeModel(effectiveProvider, aiSettings.openrouterModel);
 
-      const endpoint = effectiveProvider === 'openai'
-        ? 'https://api.openai.com/v1/chat/completions'
-        : 'https://openrouter.ai/api/v1/chat/completions';
+      let endpoint = '';
+      if (effectiveProvider === 'openai') {
+        endpoint = 'https://api.openai.com/v1/chat/completions';
+      } else if (effectiveProvider === 'gemini') {
+        // Utiliser l'API native de Gemini pour plus de fiabilité
+        endpoint = `https://generativelanguage.googleapis.com/v1beta/${model.startsWith('models/') ? model : 'models/' + model}:generateContent?key=${apiKey}`;
+      } else {
+        endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+      }
 
       const systemPrompt = await this.prepareSystemPrompt(appState);
 
@@ -272,25 +278,43 @@ ${appDataInfo}
       };
 
       // Ajouter l'authentification uniquement si une clé est fournie
-      if (effectiveProvider === 'openai' && apiKey) {
-        headers['Authorization'] = `Bearer ${apiKey}`;
-      } else if (effectiveProvider === 'openrouter' && apiKey) {
-        headers['Authorization'] = `Bearer ${apiKey}`;
+      if (apiKey) {
+        if (effectiveProvider === 'gemini') {
+          // Utiliser uniquement le paramètre ?key= dans l'URL pour éviter les problèmes CORS/preflight
+        } else {
+          headers['Authorization'] = `Bearer ${apiKey}`;
+        }
       }
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // Timeout après 30 secondes
 
       try {
+        const body = effectiveProvider === 'gemini'
+          ? JSON.stringify({
+              contents: messages.filter(m => m.role !== 'system').map(m => ({
+                role: m.role === 'assistant' ? 'model' : 'user',
+                parts: [{ text: m.content }]
+              })),
+              system_instruction: messages.find(m => m.role === 'system') ? {
+                parts: [{ text: messages.find(m => m.role === 'system')?.content }]
+              } : undefined,
+              generationConfig: {
+                temperature: aiSettings.temperature || 0.7,
+                maxOutputTokens: aiSettings.maxTokens || 2500,
+              }
+            })
+          : JSON.stringify({
+              model,
+              messages,
+              temperature: 0.7,
+              max_tokens: 2500,
+            });
+
         const response = await fetch(endpoint, {
           method: 'POST',
           headers,
-          body: JSON.stringify({
-            model,
-            messages,
-            temperature: 0.7,
-            max_tokens: 2500,
-          }),
+          body,
           signal: controller.signal
         });
 
@@ -302,18 +326,28 @@ ${appDataInfo}
           throw new Error(`Erreur ${response.status}: ${response.statusText}`);
         }
 
-        const data: AIResponse = await response.json();
+        const data = await response.json();
 
-        // Extraire et nettoyer le contenu
-        let content = AIService.cleanContent(data.choices[0].message.content || '');
+        // Extraire le contenu selon le format
+        let content = '';
+        if (effectiveProvider === 'gemini') {
+          content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        } else {
+          content = data.choices?.[0]?.message?.content || '';
+        }
 
-        // On n'utilise plus reasoning comme fallback automatique car il contient souvent du "bruit" (réflexion interne)
-        // sauf si content est VRAIMENT vide et qu'on n'a rien d'autre, mais on le nettoie aussi
-        if (!content && data.choices[0].message.reasoning) {
-          content = AIService.cleanContent(data.choices[0].message.reasoning);
+        // Nettoyer le contenu
+        content = AIService.cleanContent(content);
+
+        // Fallback reasoning pour OpenAI/OpenRouter uniquement
+        if (!content && effectiveProvider !== 'gemini' && data.choices?.[0]?.message?.reasoning) {
+          content = AIService.cleanContent(data.choices?.[0]?.message?.reasoning);
         }
 
         if (!content) {
+          if (effectiveProvider === 'gemini' && data.candidates?.[0]?.finishReason === 'SAFETY') {
+            throw new Error('Le modèle Gemini a bloqué la réponse pour des raisons de sécurité.');
+          }
           throw new Error('Réponse de l\'IA vide ou invalide');
         }
 
@@ -348,23 +382,34 @@ ${appDataInfo}
       const effectiveProvider = settings.provider || 'openrouter';
       const apiKey = effectiveProvider === 'openai'
         ? settings.openaiApiKey?.trim()
-        : settings.openrouterApiKey?.trim();
-
+        : effectiveProvider === 'gemini'
+          ? settings.geminiApiKey?.trim()
+          : settings.openrouterApiKey?.trim();
 
       // Pour OpenRouter, permettre l'utilisation sans clé API (accès limité)
       if (effectiveProvider === 'openrouter' && !apiKey) {
         // Utilisation sans clé API
       } else if (effectiveProvider === 'openai' && !apiKey) {
         throw new Error('Clé API OpenAI requise pour utiliser OpenAI');
+      } else if (effectiveProvider === 'gemini' && !apiKey) {
+        throw new Error('Clé API Gemini requise pour utiliser Google Gemini');
       }
 
       // Utiliser un modèle adapté
-      const model = AIService.sanitizeModel(effectiveProvider, settings.openrouterModel);
+      const model = effectiveProvider === 'openai'
+        ? (settings.openaiModel || 'gpt-3.5-turbo')
+        : effectiveProvider === 'gemini'
+          ? (settings.geminiModel || 'gemini-1.5-flash')
+          : AIService.sanitizeModel(effectiveProvider, settings.openrouterModel);
 
-
-      const endpoint = effectiveProvider === 'openai'
-        ? 'https://api.openai.com/v1/chat/completions'
-        : 'https://openrouter.ai/api/v1/chat/completions';
+      let endpoint = '';
+      if (effectiveProvider === 'openai') {
+        endpoint = 'https://api.openai.com/v1/chat/completions';
+      } else if (effectiveProvider === 'gemini') {
+        endpoint = `https://generativelanguage.googleapis.com/v1beta/${model.startsWith('models/') ? model : 'models/' + model}:generateContent?key=${apiKey}`;
+      } else {
+        endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+      }
 
       // Préparer le prompt concis
       const prompt = this.buildSubTaskPrompt(project, task, existingSubTasks);
@@ -379,33 +424,48 @@ ${appDataInfo}
       };
 
       // Ajouter l'authentification uniquement si une clé est fournie
-      if (effectiveProvider === 'openai' && apiKey) {
-        headers['Authorization'] = `Bearer ${apiKey}`;
-      } else if (effectiveProvider === 'openrouter' && apiKey) {
-        headers['Authorization'] = `Bearer ${apiKey}`;
+      if (apiKey) {
+        if (effectiveProvider === 'gemini') {
+          // Utiliser uniquement le paramètre ?key= dans l'URL pour éviter les problèmes CORS/preflight
+        } else {
+          headers['Authorization'] = `Bearer ${apiKey}`;
+        }
       }
 
-      const requestBody = {
-        model: model,
-        messages: [
-          {
-            role: 'system',
-            content: 'Tu es un assistant concis qui aide à décomposer les tâches en sous-tâches. RÉPONDS EXCLUSIVEMENT PAR LE JSON DEMANDÉ DANS LE BLOC [FINAL_START]...[FINAL_END], SANS AUCUNE RÉFLEXION.'
-          },
-          {
-            role: 'user',
-            content: `${prompt} (Génère uniquement 3-5 sous-tâches maximum, sois concis)`
-          }
-        ],
-        temperature: 0.5,  // Réponse plus prévisible
-        max_tokens: 1000,  // Augmenté pour éviter les réponses coupées
-      };
-
+      const body = effectiveProvider === 'gemini' 
+        ? JSON.stringify({
+            contents: [{
+              role: 'user',
+              parts: [{ text: `${prompt} (Génère uniquement 3-5 sous-tâches maximum, sois concis)` }]
+            }],
+            system_instruction: {
+              parts: [{ text: 'Tu es un assistant concis qui aide à décomposer les tâches en sous-tâches. RÉPONDS EXCLUSIVEMENT PAR LE JSON DEMANDÉ DANS LE BLOC [FINAL_START]...[FINAL_END], SANS AUCUNE RÉFLEXION.' }]
+            },
+            generationConfig: {
+              temperature: 0.5,
+              maxOutputTokens: 1000,
+            }
+          })
+        : JSON.stringify({
+            model: model,
+            messages: [
+              {
+                role: 'system',
+                content: 'Tu es un assistant concis qui aide à décomposer les tâches en sous-tâches. RÉPONDS EXCLUSIVEMENT PAR LE JSON DEMANDÉ DANS LE BLOC [FINAL_START]...[FINAL_END], SANS AUCUNE RÉFLEXION.'
+              },
+              {
+                role: 'user',
+                content: `${prompt} (Génère uniquement 3-5 sous-tâches maximum, sois concis)`
+              }
+            ],
+            temperature: 0.5,
+            max_tokens: 1000,
+          });
 
       const response = await fetch(endpoint, {
         method: 'POST',
         headers,
-        body: JSON.stringify(requestBody),
+        body
       });
 
       if (!response.ok) {
@@ -416,9 +476,16 @@ ${appDataInfo}
       const data = await response.json();
 
       // Extraire et nettoyer le contenu
-      let content = AIService.cleanContent(data.choices?.[0]?.message?.content || '');
+      let content = '';
+      if (effectiveProvider === 'gemini') {
+        content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      } else {
+        content = data.choices?.[0]?.message?.content || '';
+      }
 
-      if (!content && data.choices?.[0]?.message?.reasoning) {
+      content = AIService.cleanContent(content);
+
+      if (!content && effectiveProvider !== 'gemini' && data.choices?.[0]?.message?.reasoning) {
         content = AIService.cleanContent(data.choices?.[0]?.message?.reasoning);
       }
 
@@ -558,22 +625,33 @@ ${appDataInfo}
       const effectiveProvider = settings.provider || 'openrouter';
       const apiKey = effectiveProvider === 'openai'
         ? settings.openaiApiKey?.trim()
-        : settings.openrouterApiKey?.trim();
+        : effectiveProvider === 'gemini'
+          ? settings.geminiApiKey?.trim()
+          : settings.openrouterApiKey?.trim();
 
       // Pour OpenRouter, permettre l'utilisation sans clé API (accès limité)
       if (effectiveProvider === 'openrouter' && !apiKey) {
         // Utilisation sans clé API
       } else if (effectiveProvider === 'openai' && !apiKey) {
         throw new Error('Clé API OpenAI requise pour utiliser OpenAI');
+      } else if (effectiveProvider === 'gemini' && !apiKey) {
+        throw new Error('Clé API Gemini requise pour utiliser Google Gemini');
       }
 
-      const endpoint = effectiveProvider === 'openai'
-        ? 'https://api.openai.com/v1/chat/completions'
-        : 'https://openrouter.ai/api/v1/chat/completions';
+      const model = effectiveProvider === 'openai'
+        ? (settings.openaiModel || 'gpt-3.5-turbo')
+        : effectiveProvider === 'gemini'
+          ? (settings.geminiModel || 'gemini-1.5-flash')
+          : AIService.sanitizeModel(effectiveProvider, settings.openrouterModel);
 
-      // Utiliser un modèle adapté
-      const model = AIService.sanitizeModel(effectiveProvider, settings.openrouterModel);
-
+      let endpoint = '';
+      if (effectiveProvider === 'openai') {
+        endpoint = 'https://api.openai.com/v1/chat/completions';
+      } else if (effectiveProvider === 'gemini') {
+        endpoint = `https://generativelanguage.googleapis.com/v1beta/${model.startsWith('models/') ? model : 'models/' + model}:generateContent?key=${apiKey}`;
+      } else {
+        endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+      }
 
       // Construire le prompt pour générer une tâche
       const prompt = `Génère une tâche pour le projet "${project.name}". ` +
@@ -582,39 +660,72 @@ ${appDataInfo}
         '\n\nGénère un titre et une description détaillée pour cette tâche. ' +
         'Réponds au format JSON: { "title": "...", "description": "..." }';
 
+      // Préparer les en-têtes
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        ...(effectiveProvider === 'openrouter' && { 'HTTP-Referer': window.location.origin }),
+      };
+
+      // Ajouter l'authentification uniquement si une clé est fournie
+      if (apiKey) {
+        if (effectiveProvider === 'gemini') {
+          // Utiliser uniquement le paramètre ?key= dans l'URL pour éviter les problèmes CORS/preflight
+        } else {
+          headers['Authorization'] = `Bearer ${apiKey}`;
+        }
+      }
+
+      const body = effectiveProvider === 'gemini'
+        ? JSON.stringify({
+            contents: [{
+              role: 'user',
+              parts: [{ text: prompt }]
+            }],
+            system_instruction: {
+              parts: [{ text: 'Tu es un assistant qui aide à rédiger des titres et descriptions de tâches clairs et précis. RÉPONDS EXCLUSIVEMENT PAR LE JSON DEMANDÉ DANS LE BLOC [FINAL_START]...[FINAL_END], SANS AUCUNE RÉFLEXION.' }]
+            },
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 1000
+            }
+          })
+        : JSON.stringify({
+            model,
+            messages: [
+              {
+                role: 'system',
+                content: 'Tu es un assistant qui aide à rédiger des titres et descriptions de tâches clairs et précis. RÉPONDS EXCLUSIVEMENT PAR LE JSON DEMANDÉ DANS LE BLOC [FINAL_START]...[FINAL_END], SANS AUCUNE RÉFLEXION.'
+              },
+              { role: 'user', content: prompt }
+            ],
+            temperature: 0.7,
+            max_tokens: 1000,
+          });
+
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(effectiveProvider === 'openrouter' && { 'HTTP-Referer': window.location.origin }),
-          // Ajouter l'authentification uniquement si une clé est fournie
-          ...(apiKey && { 'Authorization': `Bearer ${apiKey}` })
-        },
-        body: JSON.stringify({
-          model: model,
-          messages: [
-            {
-              role: 'system',
-              content: 'Tu es un assistant qui aide à rédiger des titres et descriptions de tâches clairs et précis. RÉPONDS EXCLUSIVEMENT PAR LE JSON DEMANDÉ DANS LE BLOC [FINAL_START]...[FINAL_END], SANS AUCUNE RÉFLEXION.'
-            },
-            { role: 'user', content: prompt }
-          ],
-          temperature: 0.7,
-          max_tokens: 1000,
-        }),
+        headers,
+        body
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(`Erreur API: ${JSON.stringify(errorData)}`);
       }
 
       const data = await response.json();
 
       // Extraire et nettoyer le contenu
-      let content = AIService.cleanContent(data.choices?.[0]?.message?.content || '');
+      let content = '';
+      if (effectiveProvider === 'gemini') {
+        content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      } else {
+        content = data.choices?.[0]?.message?.content || '';
+      }
 
-      if (!content && data.choices?.[0]?.message?.reasoning) {
+      content = AIService.cleanContent(content);
+
+      if (!content && effectiveProvider !== 'gemini' && data.choices?.[0]?.message?.reasoning) {
         content = AIService.cleanContent(data.choices?.[0]?.message?.reasoning);
       }
 
@@ -630,7 +741,6 @@ ${appDataInfo}
           description: parsed.description || content
         };
       }
-
       // Si on n'a pas pu extraire de JSON, on utilise le contenu brut
       return {
         title: title || 'Tâche générée',
@@ -644,26 +754,29 @@ ${appDataInfo}
 
   static async generateAiText(settings: AISettings, prompt: string, verbose: boolean = false): Promise<string> {
     try {
-      // ... (rest of the code remains the same but use verbose in the prompt)
-      // Utiliser OpenRouter par défaut avec des modèles gratuits
       const effectiveProvider = settings.provider || 'openrouter';
-
-      // Pour les modèles gratuits, ne pas exiger de clé API
       const apiKey = effectiveProvider === 'openai'
         ? settings.openaiApiKey?.trim()
-        : settings.openrouterApiKey?.trim();
+        : effectiveProvider === 'gemini'
+          ? settings.geminiApiKey?.trim()
+          : settings.openrouterApiKey?.trim();
 
-      // Utiliser un modèle adapté
       const model = effectiveProvider === 'openai'
         ? (settings.openaiModel || 'gpt-3.5-turbo')
-        : AIService.sanitizeModel(effectiveProvider, settings.openrouterModel);
+        : effectiveProvider === 'gemini'
+          ? (settings.geminiModel || 'gemini-1.5-flash')
+          : AIService.sanitizeModel(effectiveProvider, settings.openrouterModel);
 
+      let endpoint = '';
+      if (effectiveProvider === 'openai') {
+        endpoint = 'https://api.openai.com/v1/chat/completions';
+      } else if (effectiveProvider === 'gemini') {
+        endpoint = `https://generativelanguage.googleapis.com/v1beta/${model.startsWith('models/') ? model : 'models/' + model}:generateContent?key=${apiKey}`;
+      } else {
+        endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+      }
 
-      const endpoint = effectiveProvider === 'openai'
-        ? 'https://api.openai.com/v1/chat/completions'
-        : 'https://openrouter.ai/api/v1/chat/completions';
-
-      // Préparer les en-têtes de base
+      // Préparer les en-têtes
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
         ...(effectiveProvider === 'openrouter' && {
@@ -672,49 +785,69 @@ ${appDataInfo}
         })
       };
 
-      // Pour OpenAI, l'authentification est toujours requise
-      if (effectiveProvider === 'openai' && apiKey) {
-        headers['Authorization'] = `Bearer ${apiKey}`;
+      // Ajouter l'authentification si une clé est fournie
+      if (apiKey) {
+        if (effectiveProvider === 'gemini') {
+          // Utiliser uniquement le paramètre ?key= dans l'URL pour éviter les problèmes CORS/preflight
+        } else {
+          headers['Authorization'] = `Bearer ${apiKey}`;
+        }
       }
-      // Pour OpenRouter, n'ajouter l'authentification que si une clé valide est fournie
-      else if (effectiveProvider === 'openrouter' && apiKey && apiKey.trim() !== '') {
-        headers['Authorization'] = `Bearer ${apiKey}`;
-      }
+
+      const body = effectiveProvider === 'gemini'
+        ? JSON.stringify({
+            contents: [{
+              role: 'user',
+              parts: [{ text: `${prompt}${verbose ? ' (Sois très détaillé et complet)' : ' (Réponds de manière concise en moins de 300 mots)'}` }]
+            }],
+            system_instruction: {
+              parts: [{ text: 'Tu es un assistant expert qui aide à générer des rapports professionnels. Ton ton est proactif, bienveillant et pédagogique. Tu expliques les concepts techniques pour qu\'un client non-expert puisse les comprendre facilement. RÉPONDS DIRECTEMENT ET UNIQUEMENT AVEC LE CONTENU DU RAPPORT DANS LE BLOC [FINAL_START]...[FINAL_END], SANS AUCUNE RÉFLEXION INTERNE OU COMMENTAIRE.' }]
+            },
+            generationConfig: {
+              temperature: settings.temperature || 0.5,
+              maxOutputTokens: verbose ? 2500 : (settings.maxTokens || 1000)
+            }
+          })
+        : JSON.stringify({
+            model,
+            messages: [
+              {
+                role: 'system',
+                content: 'Tu es un assistant expert qui aide à générer des rapports professionnels. Ton ton est proactif, bienveillant et pédagogique. Tu expliques les concepts techniques pour qu\'un client non-expert puisse les comprendre facilement. RÉPONDS DIRECTEMENT ET UNIQUEMENT AVEC LE CONTENU DU RAPPORT DANS LE BLOC [FINAL_START]...[FINAL_END], SANS AUCUNE RÉFLEXION INTERNE OU COMMENTAIRE.'
+              },
+              {
+                role: 'user',
+                content: `${prompt}${verbose ? ' (Sois très détaillé et complet)' : ' (Réponds de manière concise en moins de 300 mots)'}`
+              }
+            ],
+            temperature: settings.temperature || 0.5,
+            max_tokens: verbose ? 2500 : (settings.maxTokens || 1000),
+          });
 
       const response = await fetch(endpoint, {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          model: model,
-          messages: [
-            {
-              role: 'system',
-              content: 'Tu es un assistant expert qui aide à générer des rapports professionnels. Ton ton est proactif, bienveillant et pédagogique. Tu expliques les concepts techniques pour qu\'un client non-expert puisse les comprendre facilement. RÉPONDS DIRECTEMENT ET UNIQUEMENT AVEC LE CONTENU DU RAPPORT DANS LE BLOC [FINAL_START]...[FINAL_END], SANS AUCUNE RÉFLEXION INTERNE OU COMMENTAIRE.'
-            },
-            {
-              role: 'user',
-              content: `${prompt}${verbose ? ' (Sois très détaillé et complet)' : ' (Réponds de manière concise en moins de 300 mots)'}`
-            }
-          ],
-          temperature: settings.temperature || 0.5,
-          max_tokens: verbose ? 2500 : (settings.maxTokens || 1000),
-        }),
+        body
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.error?.message ||
-          `Erreur HTTP: ${response.status} ${response.statusText}`
-        );
+        throw new Error(errorData.error?.message || `Erreur API: ${response.status}`);
       }
 
       const data = await response.json();
 
       // Extraire et nettoyer le contenu
-      let content = AIService.cleanContent(data.choices?.[0]?.message?.content || '');
+      let content = '';
+      if (effectiveProvider === 'gemini') {
+        content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      } else {
+        content = data.choices?.[0]?.message?.content || '';
+      }
+      
+      content = AIService.cleanContent(content);
 
-      if (!content && data.choices?.[0]?.message?.reasoning) {
+      if (!content && effectiveProvider !== 'gemini' && data.choices?.[0]?.message?.reasoning) {
         content = AIService.cleanContent(data.choices?.[0]?.message?.reasoning);
       }
 
@@ -740,20 +873,27 @@ ${appDataInfo}
     try {
       // Utiliser OpenRouter par défaut si aucun fournisseur n'est spécifié
       const effectiveProvider = settings.provider || 'openrouter';
-
-      // Récupérer la clé API appropriée
       const apiKey = effectiveProvider === 'openai'
         ? settings.openaiApiKey?.trim()
-        : settings.openrouterApiKey?.trim();
+        : effectiveProvider === 'gemini'
+          ? settings.geminiApiKey?.trim()
+          : settings.openrouterApiKey?.trim();
 
       // Définir le modèle en fonction du fournisseur
       const model = effectiveProvider === 'openai'
         ? (settings.openaiModel || 'gpt-3.5-turbo')
-        : AIService.sanitizeModel(effectiveProvider, settings.openrouterModel);
+        : effectiveProvider === 'gemini'
+          ? (settings.geminiModel || 'gemini-1.5-flash')
+          : AIService.sanitizeModel(effectiveProvider, settings.openrouterModel);
 
-      const endpoint = effectiveProvider === 'openai'
-        ? 'https://api.openai.com/v1/chat/completions'
-        : 'https://openrouter.ai/api/v1/chat/completions';
+      let endpoint = '';
+      if (effectiveProvider === 'openai') {
+        endpoint = 'https://api.openai.com/v1/chat/completions';
+      } else if (effectiveProvider === 'gemini') {
+        endpoint = `https://generativelanguage.googleapis.com/v1beta/${model.startsWith('models/') ? model : 'models/' + model}:generateContent?key=${apiKey}`;
+      } else {
+        endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+      }
 
       // Préparer les en-têtes de base
       const headers: HeadersInit = {
@@ -761,28 +901,36 @@ ${appDataInfo}
       };
 
       // Configuration spécifique pour OpenRouter
-      if (effectiveProvider === 'openrouter') {
-        // Pour OpenRouter, utiliser l'authentification uniquement si la clé est valide
-        if (apiKey && typeof apiKey === 'string' && apiKey.trim() !== '') {
+      // Ajouter l'authentification si une clé est fournie
+      if (apiKey) {
+        if (effectiveProvider === 'gemini') {
+          // Utiliser uniquement le paramètre ?key= dans l'URL pour éviter les problèmes CORS/preflight
+        } else {
           headers['Authorization'] = `Bearer ${apiKey}`;
         }
-        // Ces en-têtes sont requis par OpenRouter
+      }
+
+      // Ces en-têtes sont requis par OpenRouter
+      if (effectiveProvider === 'openrouter') {
         headers['HTTP-Referer'] = window.location.origin || 'http://localhost:3000';
         headers['X-Title'] = 'Gestion de Projet App';
       }
-      // Configuration pour OpenAI
-      else if (effectiveProvider === 'openai' && apiKey) {
-        headers['Authorization'] = `Bearer ${apiKey}`;
-      }
+
+      const body = effectiveProvider === 'gemini'
+        ? JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: message }] }],
+            generationConfig: { maxOutputTokens: 10 }
+          })
+        : JSON.stringify({
+            model: model,
+            messages: [{ role: 'user' as const, content: message }],
+            max_tokens: 5,
+          });
 
       const response = await fetch(endpoint, {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          model: model,
-          messages: [{ role: 'user' as const, content: message }],
-          max_tokens: 5, // Nombre minimal de tokens pour le test
-        }),
+        body
       });
 
       if (!response.ok) {
@@ -794,9 +942,15 @@ ${appDataInfo}
       }
 
       const result = await response.json();
+      
+      // Valider la structure de réponse Gemini
+      if (effectiveProvider === 'gemini' && !result.candidates?.[0]?.content) {
+        throw new Error('Structure de réponse Gemini invalide');
+      }
+
       return {
         success: true,
-        message: `Connexion réussie avec ${effectiveProvider === 'openai' ? 'OpenAI' : 'OpenRouter'}`,
+        message: `Connexion réussie avec ${effectiveProvider === 'openai' ? 'OpenAI' : effectiveProvider === 'gemini' ? 'Gemini' : 'OpenRouter'}`,
         data: result
       };
     } catch (error) {
@@ -827,7 +981,9 @@ ${appDataInfo}
       const effectiveProvider = settings.provider || 'openrouter';
       const apiKey = effectiveProvider === 'openai'
         ? settings.openaiApiKey?.trim()
-        : settings.openrouterApiKey?.trim();
+        : effectiveProvider === 'gemini'
+          ? settings.geminiApiKey?.trim()
+          : settings.openrouterApiKey?.trim();
 
       // Pour OpenRouter, permettre l'utilisation sans clé API (accès limité)
       if (effectiveProvider === 'openrouter' && !apiKey) {
@@ -836,13 +992,20 @@ ${appDataInfo}
         throw new Error('Clé API OpenAI requise pour utiliser OpenAI');
       }
 
-      const endpoint = effectiveProvider === 'openai'
-        ? 'https://api.openai.com/v1/chat/completions'
-        : 'https://openrouter.ai/api/v1/chat/completions';
+      const model = effectiveProvider === 'openai'
+        ? (settings.openaiModel || 'gpt-3.5-turbo')
+        : effectiveProvider === 'gemini'
+          ? (settings.geminiModel || 'gemini-1.5-flash')
+          : AIService.sanitizeModel(effectiveProvider, settings.openrouterModel);
 
-      // Utiliser un modèle adapté
-      const model = AIService.sanitizeModel(effectiveProvider, settings.openrouterModel);
-
+      let endpoint = '';
+      if (effectiveProvider === 'openai') {
+        endpoint = 'https://api.openai.com/v1/chat/completions';
+      } else if (effectiveProvider === 'gemini') {
+        endpoint = `https://generativelanguage.googleapis.com/v1beta/${model.startsWith('models/') ? model : 'models/' + model}:generateContent?key=${apiKey}`;
+      } else {
+        endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+      }
 
       // Préparer le prompt
       let prompt = `Génère 3 à 5 tâches pertinentes pour le projet "${project.name}".`;
@@ -851,31 +1014,57 @@ ${appDataInfo}
       }
 
       if (project.tasks && project.tasks.length > 0) {
-        prompt += `\nTâches déjà existantes :\n${project.tasks.slice(0, 5).map((t, i) => `${i + 1}. ${t.title}`).join('\n')}`;
+        prompt += `\nTâches déjà existantes :\n${project.tasks.slice(0, 5).map((t: any, i: number) => `${i + 1}. ${t.title}`).join('\n')}`;
       }
 
       prompt += '\n\nGénère les tâches au format JSON array. Retourne uniquement le JSON, pas de texte supplémentaire.';
 
+      // Préparer les en-têtes
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        ...(effectiveProvider === 'openrouter' && { 'HTTP-Referer': window.location.origin }),
+      };
+
+      // Ajouter l'authentification uniquement si une clé est fournie
+      if (apiKey) {
+        if (effectiveProvider === 'gemini') {
+          // Utiliser uniquement le paramètre ?key= dans l'URL pour éviter les problèmes CORS/preflight
+        } else {
+          headers['Authorization'] = `Bearer ${apiKey}`;
+        }
+      }
+
+      const body = effectiveProvider === 'gemini'
+        ? JSON.stringify({
+            contents: [{
+              role: 'user',
+              parts: [{ text: prompt }]
+            }],
+            system_instruction: {
+              parts: [{ text: 'Tu es un assistant expert en gestion de projet qui génère des tâches pertinentes et structurées au format JSON. RÉPONDS EXCLUSIVEMENT PAR LE JSON DEMANDÉ, SANS AUCUNE RÉFLEXION OU TEXTE AVANT/APRÈS.' }]
+            },
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 1000
+            }
+          })
+        : JSON.stringify({
+            model,
+            messages: [
+              {
+                role: 'system',
+                content: 'Tu es un assistant expert en gestion de projet qui génère des tâches pertinentes et structurées au format JSON. RÉPONDS EXCLUSIVEMENT PAR LE JSON DEMANDÉ, SANS AUCUNE RÉFLEXION OU TEXTE AVANT/APRÈS.'
+              },
+              { role: 'user', content: prompt }
+            ],
+            temperature: 0.7,
+            max_tokens: 1000,
+          });
+
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(effectiveProvider === 'openrouter' && { 'HTTP-Referer': window.location.origin }),
-          // Ajouter l'authentification uniquement si une clé est fournie
-          ...(apiKey && { 'Authorization': `Bearer ${apiKey}` })
-        },
-        body: JSON.stringify({
-          model: model,
-          messages: [
-            {
-              role: 'system',
-              content: 'Tu es un assistant expert en gestion de projet qui génère des tâches pertinentes et structurées au format JSON. RÉPONDS EXCLUSIVEMENT PAR LE JSON DEMANDÉ, SANS AUCUNE RÉFLEXION OU TEXTE AVANT/APRÈS.'
-            },
-            { role: 'user', content: prompt }
-          ],
-          temperature: 0.7,
-          max_tokens: 1000,
-        }),
+        headers,
+        body
       });
 
       if (!response.ok) {
@@ -886,36 +1075,18 @@ ${appDataInfo}
       const data = await response.json();
 
       // Extraire et nettoyer le contenu
-      let content = AIService.cleanContent(data.choices?.[0]?.message?.content || '');
-
-      if (!content && data.choices?.[0]?.message?.reasoning) {
-        content = AIService.cleanContent(data.choices?.[0]?.message?.reasoning);
+      let content = '';
+      if (effectiveProvider === 'gemini') {
+        content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      } else {
+        content = data.choices?.[0]?.message?.content || '';
       }
+      
+      content = AIService.cleanContent(content);
 
-      if (!content) {
-        throw new Error('Aucun contenu généré');
-      }
-
-      // Extraire le JSON (plus robuste)
-      const arrayMatch = content.match(/\[\s*\{[\s\S]*\}\s*\]/);
-      if (arrayMatch) {
-        try {
-          return JSON.parse(arrayMatch[0]);
-        } catch (e) {
-          console.error('Erreur parsing match JSON array:', e);
-        }
-      }
-
-      // Tentative de parse directe ou extraction de la zone [...]
-      try {
-        const jsonOnly = content.substring(content.indexOf('['), content.lastIndexOf(']') + 1);
-        if (jsonOnly && jsonOnly.startsWith('[') && jsonOnly.endsWith(']')) {
-          return JSON.parse(jsonOnly);
-        }
-        return JSON.parse(content);
-      } catch (e) {
-        throw new Error('Format de réponse invalide');
-      }
+      // Essayer d'extraire le JSON
+      const tasks = AIService.tryExtractJson(content);
+      return Array.isArray(tasks) ? tasks : [];
     } catch (error) {
       console.error('Erreur lors de la génération des tâches:', error);
       throw error;
@@ -1069,6 +1240,40 @@ ${appDataInfo}
       return data.data || [];
     } catch (error) {
       console.error('Erreur OpenRouter models:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Récupère la liste des modèles disponibles auprès de Google Gemini
+   */
+  static async fetchGeminiModels(apiKey: string): Promise<{ id: string; name: string; context_length: number; pricing: any }[]> {
+    try {
+      // Pour Google Gemini, on utilise l'API standard de liste des modèles
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || 'Erreur lors de la récupération des modèles Gemini');
+      }
+
+      const data = await response.json();
+      
+      // Filtrer pour ne garder que les modèles de génération de contenu (Gemini)
+      // et transformer pour matcher l'interface attendue par ModelSelect
+      return (data.models || [])
+        .filter((m: any) => 
+          m.supportedGenerationMethods?.includes('generateContent') && 
+          m.name.startsWith('models/gemini')
+        )
+        .map((m: any) => ({
+          id: m.name.replace('models/', ''),
+          name: m.displayName,
+          context_length: m.inputTokenLimit || 32768,
+          pricing: { prompt: 0, completion: 0 } // Gratuit/Non spécifié dynamiquement
+        }));
+    } catch (error) {
+      console.error('Erreur Gemini models:', error);
       throw error;
     }
   }

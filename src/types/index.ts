@@ -68,11 +68,13 @@ export function createDefaultTask(): Task {
 
 export interface ProjectAISettings {
   enabled: boolean;
-  provider: 'openai' | 'openrouter' | null;
+  provider: 'openai' | 'openrouter' | 'gemini' | null;
   openaiApiKey: string | null;
   openrouterApiKey: string | null;
+  geminiApiKey: string | null;
   openaiModel: string;
   openrouterModel: string;
+  geminiModel: string;
   maxTokens: number;
   temperature: number;
   isConfigured?: boolean;
@@ -220,11 +222,13 @@ export interface EmailSettings {
 }
 
 export interface AISettings {
-  provider: 'openai' | 'openrouter' | null;
+  provider: 'openai' | 'openrouter' | 'gemini' | null;
   openaiApiKey: string | null;
   openrouterApiKey: string | null;
+  geminiApiKey: string | null;
   openrouterModel: string;
   openaiModel: string;
+  geminiModel: string;
   maxTokens: number;
   temperature: number;
   isConfigured: boolean;
@@ -238,8 +242,10 @@ export const DEFAULT_AI_SETTINGS: AISettings = {
   provider: 'openrouter',  // OpenRouter propose des modèles gratuits
   openaiApiKey: null,
   openrouterApiKey: null,  // Pas de clé par défaut pour forcer l'utilisation du mode anonyme
+  geminiApiKey: null,
   openrouterModel: 'meta-llama/llama-3.1-8b-instruct:free',  // Modèle gratuit fiable
   openaiModel: 'gpt-3.5-turbo',
+  geminiModel: 'gemini-1.5-flash',
   maxTokens: 500,
   temperature: 0.5,
   isConfigured: true,

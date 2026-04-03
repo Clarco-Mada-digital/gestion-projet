@@ -13,7 +13,7 @@ import { AIService } from '../../services/aiService';
 import { useApp } from '../../context/AppContext';
 import '../../styles/ai-settings.css';
 
-type ProviderType = 'openai' | 'openrouter';
+type ProviderType = 'openai' | 'openrouter' | 'gemini';
 
 interface ModelOption {
   value: string;
@@ -26,8 +26,10 @@ interface FormValues {
   provider: ProviderType;
   openaiApiKey: string | null;
   openrouterApiKey: string | null;
+  geminiApiKey: string | null;
   openaiModel: string;
   openrouterModel: string;
+  geminiModel: string;
   maxTokens: number;
   temperature: number;
   isConfigured: boolean;
@@ -59,6 +61,11 @@ const MODELS: Record<ProviderType, ModelOption[]> = {
     { value: 'google/gemini-pro-1.5', label: 'Google: Gemini Pro 1.5' },
     { value: 'mistralai/mistral-large', label: 'Mistral: Large' },
     { value: 'meta-llama/llama-3-70b-instruct', label: 'Meta: Llama 3 70B' },
+  ],
+  gemini: [
+    { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
+    { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+    { value: 'gemini-pro', label: 'Gemini 1.0 Pro' },
   ]
 };
 
@@ -72,9 +79,9 @@ interface ModelSelectProps {
   isDarkMode: boolean;
 }
 
-const ModelSelect = React.memo<ModelSelectProps>(({ form, labelStyle, dynamicModels, isFetching, searchTerm, onSearch, isDarkMode }) => {
+const ModelSelect = React.memo<ModelSelectProps>(({ form, labelStyle, dynamicModels, isFetching, searchTerm, onSearch }) => {
   const provider = (Form.useWatch('provider', form) as ProviderType) || 'openai';
-  const modelName = provider === 'openai' ? 'openaiModel' : 'openrouterModel';
+  const modelName = provider === 'openai' ? 'openaiModel' : provider === 'gemini' ? 'geminiModel' : 'openrouterModel';
 
   // S'assurer que le provider est valide
   const staticModels = MODELS[provider] || MODELS.openai;
@@ -97,8 +104,16 @@ const ModelSelect = React.memo<ModelSelectProps>(({ form, labelStyle, dynamicMod
     m.value.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Récupérer la valeur actuelle
-  const currentModelValue = Form.useWatch(modelName, form);
+  // Récupérer la valeur actuelle de manière statique pour éviter le warning
+  const openaiModelVal = Form.useWatch('openaiModel', form);
+  const geminiModelVal = Form.useWatch('geminiModel', form);
+  const openrouterModelVal = Form.useWatch('openrouterModel', form);
+  
+  const currentModelValue = provider === 'openai' 
+    ? openaiModelVal 
+    : provider === 'gemini' 
+      ? geminiModelVal 
+      : openrouterModelVal;
 
   return (
     <div className="space-y-4">
@@ -238,8 +253,10 @@ export const AISettings: React.FC<AISettingsProps> = ({
     provider: 'openai',
     openaiApiKey: '',
     openrouterApiKey: '',
+    geminiApiKey: '',
     openaiModel: 'gpt-3.5-turbo',
     openrouterModel: 'openrouter/auto',
+    geminiModel: 'gemini-1.5-flash',
     maxTokens: 1000,
     temperature: 0.7,
     isConfigured: false,
@@ -265,13 +282,14 @@ export const AISettings: React.FC<AISettingsProps> = ({
   // Observer les changements de valeurs pour le chargement des modèles
   const provider = Form.useWatch('provider', form);
   const openrouterApiKey = Form.useWatch('openrouterApiKey', form);
+  const geminiApiKey = Form.useWatch('geminiApiKey', form);
 
-  // Récupérer les modèles dynamiques d'OpenRouter
+  // Récupérer les modèles dynamiques d'OpenRouter ou Gemini
   useEffect(() => {
     const fetchModels = async () => {
       // Utiliser les valeurs observées
       const currentProvider = provider;
-      const currentApiKey = openrouterApiKey;
+      const currentApiKey = currentProvider === 'openrouter' ? openrouterApiKey : geminiApiKey;
 
       if (currentProvider === 'openrouter' && currentApiKey && currentApiKey.startsWith('sk-or-')) {
         setIsFetchingModels(true);
@@ -285,7 +303,23 @@ export const AISettings: React.FC<AISettingsProps> = ({
           }));
           setDynamicModels(mappedModels);
         } catch (error) {
-          console.error('Erreur lors de la récupération des modèles:', error);
+          console.error('Erreur lors de la récupération des modèles OpenRouter:', error);
+        } finally {
+          setIsFetchingModels(false);
+        }
+      } else if (currentProvider === 'gemini' && currentApiKey && currentApiKey.startsWith('AIza')) {
+        setIsFetchingModels(true);
+        try {
+          const models = await AIService.fetchGeminiModels(currentApiKey);
+          const mappedModels = models.map(m => ({
+            value: m.id,
+            label: m.name,
+            context: m.context_length,
+            pricing: m.pricing
+          }));
+          setDynamicModels(mappedModels);
+        } catch (error) {
+          console.error('Erreur lors de la récupération des modèles Gemini:', error);
         } finally {
           setIsFetchingModels(false);
         }
@@ -295,7 +329,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
     };
 
     fetchModels();
-  }, [provider, openrouterApiKey]);
+  }, [provider, openrouterApiKey, geminiApiKey]);
 
 
   const handleTestConnection = async (): Promise<void> => {
@@ -305,8 +339,10 @@ export const AISettings: React.FC<AISettingsProps> = ({
         provider: values.provider,
         openaiApiKey: values.openaiApiKey || '',
         openrouterApiKey: values.openrouterApiKey || '',
+        geminiApiKey: values.geminiApiKey || '',
         openaiModel: values.openaiModel,
         openrouterModel: values.openrouterModel,
+        geminiModel: values.geminiModel,
         maxTokens: values.maxTokens,
         temperature: values.temperature,
         isConfigured: false,
@@ -435,11 +471,12 @@ export const AISettings: React.FC<AISettingsProps> = ({
                   <Select
                     placeholder="Sélectionnez un fournisseur"
                     className={selectClassName}
-                    popupClassName="dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                    dropdownStyle={isDarkMode ? { backgroundColor: '#1f2937', borderColor: '#4b5563' } : undefined}
+                    classNames={{ popup: { root: "dark:bg-gray-800 dark:border-gray-700 dark:text-white" } }}
+                    styles={{ popup: { root: isDarkMode ? { backgroundColor: '#1f2937', borderColor: '#4b5563' } : undefined } }}
                     optionLabelProp="label"
                   >
                     <Select.Option value="openai">OpenAI (direct)</Select.Option>
+                    <Select.Option value="gemini">Google Gemini (direct)</Select.Option>
                     <Select.Option value="openrouter">OpenRouter (modèles multiples)</Select.Option>
                   </Select>
                 </Form.Item>
@@ -448,8 +485,9 @@ export const AISettings: React.FC<AISettingsProps> = ({
                   {({ getFieldValue }) => {
                     const provider: ProviderType = getFieldValue('provider') || 'openai';
                     const isOpenAI = provider === 'openai';
-                    const apiKeyName = isOpenAI ? 'openaiApiKey' : 'openrouterApiKey';
-                    const apiKeyLabel = isOpenAI ? 'Clé API OpenAI' : 'Clé API OpenRouter';
+                    const isGemini = provider === 'gemini';
+                    const apiKeyName = isOpenAI ? 'openaiApiKey' : isGemini ? 'geminiApiKey' : 'openrouterApiKey';
+                    const apiKeyLabel = isOpenAI ? 'Clé API OpenAI' : isGemini ? 'Clé API Gemini' : 'Clé API OpenRouter';
 
                     return (
                       <Form.Item
@@ -464,7 +502,7 @@ export const AISettings: React.FC<AISettingsProps> = ({
                         className="mb-4"
                       >
                         <Input.Password
-                          placeholder={isOpenAI ? 'sk-...' : 'sk-or-...'}
+                          placeholder={isOpenAI ? 'sk-...' : isGemini ? 'AIza...' : 'sk-or-...'}
                           className={`${inputClassName} flex dark:bg-gray-700 dark:text-white dark:border-gray-600`}
                           style={{
                             backgroundColor: isDarkMode ? '#374151' : '#ffffff',
@@ -484,7 +522,6 @@ export const AISettings: React.FC<AISettingsProps> = ({
                             }} className="transition-colors" />
                           )}
                           autoComplete="off"
-                          defaultValue=""
                         />
                       </Form.Item>
                     );
