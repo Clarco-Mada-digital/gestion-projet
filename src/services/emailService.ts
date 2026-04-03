@@ -11,12 +11,16 @@ declare global {
 // Interface pour les options d'email
 export interface EmailOptions {
   to: string | string[];
+  cc?: string | string[];
+  bcc?: string | string[];
   subject: string;
   html: string;
   text?: string;
   from?: string;
   fromName?: string;
+  serviceId?: string;
   templateId?: string;
+  userId?: string;
   templateParams?: Record<string, unknown>;
   provider?: 'emailjs' | 'google';
   googleAccessToken?: string;
@@ -132,11 +136,18 @@ export class EmailService {
 
     // Préparation des paramètres du template
     const toEmail = Array.isArray(options.to) ? options.to.join(', ') : options.to;
+    const ccEmail = Array.isArray(options.cc) ? options.cc.join(', ') : options.cc;
+    const bccEmail = Array.isArray(options.bcc) ? options.bcc.join(', ') : options.bcc;
+
     const templateParams = {
       // Alias pour le destinataire
       to_email: toEmail,
       email: toEmail,
       to: toEmail,
+
+      // Cc et Bcc (nécessitent d'être ajoutés dans le template EmailJS si on veut qu'ils soient utilisés)
+      cc_email: ccEmail || '',
+      bcc_email: bccEmail || '',
 
       // Alias pour le nom du destinataire
       to_name: options.templateParams?.to_name || '',
@@ -183,13 +194,15 @@ export class EmailService {
    * Envoie un email via l'API Gmail de Google
    */
   private static async sendViaGoogle(options: EmailOptions): Promise<{ id: string; threadId: string; realMessageId?: string }> {
-    const { to, subject, html, googleAccessToken, fromName, from } = options;
+    const { to, cc, bcc, subject, html, googleAccessToken, fromName, from } = options;
 
     if (!googleAccessToken) {
       throw new Error('Token Google manquant');
     }
 
     const recipients = Array.isArray(to) ? to.join(', ') : to;
+    const ccRecipients = Array.isArray(cc) ? cc.join(', ') : cc;
+    const bccRecipients = Array.isArray(bcc) ? bcc.join(', ') : bcc;
     const utf8Subject = `=?utf-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`;
     const fromHeader = fromName ? `${fromName} <${from || 'me'}>` : (from || 'me');
 
@@ -198,9 +211,17 @@ export class EmailService {
       `Content-Type: text/html; charset="UTF-8"`,
       `MIME-Version: 1.0`,
       `To: ${recipients}`,
-      `From: ${fromHeader}`,
-      `Subject: ${utf8Subject}`,
     ];
+
+    if (ccRecipients) {
+      emailHeaderLines.push(`Cc: ${ccRecipients}`);
+    }
+    if (bccRecipients) {
+      emailHeaderLines.push(`Bcc: ${bccRecipients}`);
+    }
+
+    emailHeaderLines.push(`From: ${fromHeader}`);
+    emailHeaderLines.push(`Subject: ${utf8Subject}`);
 
     // Ajouter les headers IN-REPLY-TO et REFERENCES si c'est une réponse
     // IMPORTANT : C'est eux (couplé au threadId) qui informent Gmail et les autres serveurs

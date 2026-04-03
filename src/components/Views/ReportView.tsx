@@ -8,7 +8,7 @@ import { AIService } from '../../services/aiService';
 import { Input } from '../UI/Input';
 import { Textarea } from '../UI/Textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../UI/dialog';
-import { EmailService } from '../../services/emailService';
+import { EmailService, type EmailOptions } from '../../services/emailService';
 import { getBasePath } from '../../lib/pathUtils';
 
 interface SubTaskReport {
@@ -30,6 +30,8 @@ export function ReportView() {
   const [emailStatus, setEmailStatus] = useState<{ type: 'success' | 'error' | 'info' | null; message: string }>({ type: null, message: '' });
   const [emailForm, setEmailForm] = useState({
     to: '',
+    cc: '',
+    bcc: '',
     subject: 'Delivery',
     message: 'Veuvez trouver ci-joint le rapport d\'activité demandé.'
   });
@@ -37,6 +39,7 @@ export function ReportView() {
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
   const [replyToMessageId, setReplyToMessageId] = useState<string | null>(null);
   const [replyToThreadId, setReplyToThreadId] = useState<string | null>(null);
+  const [showCcBcc, setShowCcBcc] = useState(false);
 
   const [report, setReport] = useState<{
     startDate: Date;
@@ -178,6 +181,8 @@ export function ReportView() {
       }));
     }
     setEmailDialogOpen(true);
+    setShowCcBcc(false);
+    setEmailForm(prev => ({ ...prev, cc: '', bcc: '' }));
     setSelectedContacts(new Set());
   };
 
@@ -297,10 +302,9 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
       const reportContent = editedReport || aiReport;
       const messageContent = emailForm.message.trim() || reportContent;
 
-      const toEmails = emailForm.to
-        .split(',')
-        .map(email => email.trim())
-        .filter(email => email.length > 0);
+      const toEmails = emailForm.to.split(',').map(e => e.trim()).filter(e => e.length > 0);
+      const ccEmails = emailForm.cc.split(',').map(e => e.trim()).filter(e => e.length > 0);
+      const bccEmails = emailForm.bcc.split(',').map(e => e.trim()).filter(e => e.length > 0);
 
       if (toEmails.length === 0) {
         throw new Error('Veuillez spécifier au moins un destinataire');
@@ -331,6 +335,8 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
         templateId: state.emailSettings.templateId,
         userId: state.emailSettings.userId,
         to: toEmails.join(', '),
+        cc: ccEmails.join(', '),
+        bcc: bccEmails.join(', '),
         from: state.emailSettings?.fromEmail || 'noreply@gestion-projet.com',
         fromName: state.emailSettings?.fromName || 'Gestion de Projet',
         subject: emailSubject,
@@ -339,8 +345,8 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
         provider: chosenProvider,
         // On ne passe le token Google QUE si le client a explicitement choisi Gmail
         googleAccessToken: chosenProvider === 'google' ? state.googleAccessToken : undefined,
-        threadId: replyToThreadId,
-        inReplyTo: replyToMessageId, // On passe toujours notre custom ID (fallback pour Gmail, requis pour emailjs)
+        threadId: replyToThreadId ?? undefined,
+        inReplyTo: replyToMessageId ?? undefined, // On passe toujours notre custom ID (fallback pour Gmail, requis pour emailjs)
         templateParams: {
           to_emails: toEmails,
           to_name: toEmails[0].split('@')[0],
@@ -357,7 +363,11 @@ Ce rapport a été généré automatiquement depuis l'application de gestion de 
       const result = await EmailService.sendEmail(emailOptions, state.emailSettings);
 
       if (result.success) {
-        setEmailStatus({ type: 'success', message: `Email envoyé avec succès à ${toEmails.length} destinataire(s) !` });
+        let successMessage = `Email envoyé avec succès à ${toEmails.join(', ')}`;
+        if (ccEmails.length > 0) successMessage += ` (CC: ${ccEmails.join(', ')})`;
+        if (bccEmails.length > 0) successMessage += ` (BCC: ${bccEmails.join(', ')})`;
+        
+        setEmailStatus({ type: 'success', message: successMessage });
 
         // IMPORTANT : On sauvegarde TOUJOURS le threadId réel retourné par Gmail.
         // C'est lui qui permet à Gmail de regrouper les emails dans le même fil.
@@ -1175,11 +1185,33 @@ INSTRUCTIONS STRICTES :
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <label htmlFor="to" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Destinataire(s)</label>
-                    <button type="button" onClick={() => setIsContactDialogOpen(true)} className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">Choisir depuis les contacts</button>
+                    <div className="flex gap-3">
+                      <button 
+                        type="button" 
+                        onClick={() => setShowCcBcc(!showCcBcc)} 
+                        className={`text-sm ${showCcBcc ? 'text-blue-600 font-bold' : 'text-gray-500 hover:text-blue-600'}`}
+                      >
+                        {showCcBcc ? '- Masquer CC' : '+ Ajouter CC/BCC'}
+                      </button>
+                      <button type="button" onClick={() => setIsContactDialogOpen(true)} className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">Choisir depuis les contacts</button>
+                    </div>
                   </div>
                   <Input id="to" name="to" type="email" value={emailForm.to} onChange={handleEmailInput} placeholder="email@exemple.com" className='dark:bg-gray-700 dark:text-white' required />
                   <p className="text-xs text-gray-500">Séparez les adresses par des virgules.</p>
                 </div>
+
+                {showCcBcc && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="space-y-2">
+                      <label htmlFor="cc" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Copie (CC)</label>
+                      <Input id="cc" name="cc" type="email" value={emailForm.cc} onChange={handleEmailInput} placeholder="cc@exemple.com" className='dark:bg-gray-700 dark:text-white' />
+                    </div>
+                    <div className="space-y-2">
+                      <label htmlFor="bcc" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Copie cachée (BCC)</label>
+                      <Input id="bcc" name="bcc" type="email" value={emailForm.bcc} onChange={handleEmailInput} placeholder="bcc@exemple.com" className='dark:bg-gray-700 dark:text-white' />
+                    </div>
+                  </div>
+                )}
                 <div className="space-y-2">
                   <label htmlFor="subject" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Objet de l'email</label>
 
