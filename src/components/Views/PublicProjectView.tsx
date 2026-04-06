@@ -64,6 +64,95 @@ const isTaskActiveOnDay = (task: Task, date: Date) => {
 
 // --- Sub-components ---
 
+const TaskDetailContent = ({ task, onOpenMediaViewer }: { task: Task, onOpenMediaViewer: (attachments: Attachment[], index: number) => void }) => {
+  const getFileIcon = (att: Attachment) => {
+    if (att.type === 'image') return <ImageIcon className="w-5 h-5 text-indigo-600" />;
+    if (att.type === 'video') return <Film className="w-5 h-5 text-purple-600" />;
+    if (att.type === 'audio') return <Music className="w-5 h-5 text-pink-600" />;
+    return <FileText className="w-5 h-5 text-indigo-600" />;
+  };
+
+  const getFileIconBg = (att: Attachment) => {
+    if (att.type === 'image') return 'bg-indigo-50 dark:bg-indigo-900/30';
+    if (att.type === 'video') return 'bg-purple-50 dark:bg-purple-900/30';
+    if (att.type === 'audio') return 'bg-pink-50 dark:bg-pink-900/30';
+    return 'bg-gray-50 dark:bg-gray-800';
+  };
+
+  return (
+    <div className="flex flex-col md:flex-row h-full">
+      <div className="md:w-[300px] bg-gray-50 dark:bg-black/20 p-6 lg:p-8 border-r border-gray-100 dark:border-gray-800 flex flex-col justify-between overflow-y-auto">
+        <div>
+          <div className={`w-12 h-12 rounded-[1rem] flex items-center justify-center mb-4 shadow-lg ${getStatusInfo(task.status).bg} text-white`}>
+            {React.createElement(getStatusInfo(task.status).icon, { className: 'w-6 h-6' })}
+          </div>
+          <h2 className="text-xl font-black tracking-tighter mb-3 leading-tight text-gray-900 dark:text-white">{task.title}</h2>
+          <div className="flex flex-wrap gap-2">
+            <span className={`px-3 py-1 rounded-lg text-[7px] font-black uppercase tracking-widest ${getStatusInfo(task.status).bg} text-white`}>{getStatusInfo(task.status).label}</span>
+            <span className="px-3 py-1 rounded-lg text-[7px] font-black uppercase tracking-widest bg-gray-100 dark:bg-gray-800 text-gray-500 border border-gray-100 dark:border-gray-700">{task.priority || 'Normal'}</span>
+          </div>
+        </div>
+        <div className="space-y-4 pt-6 mt-6 border-t border-gray-100 dark:border-gray-800">
+          <div className="flex justify-between items-center"><span className="text-[8px] font-black uppercase tracking-widest text-gray-400">Début</span><span className="text-[10px] font-black">{new Date(task.startDate).toLocaleDateString()}</span></div>
+          <div className="flex justify-between items-center"><span className="text-[8px] font-black uppercase tracking-widest text-gray-400">Échéance</span><span className="text-[10px] font-black text-red-500">{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'Non définie'}</span></div>
+          <div className="flex justify-between items-center">
+            <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">Charge</span>
+            <span className="text-[10px] font-black text-indigo-500">{task.estimatedHours ? `${task.estimatedHours}h` : 'N/A'}</span>
+          </div>
+        </div>
+      </div>
+      <div className="flex-1 p-6 lg:p-10 overflow-y-auto bg-white dark:bg-[#0F172A]">
+        <div className="mb-8">
+          <h4 className="text-[8px] font-black uppercase tracking-[0.2em] text-indigo-500 mb-4 border-b border-indigo-100 dark:border-indigo-900 pb-1">Mission</h4>
+          <div className="prose dark:prose-invert prose-xs max-w-none font-medium text-gray-500 leading-relaxed">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanMarkdown(task.description)}</ReactMarkdown>
+          </div>
+        </div>
+
+        {task.attachments && task.attachments.length > 0 && (
+          <div className="mb-8">
+            <h4 className="text-[8px] font-black uppercase tracking-[0.2em] text-gray-900 dark:text-white mb-4">Documents & Médias</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {task.attachments.map((att, idx) => (
+                <button
+                  key={att.id}
+                  onClick={() => onOpenMediaViewer(task.attachments!, idx)}
+                  className="flex items-center gap-3 p-3 rounded-2xl bg-gray-50/50 dark:bg-white/5 border border-gray-100 dark:border-white/5 hover:bg-white dark:hover:bg-white/10 hover:shadow-lg transition-all text-left w-full"
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${getFileIconBg(att)}`}>
+                    {att.type === 'image' ? <img src={att.url} alt={att.name} className="w-full h-full object-cover rounded-xl" /> : getFileIcon(att)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[9px] font-black truncate text-gray-900 dark:text-white uppercase">{att.name}</div>
+                    <div className="text-[7px] font-bold text-gray-400 uppercase tracking-widest">{att.type || 'Fichier'}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {task.subTasks && task.subTasks.length > 0 && (
+          <div className="space-y-4">
+            <h4 className="text-[8px] font-black uppercase tracking-[0.2em] text-gray-900 dark:text-white mb-4">Objectifs intermédiaires</h4>
+            <div className="grid grid-cols-1 gap-2">
+              {task.subTasks.map(sub => (
+                <div key={sub.id} className="flex items-center gap-3 p-3 rounded-2xl bg-gray-50/50 dark:bg-white/5 border border-gray-100 dark:border-white/5">
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${sub.completed ? 'bg-green-500 text-white' : 'bg-white dark:bg-gray-800'}`}>
+                    {sub.completed ? <CheckCircle2 className="w-3 h-3" /> : <Circle className="w-3 h-3 text-gray-300" />}
+                  </div>
+                  <span className={`text-xs font-bold ${sub.completed ? 'text-gray-400 line-through' : 'text-gray-700 dark:text-gray-300'}`}>{sub.title}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+
 const DashboardView = ({ project, stats, tasks, attachments, onSelectView, onOpenMediaViewer }: {
   project: Project,
   stats: { total: number, done: number, progress: number, inProgress: number },
@@ -675,119 +764,65 @@ export const PublicProjectView = ({ projectId: propProjectId }: { projectId?: st
           {viewMode === 'calendar' && <motion.div key="cal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full"><CalendarView tasks={tasks} onSelectTask={setSelectedTask} /></motion.div>}
 
           {viewMode === 'feed' && (
-            <motion.div key="feed" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }} className="h-full overflow-y-auto pr-4 custom-scroll space-y-4">
-              {tasks.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).map(task => (
-                <div key={task.id} className="p-6 bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between group">
-                  <div className="flex flex-col gap-1">
-                    <div className="text-[8px] font-black text-indigo-500 uppercase tracking-widest">Activité Récente</div>
-                    <h4 className="text-sm font-black">{task.title}</h4>
-                    <p className="text-[10px] text-gray-400">Synchronisé le {new Date(task.updatedAt).toLocaleDateString()}</p>
+            <motion.div key="feed" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="h-full overflow-y-auto pr-4 custom-scroll space-y-4">
+              {tasks.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).map(task => {
+                const isExpanded = selectedTask?.id === task.id;
+                
+                return (
+                  <div key={task.id} className="flex flex-col gap-2">
+                    <motion.div 
+                      layout
+                      onClick={() => setSelectedTask(isExpanded ? null : task)}
+                      className={`p-6 bg-white dark:bg-gray-800 rounded-3xl shadow-sm border transition-all duration-300 cursor-pointer flex items-center justify-between group ${
+                        isExpanded ? 'border-indigo-500 ring-2 ring-indigo-500/10' : 'border-gray-100 dark:border-gray-700'
+                      }`}
+                    >
+                      <div className="flex flex-col gap-1">
+                        <div className="text-[8px] font-black text-indigo-500 uppercase tracking-widest">Activité Récente</div>
+                        <h4 className="text-sm font-black">{task.title}</h4>
+                        <p className="text-[10px] text-gray-400">Synchronisé le {new Date(task.updatedAt).toLocaleDateString()}</p>
+                      </div>
+                      <motion.div 
+                        animate={{ rotate: isExpanded ? 90 : 0 }}
+                        className={`p-3 bg-gray-50 dark:bg-gray-950 rounded-xl transition-colors duration-300 ${isExpanded ? 'bg-indigo-500 text-white' : 'group-hover:bg-gray-900 dark:group-hover:bg-white'}`}
+                      >
+                        <ChevronRight className={`w-4 h-4 ${isExpanded ? 'text-white' : 'text-gray-400 group-hover:text-white dark:group-hover:text-gray-900'}`} />
+                      </motion.div>
+                    </motion.div>
+                    
+                    <AnimatePresence>
+                      {isExpanded && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.4, ease: [0.04, 0.62, 0.23, 0.98] }}
+                          className="overflow-hidden bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-xl"
+                        >
+                          <div className="max-h-[500px] overflow-y-auto">
+                            <TaskDetailContent task={task} onOpenMediaViewer={openMediaViewer} />
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
-                  <button onClick={() => setSelectedTask(task)} className="p-3 bg-gray-50 dark:bg-gray-950 rounded-xl hover:bg-gray-900 dark:hover:bg-white transition-all"><ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-white" /></button>
-                </div>
-              ))}
+                );
+              })}
             </motion.div>
           )}
         </AnimatePresence>
       </main>
 
       <AnimatePresence>
-        {selectedTask && (
+        {selectedTask && viewMode !== 'feed' && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 lg:p-12">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSelectedTask(null)} className="absolute inset-0 bg-gray-950/80 backdrop-blur-md" />
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="relative w-full max-w-5xl bg-white dark:bg-[#0F172A] rounded-[2.5rem] shadow-3xl overflow-hidden flex flex-col md:flex-row max-h-[90vh] border border-white/5 font-sans">
-              <div className="md:w-[350px] bg-gray-50 dark:bg-black/20 p-10 border-r border-gray-100 dark:border-gray-800 flex flex-col justify-between overflow-y-auto shadow-inner">
-                <div>
-                  <button onClick={() => setSelectedTask(null)} className="flex items-center gap-2 text-[9px] font-black text-gray-400 hover:text-gray-900 dark:hover:text-white uppercase tracking-widest mb-10"><ArrowLeft className="w-3 h-3" /> Retour</button>
-                  <div className={`w-16 h-16 rounded-[1.25rem] flex items-center justify-center mb-6 shadow-xl ${getStatusInfo(selectedTask.status).bg} text-white`}>
-                    {React.createElement(getStatusInfo(selectedTask.status).icon, { className: 'w-8 h-8' })}
-                  </div>
-                  <h2 className="text-3xl font-black tracking-tighter mb-4 leading-none text-gray-900 dark:text-white">{selectedTask.title}</h2>
-                  <div className="flex flex-wrap gap-2">
-                    <span className={`px-4 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-widest ${getStatusInfo(selectedTask.status).bg} text-white shadow-lg`}>{getStatusInfo(selectedTask.status).label}</span>
-                    <span className="px-4 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-widest bg-gray-100 dark:bg-gray-800 text-gray-500 border border-gray-100 dark:border-gray-700">{selectedTask.priority || 'Normal'}</span>
-                  </div>
-                </div>
-                <div className="space-y-6 pt-10 mt-10 border-t border-gray-100 dark:border-gray-800">
-                  <div className="flex justify-between items-center"><span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Début</span><span className="text-xs font-black">{new Date(selectedTask.startDate).toLocaleDateString()}</span></div>
-                  <div className="flex justify-between items-center"><span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Échéance</span><span className="text-xs font-black text-red-500">{selectedTask.dueDate ? new Date(selectedTask.dueDate).toLocaleDateString() : 'Non définie'}</span></div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">
-                      {isMultiDayTask(selectedTask.startDate, selectedTask.dueDate || selectedTask.endDate || selectedTask.startDate)
-                        ? 'Durée totale'
-                        : 'Charge estimée'
-                      }
-                    </span>
-                    <span className="text-xs font-black text-indigo-500">
-                      {isMultiDayTask(selectedTask.startDate, selectedTask.dueDate || selectedTask.endDate || selectedTask.startDate)
-                        ? calculateDuration(selectedTask.startDate, selectedTask.dueDate || selectedTask.endDate || selectedTask.startDate)
-                        : selectedTask.estimatedHours && selectedTask.estimatedHours > 0
-                          ? `${selectedTask.estimatedHours}h`
-                          : 'Non spécifié'
-                      }
-                    </span>
-                  </div>
-                </div>
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="relative w-full max-w-5xl bg-white dark:bg-[#0F172A] rounded-[2.5rem] shadow-3xl overflow-hidden max-h-[90vh] border border-white/5 font-sans">
+              <div className="absolute top-6 left-6 z-50">
+                <button onClick={() => setSelectedTask(null)} className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full text-[9px] font-black text-white uppercase tracking-widest hover:bg-white/20 transition-all"><ArrowLeft className="w-3 h-3" /> Fermer</button>
               </div>
-              <div className="flex-1 p-10 lg:p-16 overflow-y-auto overflow-x-hidden bg-white dark:bg-[#0F172A] min-w-0">
-                <div className="w-full min-w-0">
-                  <div className="mb-12">
-                    <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-indigo-500 mb-6 border-b border-indigo-100 dark:border-indigo-900 pb-2">Mission</h4>
-                    <div className="prose dark:prose-invert prose-sm max-w-none font-medium text-gray-500 leading-relaxed break-words overflow-hidden">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanMarkdown(selectedTask.description)}</ReactMarkdown>
-                    </div>
-                  </div>
-
-                  {selectedTask.attachments && selectedTask.attachments.length > 0 && (
-                    <div className="mb-12">
-                      <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-900 dark:text-white mb-6">Documents &amp; Médias</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {selectedTask.attachments.map((att, idx) => (
-                          <button
-                            key={att.id}
-                            type="button"
-                            onClick={() => openMediaViewer(selectedTask.attachments!, idx)}
-                            className="flex items-center gap-4 p-4 rounded-3xl bg-gray-50/50 dark:bg-white/5 border border-gray-100 dark:border-white/5 hover:bg-white dark:hover:bg-white/10 hover:shadow-xl hover:scale-[1.02] transition-all group text-left w-full min-w-0"
-                          >
-                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner flex-shrink-0 ${getFileIconBg(att)}`}>
-                              {att.type === 'image' ? (
-                                <div className="relative w-full h-full rounded-2xl overflow-hidden">
-                                  <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
-                                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <Play className="w-4 h-4 text-white" />
-                                  </div>
-                                </div>
-                              ) : (
-                                getFileIcon(att)
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-[10px] font-black truncate text-gray-900 dark:text-white uppercase">{att.name}</div>
-                              <div className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">{att.type || 'Fichier'}</div>
-                            </div>
-                            <Play className="w-4 h-4 text-gray-300 group-hover:text-indigo-600 transition-colors flex-shrink-0" />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedTask.subTasks && selectedTask.subTasks.length > 0 && (
-                    <div className="space-y-8 pb-12">
-                      <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-900 dark:text-white mb-6">Objectifs intermédiaires</h4>
-                      <div className="grid grid-cols-1 gap-3">
-                        {selectedTask.subTasks.map(sub => (
-                          <div key={sub.id} className="flex items-center gap-4 p-5 rounded-3xl bg-gray-50/50 dark:bg-white/5 border border-gray-100 dark:border-white/5 min-w-0">
-                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0 ${sub.completed ? 'bg-green-500 text-white ring-4 ring-green-500/10' : 'bg-white dark:bg-gray-800'}`}>
-                              {sub.completed ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4 text-gray-300" />}
-                            </div>
-                            <span className={`text-sm font-bold break-words min-w-0 flex-1 ${sub.completed ? 'text-gray-400 line-through' : 'text-gray-700 dark:text-gray-300'}`}>{sub.title}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+              <div className="h-full pt-16">
+                <TaskDetailContent task={selectedTask} onOpenMediaViewer={openMediaViewer} />
               </div>
             </motion.div>
           </div>

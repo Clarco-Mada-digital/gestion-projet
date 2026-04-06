@@ -9,10 +9,11 @@ import AIService from '../../services/aiService';
 import { message } from 'antd';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { TaskStatus } from '../../types';
+import { useChatbot } from '../../context/ChatbotContext';
 
 export function TodayView() {
   const { state } = useApp();
+  const { setIsOpen } = useChatbot();
   const { appSettings } = state;
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
   const [workloadReport, setWorkloadReport] = useState<string | null>(null);
@@ -150,7 +151,7 @@ export function TodayView() {
                   day: 'numeric'
                 })}
               </p>
-              
+
               {!state.cloudUser && firebaseService.isReady() && (
                 <div className="mt-3 inline-flex animate-in fade-in slide-in-from-left-4 duration-700">
                   <button
@@ -235,10 +236,7 @@ export function TodayView() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => {
-                const chatbot = document.querySelector('[aria-label="Ouvrir le chat"]') as HTMLElement;
-                if (chatbot) chatbot.click();
-              }}
+              onClick={() => setIsOpen(true)}
               className="flex-1 md:flex-none border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400"
             >
               <MessageSquare className="w-4 h-4 mr-2" />
