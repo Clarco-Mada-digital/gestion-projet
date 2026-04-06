@@ -148,6 +148,55 @@ export class AIService {
   }
 
   /**
+   * Effectue un fetch avec un mécanisme de retry intelligent
+   */
+  private static async fetchWithRetry(
+    url: string, 
+    options: RequestInit, 
+    maxRetries: number = 3,
+    signal?: AbortSignal
+  ): Promise<Response> {
+    let lastError: any;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        if (signal?.aborted) {
+          throw new DOMException('Aborted', 'AbortError');
+        }
+
+        const response = await fetch(url, { ...options, signal });
+
+        // Succès ou erreur non-rétentable
+        if (response.ok) return response;
+
+        // Erreurs rétentables (Rate limit 429 ou erreurs serveurs 5xx)
+        if (response.status === 429 || (response.status >= 500 && response.status <= 599)) {
+          const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+          console.warn(`[IA Service] Erreur ${response.status}. Tentative ${attempt + 1}/${maxRetries} dans ${Math.round(delay)}ms...`);
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+
+        return response;
+      } catch (error) {
+        lastError = error;
+
+        // Ne pas retenter si c'est une annulation manuelle
+        if (error instanceof Error && error.name === 'AbortError') throw error;
+
+        const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+        console.warn(`[IA Service] Échec réseau (${error instanceof Error ? error.message : 'inconnu'}). Tentative ${attempt + 1}/${maxRetries} dans ${Math.round(delay)}ms...`);
+        
+        if (attempt < maxRetries - 1) {
+          await new Promise(r => setTimeout(r, delay));
+        }
+      }
+    }
+
+    throw lastError || new Error(`Échec de la requête après ${maxRetries} tentatives`);
+  }
+
+  /**
    * Prépare le prompt système avec la documentation et le contexte utilisateur
    */
   private static async prepareSystemPrompt(appState?: AppState): Promise<string> {
@@ -331,12 +380,11 @@ ${appDataInfo}
               max_tokens: 2500,
             });
 
-        const response = await fetch(endpoint, {
+        const response = await AIService.fetchWithRetry(endpoint, {
           method: 'POST',
           headers,
-          body,
-          signal: controller.signal
-        });
+          body
+        }, 3, controller.signal);
 
         clearTimeout(timeoutId);
 
@@ -483,11 +531,11 @@ ${appDataInfo}
             max_tokens: 1000,
           });
 
-      const response = await fetch(endpoint, {
+      const response = await AIService.fetchWithRetry(endpoint, {
         method: 'POST',
         headers,
         body
-      });
+      }, 3);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -724,11 +772,11 @@ ${appDataInfo}
             max_tokens: 1000,
           });
 
-      const response = await fetch(endpoint, {
+      const response = await AIService.fetchWithRetry(endpoint, {
         method: 'POST',
         headers,
         body
-      });
+      }, 3);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -847,11 +895,11 @@ ${appDataInfo}
             max_tokens: verbose ? 2500 : (settings.maxTokens || 1000),
           });
 
-      const response = await fetch(endpoint, {
+      const response = await AIService.fetchWithRetry(endpoint, {
         method: 'POST',
         headers,
         body
-      });
+      }, 3);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -1249,13 +1297,13 @@ ${appDataInfo}
 
   static async fetchOpenRouterModels(apiKey: string): Promise<{ id: string; name: string; context_length: number; pricing: any }[]> {
     try {
-      const response = await fetch('https://openrouter.ai/api/v1/models', {
+      const response = await AIService.fetchWithRetry('https://openrouter.ai/api/v1/models', {
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'HTTP-Referer': window.location.origin,
           'X-Title': 'ProjectFlow'
         }
-      });
+      }, 2);
 
       if (!response.ok) {
         throw new Error('Erreur lors de la récupération des modèles');
@@ -1275,7 +1323,7 @@ ${appDataInfo}
   static async fetchGeminiModels(apiKey: string): Promise<{ id: string; name: string; context_length: number; pricing: any }[]> {
     try {
       // Pour Google Gemini, on utilise v1beta pour lister car il inclut généralement plus de modèles expérimentaux
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+      const response = await AIService.fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`, {}, 2);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));

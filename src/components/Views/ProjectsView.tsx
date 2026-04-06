@@ -190,6 +190,32 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                     Sécurisé
                   </span>
                 )}
+                {project.projectType && (
+                  <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800 uppercase tracking-widest">
+                    {project.projectType}
+                  </span>
+                )}
+                {project.location && (
+                  <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-100 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 uppercase tracking-widest">
+                    {project.location}
+                  </span>
+                )}
+                {project.currency && (
+                  <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-600 border border-purple-100 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800 uppercase tracking-widest">
+                    {project.currency}
+                  </span>
+                )}
+                {project.sector && (
+                  <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-50 text-slate-600 border border-slate-100 dark:bg-slate-900/30 dark:text-slate-400 dark:border-slate-800 uppercase tracking-widest">
+                    {project.sector}
+                  </span>
+                )}
+                {project.urgency === 'high' && (
+                  <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-600 border border-red-100 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800 uppercase tracking-widest gap-1">
+                    <AlertTriangle className="w-2.5 h-2.5" />
+                    Urgent
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -938,6 +964,11 @@ export function ProjectsView() {
     color: '#0EA5E9',
     status: 'active',
     estimatedDuration: 0,
+    location: '',
+    currency: 'EUR',
+    projectType: 'Web App',
+    sector: '',
+    urgency: 'medium',
     tasks: []
   });
 
@@ -1487,6 +1518,11 @@ export function ProjectsView() {
       color: project.color,
       status: project.status,
       estimatedDuration: project.estimatedDuration || 0,
+      location: project.location || '',
+      currency: project.currency || 'EUR',
+      projectType: project.projectType || 'Web App',
+      sector: project.sector || '',
+      urgency: project.urgency || 'medium',
       tasks: project.tasks || []
     });
     setActiveTab('general');
@@ -1539,6 +1575,11 @@ export function ProjectsView() {
         color: newProject.color,
         status: newProject.status,
         estimatedDuration: newProject.estimatedDuration || 0,
+        location: newProject.location || '',
+        currency: newProject.currency || 'EUR',
+        projectType: newProject.projectType || 'Web App',
+        sector: newProject.sector || '',
+        urgency: newProject.urgency || 'medium',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         tasks: [],
@@ -2160,6 +2201,67 @@ export function ProjectsView() {
                   placeholder="Nom du projet"
                 />
               </Form.Item>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item label="Lieu du projet">
+                    <Input
+                      value={newProject.location}
+                      onChange={(e) => setNewProject({ ...newProject, location: e.target.value })}
+                      placeholder="Ex: Madagascar, France, Suisse..."
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item label="Devise">
+                    <Input
+                      value={newProject.currency}
+                      onChange={(e) => setNewProject({ ...newProject, currency: e.target.value })}
+                      placeholder="Ex: EUR, MGA, CHF..."
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Form.Item label="Type de projet">
+                <Select
+                  value={newProject.projectType}
+                  onChange={(value) => setNewProject({ ...newProject, projectType: value })}
+                  options={[
+                    { value: 'Web App', label: 'Web App' },
+                    { value: 'Mobile App', label: 'Mobile App (Android/iOS)' },
+                    { value: 'SAAS', label: 'Plateforme SAAS' },
+                    { value: 'E-Commerce', label: 'Site E-Commerce' },
+                    { value: 'Landing Page', label: 'Landing Page / Site Vitrine' },
+                    { value: 'Desktop App', label: 'Application Bureau' },
+                    { value: 'AI Project', label: 'Projet d\'IA' },
+                    { value: 'Internal Tool', label: 'Outil Interne' },
+                    { value: 'Other', label: 'Autre...' },
+                  ]}
+                />
+              </Form.Item>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item label="Secteur métier">
+                    <Input
+                      value={newProject.sector}
+                      onChange={(e) => setNewProject({ ...newProject, sector: e.target.value })}
+                      placeholder="Ex: Fintech, Santé, Retail..."
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item label="Niveau d'Urgence">
+                    <Select
+                      value={newProject.urgency}
+                      onChange={(value) => setNewProject({ ...newProject, urgency: value })}
+                      options={[
+                        { value: 'low', label: 'Bas (Projet de fond)' },
+                        { value: 'medium', label: 'Normal' },
+                        { value: 'high', label: 'Priorité Absolue (Urgent)' },
+                      ]}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
               <Form.Item label="Description">
                 <TextArea
                   value={newProject.description}

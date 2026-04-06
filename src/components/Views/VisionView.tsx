@@ -38,6 +38,11 @@ interface VisionData {
   targetAudience: string;
   features: string;
   constraints: string;
+  location: string;
+  currency: string;
+  projectType: string;
+  sector: string;
+  urgency: 'low' | 'medium' | 'high';
   complementaryInfo?: string; 
   logo?: string; // Base64 or URL
 }
@@ -59,6 +64,11 @@ export function VisionView() {
     targetAudience: '',
     features: '',
     constraints: '',
+    location: '',
+    currency: 'EUR',
+    projectType: 'Web App',
+    sector: '',
+    urgency: 'medium',
     complementaryInfo: ''
   });
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -72,9 +82,11 @@ export function VisionView() {
   const [finalDocument, setFinalDocument] = useState<string>('');
   const [summaryData, setSummaryData] = useState({
     complexity: 'Moyenne',
-    techStack: 'Next.js / Firebase',
-    duration: '3 - 5 mois',
-    budget: '15k€ - 30k€'
+    techStack: 'Standards Web',
+    duration: 'À estimer',
+    budget: 'À définir',
+    currency: 'EUR',
+    projectType: 'Web App'
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -174,13 +186,15 @@ export function VisionView() {
       // Étape 3 : Technique
       currentStepId = 'tech';
       updateStepStatus('tech', 'loading');
-      const techPrompt = `Recommandation technologique VULGARISÉE pour le projet "${formData.projectName}". 
+       const techPrompt = `Recommandation technologique VULGARISÉE pour le projet "${formData.projectName}". 
+      Secteur : ${formData.sector || 'Non spécifié'}
+      Type de projet : ${formData.projectType || 'Non spécifié'}
       Fonctionnalités: ${formData.features}
       Contraintes: ${formData.constraints}
       ${formData.complementaryInfo ? `PRENDRE EN COMPTE CES RECHERCHES : ${formData.complementaryInfo}` : ''}
       
       CONSIGNES :
-      1. Explique les choix technologiques pour un CLIENT NON-TECHNICIEN (Pourquoi ce choix le rassure/l'aide).
+      1. Explique les choix technologiques pour un CLIENT NON-TECHNICIEN en fonction du type "${formData.projectType}" (Pourquoi ce choix le rassure/l'aide).
       2. Utilise un TABLEAU pour la Stack (Composant | Technologie | Pourquoi ce choix pour VOUS).
       3. Explique les avantages en termes de : Sécurité, Évolutivité et Rapidité.
       4. Utilise des métaphores simples si nécessaire.`;
@@ -193,16 +207,24 @@ export function VisionView() {
       currentStepId = 'planning';
       updateStepStatus('planning', 'loading');
       const planningPrompt = `Estimation de temps et de budget pour le projet "${formData.projectName}". 
+      Secteur : ${formData.sector || 'Non spécifié'}
+      Type de projet : ${formData.projectType || 'Non spécifié'}
+      Niveau d'Urgence : ${formData.urgency} (Adapte l'agressivité du planning en conséquence)
+      Lieu du projet : ${formData.location || 'Non précisé'}
+      Devise souhaitée : ${formData.currency || 'EUR'}
+
       Description: ${formData.description}
       Fonctionnalités: ${formData.features}
       Contraintes client : ${formData.constraints || 'Aucune spécifiée'}
       
       CONSIGNES IMPÉRATIVES POUR LE CLIENT :
-      1. Si les contraintes (temps ou budget) semblent impossibles, NE DIS PAS juste que c'est impossible. 
-         PROPOSE une solution ou une démarche : "Pour respecter votre délai de 2 mois, nous pourrions lancer une Phase 1 (MVP) avec X et Y, puis faire le reste en Phase 2."
-      2. Présente le Découpage par phases dans un TABLEAU (Phase | Durée estimée | Livrable clé pour vous).
-      3. Donne une fourchette de budget (Min - Max) claire et explique les variables.
-      4. Ajoute une note sur le ROI (Retour sur investissement) attendu.`;
+      1. Calcule IMPÉRATIVEMENT les prix dans la devise demandée (${formData.currency}) en t'adaptant au coût du marché du lieu (${formData.location}) pour un projet de type "${formData.projectType}" dans le secteur "${formData.sector}".
+      2. Si l'urgence est "high", propose un planning "Fast-Track" avec un focus sur le MVP.
+      3. Si les contraintes (temps ou budget) semblent impossibles, NE DIS PAS juste que c'est impossible. 
+      4. Propose une solution ou une démarche : "Pour respecter votre délai de 2 mois, nous pourrions lancer une Phase 1 (MVP) avec X et Y, puis faire le reste en Phase 2."
+      5. Présente le Découpage par phases dans un TABLEAU (Phase | Durée estimée | Livrable clé pour vous).
+      6. Donne une fourchette de budget (Min - Max) claire et explique les variables EN FONCTION DU MARCHÉ LOCAL (${formData.location}).
+      7. Ajoute une note sur le ROI (Retour sur investissement) attendu.`;
 
       const planningResult = await AIService.generateAiText(state.appSettings.aiSettings, planningPrompt, true);
       updateStepStatus('planning', 'completed', planningResult);
@@ -225,9 +247,10 @@ export function VisionView() {
 
       // Nouvelle étape : Génération de la synthèse cohérente
       const finalSummaryPrompt = `Basé STRICTEMENT sur le document suivant, remplis les champs JSON demandés.
-      SI le texte mentionne un prix (ex: 500€, 1000-2000€), mets-le dans "budget". Sinon mets "À définir".
+      SI le texte mentionne un prix (ex: 500€, 1000-2000 MGA, 500 CHF), mets-le dans "budget". Sinon mets "À définir".
       SI le texte mentionne une durée (ex: 3 mois, 2 semaines), mets-la dans "duration". Sinon mets "À estimer".
-      L'objet DOIT être un JSON valide : {"complexity": "...", "techStack": "...", "duration": "...", "budget": "..."}
+      METS la devise détectée dans le champ "currency" (ex: MGA, EUR, CHF). Utilise "${formData.currency}" par défaut.
+      L'objet DOIT être un JSON valide : {"complexity": "...", "techStack": "...", "duration": "...", "budget": "...", "currency": "...", "projectType": "..."}
       
       TEXTE :\n${fullContent.substring(0, 4000)}`;
       
@@ -244,7 +267,9 @@ export function VisionView() {
             complexity: parsed.complexity || 'Moyenne',
             techStack: parsed.techStack || 'Standards Web',
             duration: parsed.duration || 'À estimer',
-            budget: parsed.budget || 'À définir'
+            budget: parsed.budget || 'À définir',
+            currency: parsed.currency || formData.currency || 'EUR',
+            projectType: parsed.projectType || formData.projectType || 'Web App'
           };
           setSummaryData(finalSummaryData);
         }
@@ -261,6 +286,9 @@ export function VisionView() {
         targetAudience: formData.targetAudience,
         features: formData.features,
         constraints: formData.constraints,
+        location: formData.location,
+        currency: formData.currency,
+        projectType: formData.projectType,
         complementaryInfo: formData.complementaryInfo,
         logo: formData.logo,
         fullContent,
@@ -287,6 +315,11 @@ export function VisionView() {
       targetAudience: '',
       features: '',
       constraints: '',
+      location: '',
+      currency: 'EUR',
+      projectType: 'Web App',
+      sector: '',
+      urgency: 'medium',
       logo: undefined
     });
     setFinalDocument('');
@@ -294,7 +327,9 @@ export function VisionView() {
       complexity: 'Moyenne',
       techStack: 'Standards Web',
       duration: 'À estimer',
-      budget: 'À définir'
+      budget: 'À définir',
+      currency: 'EUR',
+      projectType: 'Web App'
     });
     setStep(1);
   };
@@ -494,6 +529,11 @@ export function VisionView() {
       targetAudience: dossier.targetAudience || '',
       features: dossier.features || '',
       constraints: dossier.constraints || '',
+      location: dossier.location || '',
+      currency: dossier.currency || 'EUR',
+      projectType: dossier.projectType || dossier.summaryData?.projectType || 'Web App',
+      sector: dossier.sector || '',
+      urgency: dossier.urgency || 'medium',
       complementaryInfo: dossier.complementaryInfo || '',
       logo: dossier.logo
     });
@@ -708,16 +748,87 @@ export function VisionView() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Nom du Projet</label>
-                      <input
-                        type="text"
-                        name="projectName"
-                        value={formData.projectName}
-                        onChange={handleInputChange}
-                        placeholder="Ex: Mon Application de Fitness"
-                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Type de Projet</label>
+                        <select
+                          name="projectType"
+                          value={formData.projectType}
+                          onChange={(e) => setFormData({ ...formData, projectType: e.target.value })}
+                          className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
+                        >
+                          <option value="Web App">Web App</option>
+                          <option value="Mobile App">Mobile App (Android/iOS)</option>
+                          <option value="SAAS">Plateforme SAAS</option>
+                          <option value="E-Commerce">Site E-Commerce</option>
+                          <option value="Landing Page">Landing Page / Site Vitrine</option>
+                          <option value="Desktop App">Application Bureau</option>
+                          <option value="AI Project">Projet d'IA</option>
+                          <option value="Internal Tool">Outil Interne</option>
+                          <option value="Other">Autre...</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Nom du Projet</label>
+                        <input
+                          type="text"
+                          name="projectName"
+                          value={formData.projectName}
+                          onChange={handleInputChange}
+                          placeholder="Ex: Mon Application de Fitness"
+                          className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white font-bold"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Secteur métier</label>
+                        <input
+                          type="text"
+                          name="sector"
+                          value={formData.sector}
+                          onChange={handleInputChange}
+                          placeholder="Ex: Fintech, Santé, Immobilier..."
+                          className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Niveau d'Urgence</label>
+                        <select
+                          name="urgency"
+                          value={formData.urgency}
+                          onChange={(e) => setFormData({ ...formData, urgency: e.target.value as any })}
+                          className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
+                        >
+                          <option value="low">Bas (Vision long terme)</option>
+                          <option value="medium">Normal / Standard</option>
+                          <option value="high">Urgent (Priorité MVP)</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Lieu du Projet</label>
+                        <input
+                          type="text"
+                          name="location"
+                          value={formData.location}
+                          onChange={handleInputChange}
+                          placeholder="Ex: Madagascar, France, Suisse..."
+                          className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Devise</label>
+                        <input
+                          type="text"
+                          name="currency"
+                          value={formData.currency}
+                          onChange={handleInputChange}
+                          placeholder="Ex: MGA, EUR, CHF, USD..."
+                          className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
+                        />
+                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Description Globale</label>
@@ -1061,6 +1172,10 @@ export function VisionView() {
                           <div className="flex justify-between items-center text-sm border-b border-white/10 pb-2">
                             <span>Complexité</span>
                             <span className="font-bold">{summaryData.complexity}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-sm border-b border-white/10 pb-2">
+                            <span>Type</span>
+                            <span className="font-bold">{summaryData.projectType}</span>
                           </div>
                           <div className="flex justify-between items-center text-sm border-b border-white/10 pb-2">
                             <span>Tech conseillée</span>

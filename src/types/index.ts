@@ -122,6 +122,11 @@ export interface Project {
   accentColor?: string;
   encryptionKey?: string;
   isEncryptionEnabled?: boolean;
+  location?: string;
+  currency?: string;
+  projectType?: string;
+  sector?: string;
+  urgency?: 'low' | 'medium' | 'high';
 }
 
 export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
@@ -459,6 +464,11 @@ export interface VisionDossier {
   features: string;
   constraints: string;
   logo?: string;
+  location?: string;
+  currency?: string;
+  projectType?: string;
+  sector?: string;
+  urgency?: 'low' | 'medium' | 'high';
   complementaryInfo?: string;
   fullContent: string;
   summaryData: {
@@ -466,6 +476,9 @@ export interface VisionDossier {
     techStack: string;
     duration: string;
     budget: string;
+    currency?: string;
+    projectType?: string;
+    sector?: string;
   };
   createdAt: string;
 }
