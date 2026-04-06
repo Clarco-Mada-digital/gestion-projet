@@ -129,6 +129,25 @@ export class AIService {
   }
 
   /**
+   * Détermine la version de l'API Gemini à utiliser en fonction du modèle
+   */
+  private static getGeminiVersion(model: string): string {
+    const modelLower = model.toLowerCase();
+    // Les modèles de préversion, expérimentaux ou gemini-3.x (pour l'instant) nécessitent v1beta
+    if (
+      modelLower.includes('preview') || 
+      modelLower.includes('exp') || 
+      modelLower.includes('gemini-3') ||
+      modelLower.includes('gemini-2') ||
+      modelLower.includes('flash-8b') ||
+      modelLower.includes('thought')
+    ) {
+      return 'v1beta';
+    }
+    return 'v1';
+  }
+
+  /**
    * Prépare le prompt système avec la documentation et le contexte utilisateur
    */
   private static async prepareSystemPrompt(appState?: AppState): Promise<string> {
@@ -254,8 +273,9 @@ ${appDataInfo}
       if (effectiveProvider === 'openai') {
         endpoint = 'https://api.openai.com/v1/chat/completions';
       } else if (effectiveProvider === 'gemini') {
+        const version = AIService.getGeminiVersion(model);
         // Utiliser l'API native de Gemini pour plus de fiabilité
-        endpoint = `https://generativelanguage.googleapis.com/v1beta/${model.startsWith('models/') ? model : 'models/' + model}:generateContent?key=${apiKey}`;
+        endpoint = `https://generativelanguage.googleapis.com/${version}/${model.startsWith('models/') ? model : 'models/' + model}:generateContent?key=${apiKey}`;
       } else {
         endpoint = 'https://openrouter.ai/api/v1/chat/completions';
       }
@@ -406,7 +426,8 @@ ${appDataInfo}
       if (effectiveProvider === 'openai') {
         endpoint = 'https://api.openai.com/v1/chat/completions';
       } else if (effectiveProvider === 'gemini') {
-        endpoint = `https://generativelanguage.googleapis.com/v1beta/${model.startsWith('models/') ? model : 'models/' + model}:generateContent?key=${apiKey}`;
+        const version = AIService.getGeminiVersion(model);
+        endpoint = `https://generativelanguage.googleapis.com/${version}/${model.startsWith('models/') ? model : 'models/' + model}:generateContent?key=${apiKey}`;
       } else {
         endpoint = 'https://openrouter.ai/api/v1/chat/completions';
       }
@@ -648,7 +669,8 @@ ${appDataInfo}
       if (effectiveProvider === 'openai') {
         endpoint = 'https://api.openai.com/v1/chat/completions';
       } else if (effectiveProvider === 'gemini') {
-        endpoint = `https://generativelanguage.googleapis.com/v1beta/${model.startsWith('models/') ? model : 'models/' + model}:generateContent?key=${apiKey}`;
+        const version = AIService.getGeminiVersion(model);
+        endpoint = `https://generativelanguage.googleapis.com/${version}/${model.startsWith('models/') ? model : 'models/' + model}:generateContent?key=${apiKey}`;
       } else {
         endpoint = 'https://openrouter.ai/api/v1/chat/completions';
       }
@@ -771,7 +793,8 @@ ${appDataInfo}
       if (effectiveProvider === 'openai') {
         endpoint = 'https://api.openai.com/v1/chat/completions';
       } else if (effectiveProvider === 'gemini') {
-        endpoint = `https://generativelanguage.googleapis.com/v1beta/${model.startsWith('models/') ? model : 'models/' + model}:generateContent?key=${apiKey}`;
+        const version = AIService.getGeminiVersion(model);
+        endpoint = `https://generativelanguage.googleapis.com/${version}/${model.startsWith('models/') ? model : 'models/' + model}:generateContent?key=${apiKey}`;
       } else {
         endpoint = 'https://openrouter.ai/api/v1/chat/completions';
       }
@@ -890,7 +913,8 @@ ${appDataInfo}
       if (effectiveProvider === 'openai') {
         endpoint = 'https://api.openai.com/v1/chat/completions';
       } else if (effectiveProvider === 'gemini') {
-        endpoint = `https://generativelanguage.googleapis.com/v1beta/${model.startsWith('models/') ? model : 'models/' + model}:generateContent?key=${apiKey}`;
+        const version = AIService.getGeminiVersion(model);
+        endpoint = `https://generativelanguage.googleapis.com/${version}/${model.startsWith('models/') ? model : 'models/' + model}:generateContent?key=${apiKey}`;
       } else {
         endpoint = 'https://openrouter.ai/api/v1/chat/completions';
       }
@@ -1002,7 +1026,8 @@ ${appDataInfo}
       if (effectiveProvider === 'openai') {
         endpoint = 'https://api.openai.com/v1/chat/completions';
       } else if (effectiveProvider === 'gemini') {
-        endpoint = `https://generativelanguage.googleapis.com/v1beta/${model.startsWith('models/') ? model : 'models/' + model}:generateContent?key=${apiKey}`;
+        const version = AIService.getGeminiVersion(model);
+        endpoint = `https://generativelanguage.googleapis.com/${version}/${model.startsWith('models/') ? model : 'models/' + model}:generateContent?key=${apiKey}`;
       } else {
         endpoint = 'https://openrouter.ai/api/v1/chat/completions';
       }
@@ -1249,7 +1274,7 @@ ${appDataInfo}
    */
   static async fetchGeminiModels(apiKey: string): Promise<{ id: string; name: string; context_length: number; pricing: any }[]> {
     try {
-      // Pour Google Gemini, on utilise l'API standard de liste des modèles
+      // Pour Google Gemini, on utilise v1beta pour lister car il inclut généralement plus de modèles expérimentaux
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
 
       if (!response.ok) {
