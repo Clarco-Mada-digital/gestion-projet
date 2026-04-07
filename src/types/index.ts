@@ -127,6 +127,8 @@ export interface Project {
   projectType?: string;
   sector?: string;
   urgency?: 'low' | 'medium' | 'high';
+  publicSummary?: string; // Résumé statique pour la page publique
+  publicSummaryAt?: string; // Date de la dernière mise à jour du résumé public
 }
 
 export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';

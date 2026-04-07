@@ -17,7 +17,11 @@ export function TodayView() {
   const { appSettings } = state;
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
   const [workloadReport, setWorkloadReport] = useState<string | null>(null);
+  const [dailyBriefing, setDailyBriefing] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isGeneratingBriefing, setIsGeneratingBriefing] = useState(false);
+
+  const BRIEFING_KEY = `project_briefing_${new Date().toISOString().split('T')[0]}`;
 
   // Récupérer la taille de police depuis les paramètres
   const fontSize = appSettings?.fontSize || 'medium';
@@ -42,7 +46,13 @@ export function TodayView() {
       initialExpanded[project.id] = false; // false pour que les projets soient repliés par défaut
     });
     setExpandedProjects(initialExpanded);
-  }, [state.projects]);
+
+    // Charger le briefing du jour depuis le stockage local
+    const savedBriefing = localStorage.getItem(BRIEFING_KEY);
+    if (savedBriefing) {
+      setDailyBriefing(savedBriefing);
+    }
+  }, [state.projects, BRIEFING_KEY]);
 
   const toggleProject = (projectId: string) => {
     setExpandedProjects(prev => ({
@@ -130,6 +140,23 @@ export function TodayView() {
   // Calcul des statistiques (uniquement pour les projets actifs)
   const todayTasks = allTasks.filter(task => isTaskInDateRange(task, new Date()));
 
+  const handleGenerateBriefing = async () => {
+    setIsGeneratingBriefing(true);
+    try {
+      const followedProjects = state.projects.filter(p => 
+        (state.appSettings.followedProjects?.includes(p.id) ?? true) && p.status === 'active'
+      );
+      
+      const briefing = await AIService.generateProjectBriefing(state.appSettings.aiSettings, followedProjects);
+      setDailyBriefing(briefing);
+      localStorage.setItem(BRIEFING_KEY, briefing);
+    } catch (e) {
+      message.error("Erreur lors de la génération du briefing");
+    } finally {
+      setIsGeneratingBriefing(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* En-tête avec design futuriste */}
@@ -169,7 +196,7 @@ export function TodayView() {
         </div>
 
         <Card className="w-full md:w-auto" gradient>
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-3 gap-6">
             <div className="text-center p-4">
               <p className="text-3xl font-bold bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent">
                 {todayTasks.filter(t => t.status === 'todo').length}
@@ -179,16 +206,71 @@ export function TodayView() {
               </p>
             </div>
             <div className="text-center p-4">
-              <p className="text-3xl font-bold bg-gradient-to-r from-yellow-500 to-orange-500 bg-clip-text text-transparent">
+              <p className="text-3xl font-bold bg-gradient-to-r from-indigo-500 to-purple-500 bg-clip-text text-transparent">
                 {todayTasks.filter(t => t.status === 'in-progress').length}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
                 En cours
               </p>
             </div>
+            <div className="text-center p-4">
+              <p className="text-3xl font-bold bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">
+                {overdueTasks.length}
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                En retard
+              </p>
+            </div>
           </div>
         </Card>
       </div>
+
+      {/* BRIEFING IA QUOTIDIEN - PRIORITÉS & VICTOIRES */}
+      <Card className="p-0 overflow-hidden border-none shadow-xl shadow-indigo-500/10" gradient>
+        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-6 md:p-8">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="flex items-center space-x-5">
+              <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-inner">
+                <Sparkles className="w-7 h-7 text-white" />
+              </div>
+              <div className="text-white">
+                <h2 className="text-2xl font-bold tracking-tight">Intelligence Briefing</h2>
+                <p className="text-blue-100 font-medium opacity-90">Analyse stratégique de vos projets suivis</p>
+              </div>
+            </div>
+            
+            <Button
+              size="lg"
+              onClick={handleGenerateBriefing}
+              disabled={isGeneratingBriefing}
+              className="w-full md:w-auto bg-white text-indigo-600 hover:bg-blue-50 border-none shadow-lg font-bold px-8 py-6 rounded-2xl transition-all hover:scale-105"
+            >
+              <Zap className={`w-5 h-5 mr-3 ${isGeneratingBriefing ? 'animate-pulse' : ''}`} />
+              {isGeneratingBriefing ? "Génération..." : dailyBriefing ? "Actualiser le Briefing" : "Générer mon Briefing"}
+            </Button>
+          </div>
+        </div>
+        
+        {dailyBriefing && !isGeneratingBriefing && (
+          <div className="p-8 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="prose prose-blue dark:prose-invert max-w-none prose-headings:text-indigo-600 dark:prose-headings:text-indigo-400">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {dailyBriefing}
+              </ReactMarkdown>
+            </div>
+            <div className="mt-8 pt-6 border-t border-gray-50 dark:border-gray-800 flex items-center justify-between">
+              <span className="text-xs text-gray-400 font-medium flex items-center">
+                <ClockIcon className="w-3.5 h-3.5 mr-1.5" />
+                Généré localement le {new Date().toLocaleDateString()} à {new Date().toLocaleTimeString()}
+              </span>
+              <div className="flex space-x-2">
+                <span className="px-2 py-1 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-[10px] font-bold rounded uppercase tracking-wider">Confidentiel</span>
+                <span className="px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] font-bold rounded uppercase tracking-wider">IA-Powered</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </Card>
 
       {/* NEXUS IA CO-PILOTE - Tableau de bord opérationnel */}
       <Card className="p-6 bg-gradient-to-br from-indigo-50/50 via-purple-50/50 to-blue-50/50 dark:from-indigo-900/10 dark:via-purple-900/10 dark:to-blue-900/10 border-indigo-200/50 dark:border-indigo-800/50 overflow-hidden relative" hover gradient>

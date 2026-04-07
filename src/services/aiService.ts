@@ -1166,6 +1166,98 @@ ${appDataInfo}
     }
   }
   /**
+   * Génère un briefing intelligent pour les projets suivis
+   */
+  static async generateProjectBriefing(settings: AISettings, followedProjects: Project[]): Promise<string> {
+    try {
+      if (followedProjects.length === 0) {
+        return "Vous ne suivez aucun projet actuellement. Activez le suivi sur vos projets prioritaires pour recevoir un briefing.";
+      }
+
+      const projectsData = followedProjects.map(p => {
+        const activeTasks = p.tasks.filter(t => t.status !== 'done' && t.status !== 'non-suivi');
+        const recentlyDone = p.tasks.filter(t => t.status === 'done' && t.completedAt && (new Date().getTime() - new Date(t.completedAt).getTime() < 86400000));
+        const highPriority = activeTasks.filter(t => t.priority === 'high');
+        
+        return {
+          name: p.name,
+          description: p.description?.substring(0, 100),
+          stats: {
+            active: activeTasks.length,
+            doneRecently: recentlyDone.length,
+            highPriority: highPriority.length
+          },
+          urgentTasks: highPriority.slice(0, 3).map(t => t.title),
+          recentWins: recentlyDone.slice(0, 3).map(t => t.title)
+        };
+      });
+
+      const prompt = `Génère un BRIEFING OPÉRATIONNEL MATINAL pour les projets suivants :
+      ${JSON.stringify(projectsData)}
+      
+      CONSIGNES :
+      1. Sois extrêmement CONCIS (maximum 150-200 mots).
+      2. Adopte un ton de "Co-pilote" : proactif, encourageant et lucide.
+      3. Structure : 
+         🚀 **Victoires récentes** (ce qui a été fini hier/récemment)
+         📅 **Focus du jour** (priorités hautes)
+         ⚠️ **Points d'attention** (si trop de tâches urgentes ou retard soupçonné)
+      4. Utilise des émojis pour la lisibilité.
+      5. Ne cite que les projets qui ont du mouvement.`;
+
+      return await this.generateAiText(settings, prompt, true);
+    } catch (error) {
+      console.error('Erreur briefing projets:', error);
+      return "Désolé, je n'ai pas pu générer votre briefing pour le moment.";
+    }
+  }
+
+  /**
+   * Génère un résumé d'avancement pour la page publique (version Client)
+   */
+  static async generatePublicUpdate(settings: AISettings, project: Project): Promise<string> {
+    try {
+      const totalTasks = project.tasks.length;
+      const completedTasks = project.tasks.filter(t => t.status === 'done').length;
+      const recentWins = project.tasks
+        .filter(t => t.status === 'done' && t.completedAt)
+        .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())
+        .slice(0, 5)
+        .map(t => t.title);
+      
+      const upcoming = project.tasks
+        .filter(t => t.status !== 'done' && t.status !== 'non-suivi')
+        .slice(0, 3)
+        .map(t => t.title);
+
+      const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+      const prompt = `Rédige un RÉSUMÉ D'AVANCEMENT PROFESSIONNEL destiné au CLIENT pour le projet : "${project.name}".
+      
+      DONNÉES DU PROJET :
+      - Description : ${project.description || 'N/A'}
+      - Avancement global : ${progress}% (${completedTasks}/${totalTasks} tâches terminées)
+      - Succès récents : ${JSON.stringify(recentWins)}
+      - Prochaines étapes : ${JSON.stringify(upcoming)}
+      
+      CONSIGNES DE RÉDACTION :
+      1. Ton : Professionnel, rassurant et élégant.
+      2. Ne mentionne AUCUNE donnée technique complexe ou discussion interne.
+      3. Structure :
+         - Un court paragraphe d'introduction sur l'état global.
+         - Liste à puces des jalons récemment franchis.
+         - "Ce qui arrive ensuite" (prochaines étapes).
+      4. Longueur : Environ 100-150 mots.
+      5. Langue : Français.`;
+
+      return await this.generateAiText(settings, prompt, true);
+    } catch (error) {
+      console.error('Erreur rapport client:', error);
+      return "Le projet avance normalement. Les prochaines étapes sont en cours de préparation.";
+    }
+  }
+
+  /**
    * Analyse la charge de travail actuelle de l'utilisateur
    */
   static async analyzeWorkload(settings: AISettings, appState: AppState): Promise<string> {

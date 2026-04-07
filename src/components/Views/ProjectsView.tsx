@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Archive, AlertTriangle, Calendar, Cpu, ChevronDown, Loader2, LogOut, Clock, Eye, Edit2, Check, Upload, Shield, Copy, AlertCircle, MessageSquare } from 'lucide-react';
+import { Plus, FolderOpen, MoreHorizontal, Edit, Trash2, Archive, AlertTriangle, Calendar, Cpu, ChevronDown, Loader2, LogOut, Clock, Eye, Edit2, Check, Upload, Shield, Copy, AlertCircle, MessageSquare, Globe, Sparkles } from 'lucide-react';
 import { EncryptionService } from '../../services/security/encryptionService';
 import { useApp } from '../../context/AppContext';
 import { firebaseService } from '../../services/collaboration/firebaseService';
@@ -950,6 +950,7 @@ export function ProjectsView() {
     }
   }, [showUnfollowed]);
   const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
+  const [isGeneratingClientSummary, setIsGeneratingClientSummary] = useState(false);
   const [isEditingProjectModal, setIsEditingProjectModal] = useState(false);
 
   // États pour suivre les modifications non enregistrées
@@ -969,6 +970,8 @@ export function ProjectsView() {
     projectType: 'Web App',
     sector: '',
     urgency: 'medium',
+    publicSummary: '',
+    publicSummaryAt: '',
     tasks: []
   });
 
@@ -1523,6 +1526,8 @@ export function ProjectsView() {
       projectType: project.projectType || 'Web App',
       sector: project.sector || '',
       urgency: project.urgency || 'medium',
+      publicSummary: project.publicSummary || '',
+      publicSummaryAt: project.publicSummaryAt || '',
       tasks: project.tasks || []
     });
     setActiveTab('general');
@@ -1580,6 +1585,8 @@ export function ProjectsView() {
         projectType: newProject.projectType || 'Web App',
         sector: newProject.sector || '',
         urgency: newProject.urgency || 'medium',
+        publicSummary: newProject.publicSummary || '',
+        publicSummaryAt: newProject.publicSummaryAt || '',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         tasks: [],
@@ -2357,6 +2364,86 @@ export function ProjectsView() {
               </div>
             )}
           </CustomTabPane>
+          {newProject.isPublic && (
+            <CustomTabPane
+              tab={
+                <span>
+                  <Globe size={16} style={{ marginRight: 8 }} />
+                  Page Client
+                </span>
+              }
+              key="client"
+              disabled={!editingProject}
+            >
+            <div className="p-4 space-y-6">
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
+                <div className="flex gap-3">
+                  <Sparkles className="w-5 h-5 text-blue-600 shrink-0" />
+                  <div>
+                    <h4 className="text-sm font-bold text-blue-900 dark:text-blue-100">Résumé d'avancement pour le client</h4>
+                    <p className="text-xs text-blue-800 dark:text-blue-200 mt-1">
+                      Utilisez l'IA pour générer un rapport professionnel basé sur les succès récents du projet. Ce résumé sera visible sur la <strong>page publique</strong> accessible par votre client.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Synthèse actuelle à destination du client</label>
+                <TextArea
+                  value={newProject.publicSummary}
+                  onChange={(e) => setNewProject({ ...newProject, publicSummary: e.target.value })}
+                  placeholder="Aucun résumé publié pour le moment. Générez-en un ci-dessous..."
+                  rows={8}
+                  className="rounded-xl border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+                {newProject.publicSummaryAt && (
+                  <p className="text-[10px] text-gray-400 italic">
+                    Dernière mise à jour le {new Date(newProject.publicSummaryAt).toLocaleString()}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex justify-center">
+                <Button
+                  onClick={async () => {
+                    if (!editingProject) return;
+                    setIsGeneratingClientSummary(true);
+                    try {
+                      const summary = await AIService.generatePublicUpdate(
+                        state.appSettings.aiSettings,
+                        editingProject
+                      );
+                      setNewProject({ 
+                        ...newProject, 
+                        publicSummary: summary,
+                        publicSummaryAt: new Date().toISOString()
+                      });
+                      message.success("Résumé généré avec succès ! N'oubliez pas d'enregistrer les modifications.");
+                    } catch (e) {
+                      message.error("Erreur lors de la génération du résumé.");
+                    } finally {
+                      setIsGeneratingClientSummary(false);
+                    }
+                  }}
+                  disabled={isGeneratingClientSummary}
+                  variant="gradient"
+                  className="w-full md:w-auto font-bold py-3 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all"
+                >
+                  <Cpu size={18} className={`mr-2 ${isGeneratingClientSummary ? 'animate-spin' : ''}`} />
+                  {isGeneratingClientSummary ? "Génération en cours..." : "Générer le résumé client"}
+                </Button>
+              </div>
+
+              <div className="flex items-start gap-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
+                <Shield size={16} className="text-green-500 mt-1 shrink-0" />
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                  <strong>Confidentialité garantie :</strong> L'IA extrait uniquement les noms de tâches terminées et les grandes lignes. Vos commentaires internes et discussions privées sont totalement exclus de cette analyse.
+                </p>
+              </div>
+            </div>
+          </CustomTabPane>
+          )}
           <CustomTabPane
             tab={
               <span>
@@ -2734,6 +2821,85 @@ export function ProjectsView() {
               </div>
             )}
           </div>
+          
+          {/* Section Résumé Client IA - Uniquement si le projet est public */}
+          {editingProject?.isPublic && (
+            <div className="bg-gradient-to-br from-indigo-50/50 via-purple-50/50 to-blue-50/50 dark:from-indigo-900/10 dark:via-purple-900/10 dark:to-blue-900/10 p-6 rounded-2xl border border-indigo-100 dark:border-indigo-800/30 animate-in fade-in slide-in-from-top-2 duration-500">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg text-white shadow-lg shadow-purple-500/20">
+                  <Sparkles size={18} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Note d'intelligence client</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Communication IA-assistée pour vos clients.</p>
+                </div>
+                {isEditingProjectModal && (
+                  <Button
+                    size="sm"
+                    variant="gradient"
+                    onClick={async () => {
+                      if (!editingProject) return;
+                      setIsGeneratingClientSummary(true);
+                      try {
+                        const summary = await AIService.generatePublicUpdate(
+                          state.appSettings.aiSettings,
+                          editingProject
+                        );
+                        setEditingProject({
+                          ...editingProject,
+                          publicSummary: summary,
+                          publicSummaryAt: new Date().toISOString()
+                        });
+                        message.success("Nouveau résumé généré ! N'oubliez pas d'enregistrer.");
+                      } catch (e) {
+                        message.error("Erreur génération AI.");
+                      } finally {
+                        setIsGeneratingClientSummary(false);
+                      }
+                    }}
+                    disabled={isGeneratingClientSummary}
+                    className="shadow-md hover:shadow-lg transition-all"
+                  >
+                    <Cpu size={14} className={`mr-2 ${isGeneratingClientSummary ? 'animate-spin' : ''}`} />
+                    {isGeneratingClientSummary ? "Génération..." : "Régénérer"}
+                  </Button>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                {isEditingProjectModal ? (
+                  <textarea
+                    value={editingProject?.publicSummary || ''}
+                    onChange={(e) => editingProject && setEditingProject({ ...editingProject, publicSummary: e.target.value })}
+                    className="w-full px-4 py-3 bg-white/60 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-purple-500 text-sm min-h-[120px] transition-all"
+                    placeholder="Le résumé IA apparaîtra ici..."
+                  />
+                ) : (
+                  <div className="bg-white/40 dark:bg-black/20 p-5 rounded-xl border border-white/20 dark:border-white/5 backdrop-blur-sm min-h-[80px]">
+                    {editingProject?.publicSummary ? (
+                      <div className="prose prose-sm dark:prose-invert max-w-none text-gray-600 dark:text-gray-300 leading-relaxed italic">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {editingProject.publicSummary}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400 italic text-center py-4">Aucune note d'avancement publiée.</p>
+                    )}
+                  </div>
+                )}
+                
+                <div className="flex items-center justify-between px-1">
+                  {editingProject?.publicSummaryAt && (
+                    <span className="text-[9px] text-gray-400 italic">Dernière mise à jour : {new Date(editingProject.publicSummaryAt).toLocaleString()}</span>
+                  )}
+                  <div className="flex gap-2">
+                    <span className="px-2 py-0.5 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-[8px] font-bold rounded uppercase">Public</span>
+                    <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-[8px] font-bold rounded uppercase tracking-tighter">AI-Assisted</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Section Sécurité & Chiffrement (E2EE) */}
           <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/10 dark:to-emerald-900/10 p-6 rounded-2xl border border-green-100 dark:border-green-800/30">

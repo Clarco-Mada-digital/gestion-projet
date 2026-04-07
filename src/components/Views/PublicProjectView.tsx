@@ -25,6 +25,7 @@ import {
   ChevronLeft,
   LayoutGrid,
   CalendarSearch,
+  Sparkles,
   Paperclip,
   FileText,
   Image as ImageIcon,
@@ -565,7 +566,7 @@ const CalendarView = ({ tasks, onSelectTask }: { tasks: Task[], onSelectTask: (t
 
 // --- Main App ---
 
-type ViewMode = 'dashboard' | 'board' | 'timeline' | 'feed' | 'calendar';
+type ViewMode = 'dashboard' | 'board' | 'timeline' | 'feed' | 'calendar' | 'status';
 
 export const PublicProjectView = ({ projectId: propProjectId }: { projectId?: string }) => {
   const [project, setProject] = useState<Project | null>(null);
@@ -710,7 +711,8 @@ export const PublicProjectView = ({ projectId: propProjectId }: { projectId?: st
               { id: 'board', icon: Kanban, label: 'Tableau' },
               { id: 'timeline', icon: ListTodo, label: 'Plan' },
               { id: 'calendar', icon: CalendarIcon, label: 'Agenda' },
-              { id: 'feed', icon: TrendingUp, label: 'Flux' }
+              { id: 'feed', icon: Sparkles, label: 'Flux' },
+              { id: 'status', icon: TrendingUp, label: 'Status' },
             ].map(v => (
               <button
                 key={v.id} onClick={() => setViewMode(v.id as ViewMode)}
@@ -727,6 +729,17 @@ export const PublicProjectView = ({ projectId: propProjectId }: { projectId?: st
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 lg:px-10 pb-8 overflow-hidden relative">
         <AnimatePresence mode="wait">
           {viewMode === 'dashboard' && <motion.div key="db" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full"><DashboardView project={project} stats={stats} tasks={tasks} attachments={allAttachments} onSelectView={setViewMode} onOpenMediaViewer={openMediaViewer} /></motion.div>}
+
+          {viewMode === 'status' && (
+            <motion.div key="status" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full overflow-y-auto custom-scroll">
+              <div className="p-6 bg-white dark:bg-gray-800 rounded-[2rem] border border-gray-100 dark:border-gray-700 shadow-sm">
+                <h3 className="text-sm font-black uppercase tracking-widest mb-6">Status du Projet</h3>
+                <div className="text-[11px] text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-line">
+                  {project.publicSummary || "Aucune analyse disponible pour le moment."}
+                </div>
+              </div>
+            </motion.div>
+          )}
 
           {viewMode === 'board' && (
             <motion.div key="board" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="h-full flex gap-6 overflow-x-auto pb-4 custom-scroll">
@@ -767,29 +780,28 @@ export const PublicProjectView = ({ projectId: propProjectId }: { projectId?: st
             <motion.div key="feed" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="h-full overflow-y-auto pr-4 custom-scroll space-y-4">
               {tasks.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).map(task => {
                 const isExpanded = selectedTask?.id === task.id;
-                
+
                 return (
                   <div key={task.id} className="flex flex-col gap-2">
-                    <motion.div 
+                    <motion.div
                       layout
                       onClick={() => setSelectedTask(isExpanded ? null : task)}
-                      className={`p-6 bg-white dark:bg-gray-800 rounded-3xl shadow-sm border transition-all duration-300 cursor-pointer flex items-center justify-between group ${
-                        isExpanded ? 'border-indigo-500 ring-2 ring-indigo-500/10' : 'border-gray-100 dark:border-gray-700'
-                      }`}
+                      className={`p-6 bg-white dark:bg-gray-800 rounded-3xl shadow-sm border transition-all duration-300 cursor-pointer flex items-center justify-between group ${isExpanded ? 'border-indigo-500 ring-2 ring-indigo-500/10' : 'border-gray-100 dark:border-gray-700'
+                        }`}
                     >
                       <div className="flex flex-col gap-1">
                         <div className="text-[8px] font-black text-indigo-500 uppercase tracking-widest">Activité Récente</div>
                         <h4 className="text-sm font-black">{task.title}</h4>
                         <p className="text-[10px] text-gray-400">Synchronisé le {new Date(task.updatedAt).toLocaleDateString()}</p>
                       </div>
-                      <motion.div 
+                      <motion.div
                         animate={{ rotate: isExpanded ? 90 : 0 }}
                         className={`p-3 bg-gray-50 dark:bg-gray-950 rounded-xl transition-colors duration-300 ${isExpanded ? 'bg-indigo-500 text-white' : 'group-hover:bg-gray-900 dark:group-hover:bg-white'}`}
                       >
                         <ChevronRight className={`w-4 h-4 ${isExpanded ? 'text-white' : 'text-gray-400 group-hover:text-white dark:group-hover:text-gray-900'}`} />
                       </motion.div>
                     </motion.div>
-                    
+
                     <AnimatePresence>
                       {isExpanded && (
                         <motion.div
