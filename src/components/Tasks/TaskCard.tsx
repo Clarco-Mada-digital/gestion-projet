@@ -169,12 +169,13 @@ const TaskCardComponent: React.FC<TaskCardProps> = ({ task, project, className, 
     });
 
     // CORRECTION SYNC : Mettre à jour Firebase lorsqu'on change le statut depuis la carte
-    if (project?.source === 'firebase') {
+    const targetProject = project || taskProject;
+    if (targetProject?.source === 'firebase') {
       import('../../services/collaboration/firebaseService').then(({ firebaseService }) => {
         firebaseService.syncTask(
-          project.id,
+          targetProject.id,
           updatedTask,
-          project.encryptionKey
+          targetProject.encryptionKey
         ).catch(e => console.error('[TaskCard Sync]', e));
       });
     }

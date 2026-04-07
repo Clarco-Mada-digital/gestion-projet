@@ -22,6 +22,7 @@ import { ActivityFeed } from './ActivityFeed';
 import { activityService } from '../../services/collaboration/activityService';
 import { projectReadService } from '../../services/collaboration/projectReadService';
 import { AIService } from '../../services/aiService';
+import { useNotifications } from '../../hooks/useNotifications';
 import { getBasePath } from '../../lib/pathUtils';
 
 // Fonction pour nettoyer le markdown mal formé
@@ -827,6 +828,7 @@ const MemberListItem = ({
 
 export function ProjectsView() {
   const { state, dispatch } = useApp();
+  const { showTaskCompleted } = useNotifications();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [managingMembersProjectId, setManagingMembersProjectId] = useState<string | null>(null);
   const [readStatuses, setReadStatuses] = useState<Record<string, string>>({})
@@ -1255,7 +1257,17 @@ export function ProjectsView() {
         targetId: task.id,
         targetName: task.title
       });
+      // Synchronisation complète du projet
       firebaseService.syncProject(updatedProject).catch(console.error);
+      
+      // Synchronisation spécifique de la tâche (V2)
+      firebaseService.syncTask(updatedProject.id, updatedTask, updatedProject.encryptionKey)
+        .catch(e => console.error('[ProjectsView SyncTask]', e));
+    }
+
+    // Afficher une notification si la tâche est marquée comme terminée
+    if (newStatus === 'done') {
+      showTaskCompleted(updatedTask);
     }
   };
 
