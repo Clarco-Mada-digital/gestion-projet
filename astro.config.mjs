@@ -88,9 +88,18 @@ export default defineConfig({
         '@uiw/react-markdown-preview/esm/preview',
         /^rc-/,
         /^@ant-design/,
+        /^@rc-component/,
         'antd',
         '@emotion/react',
-        '@emotion/styled'
+        '@emotion/styled',
+        'framer-motion',
+        'lucide-react',
+        'react-syntax-highlighter',
+        'styled-components',
+        '@mui/material',
+        '@mui/icons-material',
+        '@radix-ui/react-dialog',
+        'firebase'
       ]
     }
   }
