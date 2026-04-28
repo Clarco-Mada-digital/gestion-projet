@@ -85,7 +85,11 @@ export default defineConfig({
       noExternal: [
         '@uiw/react-md-editor',
         '@uiw/react-markdown-preview',
-        '@uiw/react-markdown-preview/esm/preview'
+        '@uiw/react-markdown-preview/esm/preview',
+        '@ant-design/icons',
+        'antd',
+        '@emotion/react',
+        '@emotion/styled'
       ]
     }
   }
