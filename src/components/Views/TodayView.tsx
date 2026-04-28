@@ -402,8 +402,10 @@ export function TodayView() {
           <div className="space-y-6">
             {projectsWithTodayTasks.map(project => {
               const isExpanded = expandedProjects[project.id] !== false;
-              const completedTasks = project.tasks.filter(t => t.status === 'done').length;
-              const progress = project.tasks.length > 0 ? (completedTasks / project.tasks.length) * 100 : 0;
+              const originalProject = state.projects.find(p => p.id === project.id);
+              const trackedTasks = originalProject?.tasks.filter(t => t.status !== 'non-suivi') || [];
+              const projectCompletedTasks = trackedTasks.filter(t => t.status === 'done').length;
+              const progress = trackedTasks.length > 0 ? (projectCompletedTasks / trackedTasks.length) * 100 : 0;
 
               return (
                 <div key={project.id} className="space-y-2">
@@ -425,23 +427,24 @@ export function TodayView() {
                         {project.name}
                       </h3>
                       <span className="text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full whitespace-nowrap ml-2">
-                        {project.tasks.length} tâche{project.tasks.length > 1 ? 's' : ''}
+                        {trackedTasks.length} tâche{trackedTasks.length > 1 ? 's' : ''}
                       </span>
                     </div>
 
-                    <div className="flex items-center space-x-2 ml-4">
-                      <div className="w-16 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden flex-shrink-0">
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${progress}%`,
-                            backgroundColor: project.color,
-                            transition: 'width 0.3s ease-in-out'
-                          }}
-                        />
+                    <div className="flex items-center space-x-3 ml-4">
+                      <div className="hidden sm:flex items-center space-x-2">
+                        <div className="w-16 lg:w-24 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                          <div
+                            className="h-full transition-all duration-1000"
+                            style={{ width: `${progress}%`, backgroundColor: project.color }}
+                          />
+                        </div>
+                        <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                          {Math.round(progress)}%
+                        </span>
                       </div>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                        {completedTasks}/{project.tasks.length}
+                      <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                        {projectCompletedTasks}/{trackedTasks.length}
                       </span>
                     </div>
                   </div>

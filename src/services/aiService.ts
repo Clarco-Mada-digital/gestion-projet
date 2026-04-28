@@ -238,7 +238,7 @@ export class AIService {
         if (appState.selectedProject) {
           const project = appState.projects.find(p => p.id === appState.selectedProject);
           if (project) {
-            appDataInfo += `\n\n### PROJET ACTUELLEMENT OUVERT\n- Nom : ${project.name}\n- Description : ${project.description || 'N/A'}\n- Tâches : ${project.tasks.length}\n- Statut : ${project.status}`;
+            appDataInfo += `\n\n### PROJET ACTUELLEMENT OUVERT\n- Nom : ${project.name}\n- Description : ${project.description || 'N/A'}\n- Tâches : ${project.tasks.filter(t => t.status !== 'non-suivi').length}\n- Statut : ${project.status}`;
           }
         }
 
@@ -1217,16 +1217,17 @@ ${appDataInfo}
    */
   static async generatePublicUpdate(settings: AISettings, project: Project): Promise<string> {
     try {
-      const totalTasks = project.tasks.length;
-      const completedTasks = project.tasks.filter(t => t.status === 'done').length;
-      const recentWins = project.tasks
+      const trackedTasks = project.tasks.filter(t => t.status !== 'non-suivi');
+      const totalTasks = trackedTasks.length;
+      const completedTasks = trackedTasks.filter(t => t.status === 'done').length;
+      const recentWins = trackedTasks
         .filter(t => t.status === 'done' && t.completedAt)
         .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())
         .slice(0, 5)
         .map(t => t.title);
       
-      const upcoming = project.tasks
-        .filter(t => t.status !== 'done' && t.status !== 'non-suivi')
+      const upcoming = trackedTasks
+        .filter(t => t.status !== 'done')
         .slice(0, 3)
         .map(t => t.title);
 
@@ -1263,7 +1264,7 @@ ${appDataInfo}
   static async analyzeWorkload(settings: AISettings, appState: AppState): Promise<string> {
     try {
       const appData = getAppDataSummary(appState);
-      const allTasks = appState.projects.flatMap(p => p.tasks || []).filter(t => t.status !== 'done');
+      const allTasks = appState.projects.flatMap(p => p.tasks || []).filter(t => t.status !== 'done' && t.status !== 'non-suivi');
 
       // Grouper les tâches par date d'échéance
       const workloadByDay: Record<string, { count: number, hours: number, tasks: string[] }> = {};

@@ -44,7 +44,7 @@ export interface AppDataSummary {
  */
 export function getAppDataSummary(state: AppState): AppDataSummary {
   const now = new Date();
-  const allTasks = state.projects.flatMap((p: Project) => p.tasks || []);
+  const allTasks = state.projects.flatMap((p: Project) => p.tasks || []).filter((t: Task) => t.status !== 'non-suivi');
 
   // Informations utilisateur (premier utilisateur du tableau)
   const primaryUser = state.users?.[0];
@@ -70,7 +70,7 @@ export function getAppDataSummary(state: AppState): AppDataSummary {
     name: p.name,
     description: p.description,
     status: p.status,
-    taskCount: (p.tasks || []).length,
+    taskCount: (p.tasks || []).filter((t: Task) => t.status !== 'non-suivi').length,
     completedTasks: (p.tasks || []).filter((t: Task) => t.status === 'done').length,
     isShared: !!p.isShared,
     source: p.source || 'local'
@@ -80,7 +80,7 @@ export function getAppDataSummary(state: AppState): AppDataSummary {
   const stats = {
     totalProjects: state.projects.length,
     totalTasks: allTasks.length,
-    completedTasks: allTasks.filter(t => t.status === 'done').length,
+    completedTasks: allTasks.filter((t: Task) => t.status === 'done').length,
     overdueTasks: allTasks.filter((t: Task) =>
       t.dueDate && new Date(t.dueDate) < now && t.status !== 'done'
     ).length,

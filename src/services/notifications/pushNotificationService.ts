@@ -460,9 +460,10 @@ export class PushNotificationService {
   }
 
   public async showProjectMilestone(project: any): Promise<void> {
-    const completedTasks = project.tasks.filter((t: any) => t.status === 'done').length;
-    const totalTasks = project.tasks.length;
-    const percentage = Math.round((completedTasks / totalTasks) * 100);
+    const trackedTasks = project.tasks.filter((t: any) => t.status !== 'non-suivi');
+    const completedTasks = trackedTasks.filter((t: any) => t.status === 'done').length;
+    const totalTasks = trackedTasks.length;
+    const percentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
     await this.showNotification({
       title: `📊 Jalon du projet "${project.name}"`,

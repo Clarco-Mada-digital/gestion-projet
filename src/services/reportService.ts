@@ -113,7 +113,7 @@ export class ReportService {
     // Compter les priorités
     const priorities = { haute: 0, moyenne: 0, basse: 0 };
     data.projects.forEach(project => {
-      project.tasks.forEach(task => {
+      project.tasks.filter(t => t.status !== 'non-suivi').forEach(task => {
         if (task.priority === 'high') priorities.haute++;
         else if (task.priority === 'medium') priorities.moyenne++;
         else if (task.priority === 'low') priorities.basse++;
@@ -122,9 +122,10 @@ export class ReportService {
 
     // Calculer l'avancement par projet
     const projetsAvancement = data.projects.map(project => {
-      const projectTasks = project.tasks.length;
-      const projectCompleted = project.tasks.filter(t => t.status === 'done').length;
-      const projectInProgress = project.tasks.filter(t => t.status === 'in-progress').length;
+      const trackedTasks = project.tasks.filter(t => t.status !== 'non-suivi');
+      const projectTasks = trackedTasks.length;
+      const projectCompleted = trackedTasks.filter(t => t.status === 'done').length;
+      const projectInProgress = trackedTasks.filter(t => t.status === 'in-progress').length;
       const projectTaux = projectTasks > 0 ? Math.round((projectCompleted / projectTasks) * 100) : 0;
 
       return {
@@ -169,7 +170,7 @@ export class ReportService {
         });
       }
 
-      const nextTasks = project.tasks.filter(t => t.status !== 'done' && t.status !== 'completed');
+      const nextTasks = project.tasks.filter(t => t.status !== 'done' && t.status !== 'completed' && t.status !== 'non-suivi');
       if (nextTasks.length > 0) {
         prompt += `TÂCHES SUIVANTES :\n`;
         nextTasks.forEach((task) => {
