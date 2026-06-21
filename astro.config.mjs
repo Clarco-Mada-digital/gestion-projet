@@ -90,6 +90,7 @@ export default defineConfig({
         /^@ant-design/,
         /^@rc-component/,
         'antd',
+        '@babel/runtime',
         '@emotion/react',
         '@emotion/styled',
         'framer-motion',

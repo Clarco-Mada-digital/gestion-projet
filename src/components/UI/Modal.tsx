@@ -50,7 +50,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', extra }: 
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
             transition={{ type: "spring", stiffness: 350, damping: 25 }}
-            className={`relative w-full ${sizeClasses[size]} max-h-[90vh] flex flex-col bg-white dark:bg-gray-800 shadow-2xl rounded-3xl border border-gray-200 dark:border-gray-700 overflow-hidden z-10`}
+            className={`relative w-full ${sizeClasses[size]} max-h-[90vh] flex flex-col bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-2xl rounded-3xl border border-gray-200 dark:border-gray-700 overflow-hidden z-10`}
           >
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700/50 bg-white/50 dark:bg-gray-800/50 backdrop-blur-md sticky top-0 z-10">

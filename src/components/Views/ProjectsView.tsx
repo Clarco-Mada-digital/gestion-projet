@@ -967,8 +967,7 @@ export function ProjectsView() {
     color: '#0EA5E9',
     status: 'active',
     estimatedDuration: 0,
-    location: '',
-    currency: 'EUR',
+
     projectType: 'Web App',
     sector: '',
     urgency: 'medium',
@@ -1592,8 +1591,7 @@ export function ProjectsView() {
         color: newProject.color,
         status: newProject.status,
         estimatedDuration: newProject.estimatedDuration || 0,
-        location: newProject.location || '',
-        currency: newProject.currency || 'EUR',
+
         projectType: newProject.projectType || 'Web App',
         sector: newProject.sector || '',
         urgency: newProject.urgency || 'medium',
@@ -2220,26 +2218,7 @@ export function ProjectsView() {
                   placeholder="Nom du projet"
                 />
               </Form.Item>
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item label="Lieu du projet">
-                    <Input
-                      value={newProject.location}
-                      onChange={(e) => setNewProject({ ...newProject, location: e.target.value })}
-                      placeholder="Ex: Madagascar, France, Suisse..."
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item label="Devise">
-                    <Input
-                      value={newProject.currency}
-                      onChange={(e) => setNewProject({ ...newProject, currency: e.target.value })}
-                      placeholder="Ex: EUR, MGA, CHF..."
-                    />
-                  </Form.Item>
-                </Col>
-              </Row>
+
               <Form.Item label="Type de projet">
                 <Select
                   value={newProject.projectType}
@@ -2354,28 +2333,7 @@ export function ProjectsView() {
               </Form.Item>
             </CustomForm>
           </CustomTabPane>
-          <CustomTabPane
-            tab={
-              <span>
-                <Cpu size={16} style={{ marginRight: 8 }} />
-                IA
-              </span>
-            }
-            key="ai"
-            disabled={!editingProject}
-          >
-            {editingProject ? (
-              <AISettings
-                value={aiSettings as any}
-                onChange={(settings) => setAISettings(settings as any)}
-                showTitle={false}
-              />
-            ) : (
-              <div style={{ textAlign: 'center', padding: '20px' }}>
-                <p>Veuillez d'abord enregistrer le projet pour configurer les paramètres IA.</p>
-              </div>
-            )}
-          </CustomTabPane>
+
           {newProject.isPublic && (
             <CustomTabPane
               tab={
