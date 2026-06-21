@@ -1,10 +1,11 @@
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage';
 import { getFirestore, doc, updateDoc, arrayUnion } from 'firebase/firestore';
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { firebaseConfig } from '../../lib/firebaseConfig';
 
-// Initialisation de Firebase Storage
-const app = initializeApp(firebaseConfig);
+// Réutilise l'app Firebase par défaut déjà initialisée au lieu d'en recréer une
+// (évite l'erreur "duplicate-app" et partage l'instance Firestore persistante).
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const storage = getStorage(app);
 const db = getFirestore(app);
 

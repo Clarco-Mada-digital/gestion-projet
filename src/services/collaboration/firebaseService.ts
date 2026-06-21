@@ -1,5 +1,5 @@
-import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, setDoc, getDoc, collection, query, where, getDocs, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, signInAnonymously, User as FirebaseUser, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { firebaseConfig, isFirebaseConfigured } from '../../lib/firebaseConfig';
 import { Project, Task } from '../../types';
@@ -16,10 +16,12 @@ let projectTasksCache: Record<string, Task[]> = {};
 
 // Charger le cache depuis localStorage au démarrage
 try {
-  const savedCache = localStorage.getItem('firebase_tasks_cache');
-  if (savedCache) {
-    projectTasksCache = JSON.parse(savedCache);
-    console.log(`[Firebase Service] ${Object.keys(projectTasksCache).length} projets chargés depuis le cache de tâches local.`);
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const savedCache = localStorage.getItem('firebase_tasks_cache');
+    if (savedCache) {
+      projectTasksCache = JSON.parse(savedCache);
+      console.log(`[Firebase Service] ${Object.keys(projectTasksCache).length} projets chargés depuis le cache de tâches local.`);
+    }
   }
 } catch (e) {
   console.warn("Impossible de charger le cache des tâches:", e);
@@ -27,18 +29,42 @@ try {
 
 const saveTasksCache = () => {
   try {
-    localStorage.setItem('firebase_tasks_cache', JSON.stringify(projectTasksCache));
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem('firebase_tasks_cache', JSON.stringify(projectTasksCache));
+    }
   } catch (e) {
     console.warn("Impossible de sauvegarder le cache des tâches:", e);
   }
+};
+
+/**
+ * Crée l'instance Firestore avec persistance hors-ligne native (cache IndexedDB).
+ * - Active la lecture/écriture hors-ligne et la re-synchronisation automatique au retour du réseau.
+ * - `persistentMultipleTabManager` gère plusieurs onglets ouverts (évite l'erreur "failed-precondition").
+ * - Repli sûr vers `getFirestore` (cache mémoire) si IndexedDB est indisponible (SSR/build) ou en cas d'échec.
+ */
+const createDb = (firebaseApp: any) => {
+  const canPersist = typeof window !== 'undefined' && typeof indexedDB !== 'undefined';
+  if (canPersist) {
+    try {
+      return initializeFirestore(firebaseApp, {
+        localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+      });
+    } catch (e) {
+      // initializeFirestore peut échouer si Firestore est déjà initialisé pour cette app,
+      // ou si l'environnement ne supporte pas la persistance. On retombe sur l'instance par défaut.
+      console.warn('[Firebase] Persistance hors-ligne indisponible, repli sur le cache mémoire:', e);
+    }
+  }
+  return getFirestore(firebaseApp);
 };
 
 // Initialisation immédiate si possible
 if (isFirebaseConfigured()) {
   try {
     if (!app) {
-      app = initializeApp(firebaseConfig);
-      db = getFirestore(app);
+      app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+      db = createDb(app);
       auth = getAuth(app);
       setPersistence(auth, browserLocalPersistence).catch(console.error);
     }
@@ -62,8 +88,8 @@ const ensureInitialized = async () => {
 
   try {
     if (!app) {
-      app = initializeApp(firebaseConfig);
-      db = getFirestore(app);
+      app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+      db = createDb(app);
       auth = getAuth(app);
       await setPersistence(auth, browserLocalPersistence);
     }

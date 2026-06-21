@@ -1,10 +1,12 @@
 import { cloudinaryConfig } from '../../lib/cloudinaryConfig';
 import { getFirestore, doc, updateDoc, arrayUnion } from 'firebase/firestore';
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { firebaseConfig } from '../../lib/firebaseConfig';
 
-// Initialisation de Firebase pour Firestore (Cloudinary remplace juste Storage)
-const app = initializeApp(firebaseConfig);
+// Réutilise l'app Firebase par défaut déjà initialisée (par firebaseService) au lieu d'en
+// recréer une : cela évitait une erreur "duplicate-app" et permet d'utiliser la même
+// instance Firestore (avec persistance hors-ligne).
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 export interface UploadedFile {

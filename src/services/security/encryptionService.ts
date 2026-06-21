@@ -112,6 +112,55 @@ export class EncryptionService {
     }
   }
 
+  // --- Chiffrement « au repos » des secrets locaux (clés API IA) ---
+
+  private static DEVICE_KEY_STORAGE = 'app_device_key';
+
+  /**
+   * Récupère (ou crée à la volée) une clé de chiffrement propre à ce navigateur,
+   * utilisée pour chiffrer les secrets stockés localement (clés API).
+   */
+  static async getDeviceKey(): Promise<string> {
+    let key = localStorage.getItem(this.DEVICE_KEY_STORAGE);
+    if (!key) {
+      key = await this.generateProjectKey();
+      localStorage.setItem(this.DEVICE_KEY_STORAGE, key);
+    }
+    return key;
+  }
+
+  /**
+   * Détecte si une valeur a le format de nos données chiffrées (hex = IV + données).
+   * Les vraies clés API (sk-..., AIza...) contiennent des caractères non hexadécimaux
+   * et ne correspondent donc jamais à ce motif -> elles sont traitées comme du clair.
+   */
+  private static looksEncrypted(value: string): boolean {
+    return /^[0-9a-f]+$/i.test(value) && value.length >= 56 && value.length % 2 === 0;
+  }
+
+  /**
+   * Chiffre un secret pour le stockage local (idempotent, tolère null/vide).
+   */
+  static async encryptSecret(plain: string | null | undefined, deviceKey: string): Promise<string | null> {
+    if (!plain) return plain ?? null;
+    if (this.looksEncrypted(plain)) return plain; // déjà chiffré : ne pas re-chiffrer
+    return await this.encrypt(plain, deviceKey);
+  }
+
+  /**
+   * Déchiffre un secret lu du stockage local.
+   * - Valeur en clair (ancien format des utilisateurs existants) : renvoyée telle quelle.
+   * - Échec de déchiffrement (clé d'appareil manquante/changée) : renvoie null pour ne
+   *   jamais propager une valeur corrompue (l'utilisateur ressaisira sa clé).
+   */
+  static async decryptSecret(stored: string | null | undefined, deviceKey: string): Promise<string | null> {
+    if (!stored) return stored ?? null;
+    if (!this.looksEncrypted(stored)) return stored; // clair : rétrocompatibilité
+    const result = await this.decrypt(stored, deviceKey);
+    if (result === stored) return null; // decrypt() renvoie l'entrée inchangée si échec
+    return result;
+  }
+
   // --- Utilitaires Internes ---
 
   private static async importKey(hexKey: string): Promise<CryptoKey> {

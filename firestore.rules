@@ -2,35 +2,90 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ─── Helpers ─────────────────────────────────────────────────────────
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // PROJETS : Simplifié au maximum pour éviter les "Permission Denied" lors des listes
-    match /projects/{projectId} {
-      allow read, write: if isAuthenticated();
-      
-      // Accès public par ID direct
-      allow get: if resource.data.get('isPublic', false) == true;
+    // Membre ou propriétaire d'un projet (lecture du document projet via get()).
+    // get() à l'intérieur des règles n'est PAS soumis aux règles -> pas de récursion.
+    function isProjectMember(projectId) {
+      let p = get(/databases/$(database)/documents/projects/$(projectId)).data;
+      return isAuthenticated() &&
+        (request.auth.uid == p.get('ownerId', '') ||
+         request.auth.uid in p.get('members', []));
+    }
 
+    // Le projet parent est-il public ?
+    function isParentPublic(projectId) {
+      return get(/databases/$(database)/documents/projects/$(projectId)).data.get('isPublic', false) == true;
+    }
+
+    // L'utilisateur a-t-il accès au document projet déjà chargé (resource) ?
+    function canAccessProject() {
+      return isAuthenticated() &&
+        (request.auth.uid == resource.data.get('ownerId', '') ||
+         request.auth.uid in resource.data.get('members', []));
+    }
+
+    // ─── PROJETS ─────────────────────────────────────────────────────────
+    match /projects/{projectId} {
+      // Lecture d'un document unique : membre/propriétaire OU projet public.
+      // (Couvre les getDoc() et onSnapshot() sur un projet public.)
+      allow get: if canAccessProject() || resource.data.get('isPublic', false) == true;
+
+      // Requêtes (list) : uniquement membre/propriétaire.
+      // (Couvre where('ownerId','==',uid) et where('members','array-contains',uid).)
+      allow list: if canAccessProject();
+
+      // Création : le créateur doit se déclarer propriétaire.
+      // (firebaseService force ownerId = currentUser.uid avant le setDoc initial.)
+      allow create: if isAuthenticated() &&
+        request.auth.uid == request.resource.data.get('ownerId', '');
+
+      // Mise à jour / suppression : membre ou propriétaire.
+      allow update, delete: if canAccessProject();
+
+      // ─── TÂCHES (sous-collection) ──────────────────────────────────────
       match /tasks/{taskId} {
-        allow read, write: if isAuthenticated();
-        // Accès public aux tâches si le projet est public
-        allow get: if get(/databases/$(database)/documents/projects/$(projectId)).data.get('isPublic', false) == true;
+        // Lisible par les membres du projet, ou par tous si le projet est public.
+        allow read: if isProjectMember(projectId) || isParentPublic(projectId);
+        // Modifiable uniquement par les membres du projet.
+        allow write: if isProjectMember(projectId);
       }
     }
 
-    // UTILISATEURS
+    // ─── UTILISATEURS ────────────────────────────────────────────────────
+    // Lecture autorisée aux authentifiés (recherche par email pour le partage).
+    // Écriture limitée à SON propre profil (firebaseService n'écrit que users/{uid}).
     match /users/{userId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == userId;
     }
 
-    // ACTIVITÉS, NOTIFICATIONS, COMMENTAIRES : Simplicité totale
-    match /activities/{activityId} { allow read, write: if isAuthenticated(); }
-    match /notifications/{notificationId} { allow read, write: if isAuthenticated(); }
-    match /comments/{commentId} { allow read, write: if isAuthenticated(); }
-    match /user_read_status/{statusId} { allow read, write: if isAuthenticated(); }
-    match /reactions/{reactionId} { allow read, write: if isAuthenticated(); }
+    // ─── NOTIFICATIONS ───────────────────────────────────────────────────
+    // create : un utilisateur peut créer une notification destinée à autrui.
+    // read/update/delete : uniquement le destinataire (where('userId','==',uid)).
+    match /notifications/{notificationId} {
+      allow create: if isAuthenticated();
+      allow read, update, delete: if isAuthenticated() &&
+        request.auth.uid == resource.data.get('userId', '');
+    }
 
+    // ─── STATUT DE LECTURE PAR UTILISATEUR ───────────────────────────────
+    // Doc id = `${uid}_${projectId}` ; chacun ne gère que ses propres statuts.
+    match /user_read_status/{statusId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated() &&
+        request.auth.uid == request.resource.data.get('userId', '');
+    }
+
+    // ─── ACTIVITÉS / COMMENTAIRES / RÉACTIONS ────────────────────────────
+    // TODO(SEC) : à durcir (membre du projet parent) une fois que les documents
+    // comments porteront un champ projectId fiable. Laissé en accès authentifié
+    // pour ne pas régresser le flux d'activité / commentaires actuel.
+    match /activities/{activityId}    { allow read, write: if isAuthenticated(); }
+    match /comments/{commentId}       { allow read, write: if isAuthenticated(); }
+    match /reactions/{reactionId}     { allow read, write: if isAuthenticated(); }
   }
 }
